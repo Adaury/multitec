@@ -4,6 +4,8 @@ import { api } from '../lib/api'
 import type { AskResponse, Project } from '../lib/types'
 import { Button, Card, Field, Textarea } from '../components/ui'
 
+const ALL_PROJECTS = '__all__'
+
 export function Ask() {
   const { data: projects } = useQuery({
     queryKey: ['projects'],
@@ -16,7 +18,12 @@ export function Ask() {
 
   const ask = useMutation({
     mutationFn: async () =>
-      (await api.post<AskResponse>('/ai/ask', { project_id: Number(projectId), question })).data,
+      (
+        await api.post<AskResponse>('/ai/ask', {
+          project_id: projectId === ALL_PROJECTS ? null : Number(projectId),
+          question,
+        })
+      ).data,
     onSuccess: () => setError(null),
     onError: (err: any) => setError(err?.response?.data?.detail ?? 'Error al consultar la IA'),
   })
@@ -25,7 +32,8 @@ export function Ask() {
     <div className="space-y-4 py-4">
       <h1 className="text-xl font-semibold text-gray-900">Preguntar a la IA</h1>
       <p className="text-sm text-gray-500">
-        Elige un proyecto y pregunta en lenguaje natural sobre su expediente completo.
+        Elige un proyecto específico, o "Todos los proyectos" para una búsqueda semántica
+        entre todo el historial, y pregunta en lenguaje natural.
       </p>
 
       <Card className="space-y-3">
@@ -36,6 +44,7 @@ export function Ask() {
             onChange={(e) => setProjectId(e.target.value)}
           >
             <option value="">Selecciona un proyecto…</option>
+            <option value={ALL_PROJECTS}>🔎 Todos los proyectos</option>
             {projects?.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.code}
@@ -63,7 +72,12 @@ export function Ask() {
       )}
 
       {ask.data && (
-        <Card>
+        <Card className="space-y-2">
+          {ask.data.projects.length > 0 && (
+            <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+              Basado en: {ask.data.projects.join(', ')}
+            </p>
+          )}
           <p className="whitespace-pre-line text-sm text-gray-800">{ask.data.answer}</p>
         </Card>
       )}

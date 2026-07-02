@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     ollama_host: str = "http://localhost:11434"
     ai_model: str = "llama3.2"
     ai_vision_model: str = "llava"
+    ai_embedding_model: str = "nomic-embed-text"
 
     @property
     def cors_origins_list(self) -> list[str]:

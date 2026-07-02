@@ -338,6 +338,7 @@ export interface BudgetSuggestionOut {
 
 export interface AskResponse {
   answer: string
+  projects: string[]
 }
 
 export const PRODUCT_CATEGORY_LABELS: Record<string, string> = {

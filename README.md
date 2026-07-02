@@ -39,7 +39,11 @@ Construidas hasta ahora:
   propuesta técnica"** en Ingeniería (borrador editable, no se auto-guarda). **"🤖 Sugerir
   materiales"** en Presupuesto (prellenar líneas desde el catálogo real). Pantalla global
   **"Preguntar a la IA"** (`/preguntar`): elige un proyecto y pregunta en lenguaje natural
-  sobre su expediente completo.
+  sobre su expediente completo, o elige **"🔎 Todos los proyectos"** para una **búsqueda
+  semántica entre todo el historial de la empresa** — usa embeddings locales
+  (`nomic-embed-text` vía Ollama) para encontrar los proyectos más relevantes a la
+  pregunta y responde citando de cuáles proyectos sacó la información. Los proyectos se
+  indexan automáticamente la primera vez que se usa alguna función de IA sobre ellos.
   **Motor de IA: local y gratis con [Ollama](https://ollama.com)** (`llama3.2` para texto,
   `llava` para fotos) — corre en tu propia PC, sin costo por uso ni API key. Si
   Ollama no está corriendo, cada botón muestra un mensaje claro en vez de fallar — ver
@@ -89,15 +93,16 @@ uvicorn app.main:app --reload --port 8000
 
 1. Instala [Ollama](https://ollama.com/download) (o vía `winget install --id Ollama.Ollama -e`
    en Windows). Queda corriendo como servicio local en `http://localhost:11434`.
-2. Descarga los dos modelos que usa la app:
+2. Descarga los tres modelos que usa la app:
    ```bash
-   ollama pull llama3.2   # ~2 GB — texto (propuestas, presupuestos, preguntas)
-   ollama pull llava      # ~4.7 GB — visión (análisis de fotos del levantamiento)
+   ollama pull llama3.2         # ~2 GB — texto (propuestas, presupuestos, preguntas)
+   ollama pull llava            # ~4.7 GB — visión (análisis de fotos del levantamiento)
+   ollama pull nomic-embed-text # ~274 MB — embeddings (búsqueda semántica entre proyectos)
    ```
 3. `backend/.env` ya trae los valores por defecto (`OLLAMA_HOST`, `AI_MODEL=llama3.2`,
-   `AI_VISION_MODEL=llava`) — no hace falta ninguna API key. Si Ollama no está
-   corriendo o falta un modelo, los botones de IA muestran un mensaje claro en vez de
-   fallar.
+   `AI_VISION_MODEL=llava`, `AI_EMBEDDING_MODEL=nomic-embed-text`) — no hace falta
+   ninguna API key. Si Ollama no está corriendo o falta un modelo, los botones de IA
+   muestran un mensaje claro en vez de fallar.
 4. **Rendimiento:** al correr por CPU (sin GPU NVIDIA/CUDA no hay aceleración), cada
    respuesta puede tardar entre ~10 y ~60+ segundos según la laptop — normal, no es un
    error. Con GPU NVIDIA, Ollama la usa automáticamente sin cambiar nada en el código.

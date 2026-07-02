@@ -22,9 +22,10 @@ class BudgetSuggestionOut(BaseModel):
 
 
 class AskRequest(BaseModel):
-    project_id: int
+    project_id: int | None = None
     question: str
 
 
 class AskResponse(BaseModel):
     answer: str
+    projects: list[str] = []

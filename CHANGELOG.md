@@ -8,6 +8,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Búsqueda semántica entre proyectos** en "Preguntar a la IA": opción "Todos los
+  proyectos" que compara la pregunta contra el embedding de cada proyecto (Ollama +
+  `nomic-embed-text`, guardado en la tabla `project_embeddings`, sin depender de
+  pgvector) y responde citando de qué proyecto(s) sacó la información. Los proyectos se
+  indexan automáticamente al usar cualquier función de IA sobre ellos.
 - Migración a **PostgreSQL** verificada de punta a punta: `psycopg2-binary` agregado a
   `requirements.txt`, las 4 migraciones de Alembic aplican limpio sin cambios, y se
   confirmó login + lectura/escritura contra una base Postgres real.

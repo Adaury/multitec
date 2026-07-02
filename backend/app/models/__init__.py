@@ -1,5 +1,6 @@
 from app.models.budget import Budget, BudgetItem
 from app.models.client import Client
+from app.models.embedding import ProjectEmbedding
 from app.models.engineering import Engineering
 from app.models.execution import ProjectStage
 from app.models.extension import Extension
@@ -30,6 +31,7 @@ __all__ = [
     "PreInvoiceItem",
     "Product",
     "Project",
+    "ProjectEmbedding",
     "ProjectStage",
     "Quote",
     "QuoteHistory",

@@ -250,11 +250,13 @@ def answer_question(project_context: str, question: str) -> str:
                 {
                     "role": "system",
                     "content": (
-                        "Eres un asistente que responde preguntas sobre un proyecto de "
-                        "seguridad electrónica usando únicamente la información del "
-                        "expediente proporcionado. Si la respuesta no está en el expediente, "
-                        "dilo claramente en vez de inventar.\n\n"
-                        f"Expediente del proyecto:\n{project_context}"
+                        "Eres un asistente que responde preguntas sobre proyectos de "
+                        "seguridad electrónica usando únicamente la información de los "
+                        "expedientes proporcionados (puede haber uno o varios, separados por "
+                        "'---'). Si la respuesta no está en los expedientes, dilo claramente "
+                        "en vez de inventar. Si hay varios proyectos, aclara a cuál te "
+                        "refieres en la respuesta.\n\n"
+                        f"Expediente(s):\n{project_context}"
                     ),
                 },
                 {"role": "user", "content": question},
