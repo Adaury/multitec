@@ -3,6 +3,8 @@
 [![GitHub repo](https://img.shields.io/badge/GitHub-Adaury%2Fmultitec-blue?logo=github)](https://github.com/Adaury/multitec)
 [![CI](https://github.com/Adaury/multitec/actions/workflows/ci.yml/badge.svg)](https://github.com/Adaury/multitec/actions/workflows/ci.yml)
 
+**Repositorio:** https://github.com/Adaury/multitec
+
 ERP especializado en seguridad electrónica (CCTV, redes LAN, fibra óptica, control de
 acceso, videoporteros, barreras vehiculares, automatización y soporte técnico). El
 **proyecto** es el núcleo del sistema: cliente, levantamiento, ingeniería, presupuesto,
