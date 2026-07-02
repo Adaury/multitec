@@ -2,6 +2,8 @@
 
 [![GitHub repo](https://img.shields.io/badge/GitHub-Adaury%2Fmultitec-blue?logo=github)](https://github.com/Adaury/multitec)
 [![CI](https://github.com/Adaury/multitec/actions/workflows/ci.yml/badge.svg)](https://github.com/Adaury/multitec/actions/workflows/ci.yml)
+[![Stars](https://img.shields.io/github/stars/Adaury/multitec?style=flat)](https://github.com/Adaury/multitec/stargazers)
+[![Forks](https://img.shields.io/github/forks/Adaury/multitec?style=flat)](https://github.com/Adaury/multitec/forks)
 
 **Repositorio:** https://github.com/Adaury/multitec
 
