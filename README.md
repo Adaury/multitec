@@ -100,7 +100,7 @@ uvicorn app.main:app --reload --port 8000
 6. Limitación conocida: las fotos en formato **HEIC** (nativo de iPhone) no son
    compatibles con el modelo de visión local — el análisis las omite automáticamente y
    sigue solo con las fotos en JPEG/PNG/WebP y el texto del levantamiento.
-6. **Alternativa de pago (mejor calidad, más rápida):** el proyecto se integró
+7. **Alternativa de pago (mejor calidad, más rápida):** el proyecto se integró
    originalmente con la API de Claude (`claude-haiku-4-5`) antes de cambiar a Ollama. Para
    volver a esa opción, el cambio queda acotado a
    `backend/app/services/ai_client.py` + `backend/app/core/config.py` (ver historial de
