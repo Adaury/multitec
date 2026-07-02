@@ -121,13 +121,25 @@ uvicorn app.main:app --reload --port 8000
 
 ### Migrar a PostgreSQL
 
-1. Instalar PostgreSQL y crear una base de datos `multitec`.
-2. En `backend/.env`, cambiar:
+`psycopg2-binary` ya está en `requirements.txt`, así que no hace falta instalarlo aparte.
+
+1. Instalar PostgreSQL (en Windows: `winget install --id PostgreSQL.PostgreSQL.17 -e`).
+2. Crear un usuario y una base de datos dedicados (evita usar el superusuario `postgres`
+   directamente):
+   ```sql
+   CREATE USER multitec WITH PASSWORD 'tu-password';
+   CREATE DATABASE multitec OWNER multitec;
    ```
-   DATABASE_URL=postgresql+psycopg2://usuario:password@localhost:5432/multitec
+3. En `backend/.env`, cambiar:
    ```
-3. Instalar el driver: `pip install psycopg2-binary`
-4. Ejecutar `alembic upgrade head` de nuevo apuntando a la nueva base.
+   DATABASE_URL=postgresql+psycopg2://multitec:tu-password@localhost:5432/multitec
+   ```
+4. Ejecutar `alembic upgrade head` de nuevo apuntando a la nueva base, y
+   `python -m app.db.seed` para crear el usuario admin (los datos de SQLite no se migran
+   automáticamente — es una base nueva).
+
+Migración probada de punta a punta: las 4 migraciones de Alembic aplican limpio sobre
+PostgreSQL sin cambios (son todas `create_table`, sin `ALTER` específico de SQLite).
 
 ## Frontend — arrancar en desarrollo
 
@@ -164,8 +176,7 @@ multitec/
 Todas las fases del brief original están construidas. Ideas para seguir creciendo el
 sistema (no solicitadas, solo sugerencias):
 
-- **IA local** ejecutándose en el servidor (en vez de la API en la nube) — mencionado en el
-  brief como fase futura.
 - **Búsqueda semántica entre todos los proyectos** (embeddings/vector DB) si el Q&A actual
   (proyecto por proyecto) resulta insuficiente en uso real.
-- **Infra:** PostgreSQL, Windows Server, servidor dedicado / cloud multiusuario.
+- **Infra:** Windows Server, servidor dedicado / cloud multiusuario (PostgreSQL ya
+  soportado, ver [Migrar a PostgreSQL](#migrar-a-postgresql)).

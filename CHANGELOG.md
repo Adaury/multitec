@@ -8,6 +8,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- Migración a **PostgreSQL** verificada de punta a punta: `psycopg2-binary` agregado a
+  `requirements.txt`, las 4 migraciones de Alembic aplican limpio sin cambios, y se
+  confirmó login + lectura/escritura contra una base Postgres real.
+- CI en GitHub Actions (`lint` + `build` del frontend en cada push/PR).
+- Plantilla de Pull Request y plantillas de Issues (bug report, feature request).
+- Topics del repositorio en GitHub para descubribilidad.
 - `SECURITY.md` con política de reporte de vulnerabilidades y buenas prácticas de despliegue.
 - `CODE_OF_CONDUCT.md` (basado en Contributor Covenant v2.1).
 - `CODEOWNERS` en `.github/`.
