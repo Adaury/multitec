@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Reportar una vulnerabilidad de seguridad
+    url: https://github.com/Adaury/multitec/security/policy
+    about: No reportes vulnerabilidades en un Issue público — sigue SECURITY.md
