@@ -47,6 +47,13 @@ Construidas hasta ahora:
 
 Con esto quedan completadas las 5 fases del brief original.
 
+## Capturas
+
+<p>
+  <img src="docs/screenshots/dashboard.png" alt="Dashboard de Multitec" width="280">
+  <img src="docs/screenshots/presupuesto.png" alt="Presupuesto con sugerencia de materiales por IA" width="280">
+</p>
+
 ## Arquitectura
 
 - **Backend:** FastAPI + SQLAlchemy + Alembic, Python 3.14. Autenticación JWT, roles
