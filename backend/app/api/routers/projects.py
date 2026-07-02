@@ -1,0 +1,63 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session, joinedload
+
+from app.core.security import require_role
+from app.db.session import get_db
+from app.models.engineering import Engineering
+from app.models.project import Project
+from app.models.survey import Survey
+from app.schemas.project import ProjectCreate, ProjectDetailOut, ProjectOut, ProjectUpdate
+from app.services.code_generator import next_code
+from app.services.execution import ensure_stages
+
+router = APIRouter(prefix="/api/projects", tags=["projects"])
+
+allowed_roles = require_role("admin", "oficina")
+
+
+@router.get("", response_model=list[ProjectOut])
+def list_projects(db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    return db.query(Project).order_by(Project.created_at.desc()).all()
+
+
+@router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
+def create_project(payload: ProjectCreate, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    code = next_code(db, "PRY")
+    data = payload.model_dump(exclude_unset=True)
+    project = Project(code=code, **data)
+    db.add(project)
+    db.flush()
+
+    # Cada proyecto nace con su levantamiento e ingeniería vacíos (núcleo del ERP)
+    db.add(Survey(project_id=project.id))
+    db.add(Engineering(project_id=project.id))
+    ensure_stages(db, project)
+
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@router.get("/{project_id}", response_model=ProjectDetailOut)
+def get_project(project_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    project = (
+        db.query(Project)
+        .options(joinedload(Project.client))
+        .filter(Project.id == project_id)
+        .one_or_none()
+    )
+    if project is None:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    return project
+
+
+@router.put("/{project_id}", response_model=ProjectOut)
+def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(project, field, value)
+    db.commit()
+    db.refresh(project)
+    return project
