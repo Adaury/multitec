@@ -113,6 +113,51 @@ def test_public_portal_shows_tickets(client, admin_token, db_session):
     assert ticket_out["technician_name"] == "tecnico-portal"
 
 
+def test_public_portal_client_can_approve_pending_quote(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    budget = _approved_budget_items(client, headers, project)
+    quote = client.post(f"/api/budgets/{budget['id']}/convert-to-quote", headers=headers).json()
+    assert quote["status"] == "pendiente"
+    token = client.post(f"/api/projects/{project['id']}/public-link", headers=headers).json()["token"]
+
+    resp = client.post(f"/api/public/projects/{token}/quotes/{quote['id']}/approve")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["quotes"][0]["status"] == "aprobada"
+
+    # confirma que también generó la lista de materiales, igual que la aprobación interna
+    materials = client.get(f"/api/projects/{project['id']}/materials", headers=headers).json()
+    assert len(materials) == 1
+    assert materials[0]["description"] == "Cámara IP"
+
+
+def test_public_portal_cannot_approve_already_decided_quote(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    budget = _approved_budget_items(client, headers, project)
+    quote = client.post(f"/api/budgets/{budget['id']}/convert-to-quote", headers=headers).json()
+    client.post(f"/api/quotes/{quote['id']}/approve", headers=headers)
+    token = client.post(f"/api/projects/{project['id']}/public-link", headers=headers).json()["token"]
+
+    resp = client.post(f"/api/public/projects/{token}/quotes/{quote['id']}/approve")
+    assert resp.status_code == 400
+
+
+def test_public_portal_cannot_approve_quote_from_another_project(client, admin_token):
+    headers = auth_headers(admin_token)
+
+    other_project = make_project(client, headers, client_name="Otro cliente")
+    other_budget = _approved_budget_items(client, headers, other_project)
+    other_quote = client.post(f"/api/budgets/{other_budget['id']}/convert-to-quote", headers=headers).json()
+
+    project = make_project(client, headers, client_name="Proyecto del token")
+    token = client.post(f"/api/projects/{project['id']}/public-link", headers=headers).json()["token"]
+
+    resp = client.post(f"/api/public/projects/{token}/quotes/{other_quote['id']}/approve")
+    assert resp.status_code == 404
+
+
 def test_public_invoice_pdf_download(client, admin_token, db_session):
     headers = auth_headers(admin_token)
     seed_ncf_sequence(db_session, ncf_type="B02")

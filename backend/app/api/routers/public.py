@@ -12,7 +12,9 @@ from app.models.project import Project
 from app.models.quote import Quote
 from app.models.ticket import Ticket
 from app.schemas.public import PublicLinkOut, PublicProjectOut
+from app.services.notifications import notify_quote_approved_by_client
 from app.services.pdf import build_invoice_pdf
+from app.services.quote_approval import mark_quote_approved
 
 router = APIRouter(tags=["public"])
 
@@ -59,10 +61,7 @@ def _get_project_by_token(db: Session, token: str) -> Project:
     return project
 
 
-@router.get("/api/public/projects/{token}", response_model=PublicProjectOut)
-@limiter.limit("30/minute")
-def get_public_project(request: Request, token: str, db: Session = Depends(get_db)):
-    project = _get_project_by_token(db, token)
+def _serialize_public_project(project: Project) -> dict:
     return {
         "code": project.code,
         "status": project.status,
@@ -84,6 +83,29 @@ def get_public_project(request: Request, token: str, db: Session = Depends(get_d
             for ticket in project.tickets
         ],
     }
+
+
+@router.get("/api/public/projects/{token}", response_model=PublicProjectOut)
+@limiter.limit("30/minute")
+def get_public_project(request: Request, token: str, db: Session = Depends(get_db)):
+    project = _get_project_by_token(db, token)
+    return _serialize_public_project(project)
+
+
+@router.post("/api/public/projects/{token}/quotes/{quote_id}/approve", response_model=PublicProjectOut)
+@limiter.limit("30/minute")
+def approve_public_quote(request: Request, token: str, quote_id: int, db: Session = Depends(get_db)):
+    project = _get_project_by_token(db, token)
+    quote = next((q for q in project.quotes if q.id == quote_id), None)
+    if quote is None:
+        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    if quote.status != "pendiente":
+        raise HTTPException(status_code=400, detail=f"No se puede aprobar una cotización '{quote.status}'")
+    mark_quote_approved(db, quote, created_by=None, note="Aprobada por el cliente desde el portal")
+    db.commit()
+    notify_quote_approved_by_client(db, quote)
+    project = _get_project_by_token(db, token)
+    return _serialize_public_project(project)
 
 
 @router.get("/api/public/projects/{token}/invoices/{invoice_id}/pdf")

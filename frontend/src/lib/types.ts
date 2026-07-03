@@ -54,6 +54,7 @@ export interface PublicQuoteItem {
 }
 
 export interface PublicQuote {
+  id: number
   code: string
   status: QuoteStatus
   subtotal: number

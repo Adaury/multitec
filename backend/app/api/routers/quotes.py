@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.config import get_settings
 from app.core.security import require_role
 from app.db.session import get_db
-from app.models.material import Material
 from app.models.product import Product
 from app.models.quote import Quote, QuoteHistory, QuoteItem
 from app.models.user import User
@@ -15,6 +14,7 @@ from app.schemas.quote import QuoteCreate, QuoteHistoryOut, QuoteOut, QuoteUpdat
 from app.services.code_generator import next_code
 from app.services.notifications import notify_quote_pending
 from app.services.pdf import build_quote_pdf
+from app.services.quote_approval import mark_quote_approved
 from app.services.quote_archiver import archive_stale_quotes
 from app.services.totals import LineInput, compute_totals
 
@@ -134,27 +134,7 @@ def approve_quote(quote_id: int, db: Session = Depends(get_db), current_user: Us
     quote = _get_quote(db, quote_id)
     if quote.status not in ("pendiente", "archivada"):
         raise HTTPException(status_code=400, detail=f"No se puede aprobar una cotización '{quote.status}'")
-    quote.status = "aprobada"
-    quote.decided_at = datetime.now(timezone.utc)
-    db.add(QuoteHistory(quote_id=quote.id, action="aprobada"))
-
-    # Genera la lista de materiales (§18) a partir de las líneas de la cotización aprobada,
-    # una sola vez por cotización aunque se re-apruebe tras reactivar.
-    already_generated = db.query(Material).filter(Material.source_quote_id == quote.id).first() is not None
-    if not already_generated:
-        for item in quote.items:
-            db.add(
-                Material(
-                    project_id=quote.project_id,
-                    product_id=item.product_id,
-                    source_quote_id=quote.id,
-                    description=item.description,
-                    quantity=item.quantity,
-                    status="pendiente_compra",
-                    created_by=current_user.id,
-                )
-            )
-
+    mark_quote_approved(db, quote, created_by=current_user.id)
     db.commit()
     db.refresh(quote)
     return quote

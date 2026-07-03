@@ -14,6 +14,7 @@ class PublicQuoteItemOut(BaseModel):
 
 
 class PublicQuoteOut(BaseModel):
+    id: int
     code: str
     status: str
     subtotal: float

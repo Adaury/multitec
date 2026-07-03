@@ -33,6 +33,23 @@ def notify_quote_pending(db: Session, quote: Quote) -> None:
         _notify_user(db, admin.id, subject, body, link)
 
 
+def notify_quote_approved_by_client(db: Session, quote: Quote) -> None:
+    """Avisa a los admins activos que el cliente aprobó la cotización desde el portal,
+    para que el equipo sepa que ya puede seguir con la pre-factura."""
+    admins = db.query(User).filter(User.role == "admin", User.is_active.is_(True)).all()
+    subject = f"Cotización {quote.code} aprobada por el cliente"
+    body = (
+        "El cliente aprobó la cotización desde el portal de seguimiento.\n\n"
+        f"Código: {quote.code}\n"
+        f"Proyecto: {quote.project.code} — {quote.project.client.name}\n"
+        f"Total: RD$ {float(quote.total):,.2f}\n"
+    )
+    link = f"/proyectos/{quote.project_id}?tab=cotizacion"
+    for admin in admins:
+        email.send_email(admin.email, subject, body)
+        _notify_user(db, admin.id, subject, body, link)
+
+
 def notify_ticket_assigned(db: Session, ticket: Ticket) -> None:
     """Avisa al técnico que se le acaba de asignar un ticket."""
     if ticket.technician_id is None:

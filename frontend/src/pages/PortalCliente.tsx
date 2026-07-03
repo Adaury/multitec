@@ -9,6 +9,8 @@ export function PortalCliente() {
   const [project, setProject] = useState<PublicProject | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [approvingId, setApprovingId] = useState<number | null>(null)
+  const [approveError, setApproveError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -21,6 +23,21 @@ export function PortalCliente() {
       .catch(() => setError('Este enlace no es válido o fue desactivado.'))
       .finally(() => setLoading(false))
   }, [token])
+
+  const approveQuote = async (quoteId: number) => {
+    if (!token || !window.confirm('¿Confirmas que apruebas esta cotización?')) return
+    setApproveError(null)
+    setApprovingId(quoteId)
+    try {
+      const res = await fetch(`/api/public/projects/${token}/quotes/${quoteId}/approve`, { method: 'POST' })
+      if (!res.ok) throw new Error('approve-failed')
+      setProject(await res.json())
+    } catch {
+      setApproveError('No se pudo aprobar la cotización. Intenta de nuevo.')
+    } finally {
+      setApprovingId(null)
+    }
+  }
 
   return (
     <div className="mx-auto min-h-screen max-w-lg bg-brand-bg px-5 py-6">
@@ -80,8 +97,19 @@ export function PortalCliente() {
                       <span>{formatDOP(quote.total)}</span>
                     </div>
                   </div>
+                  {quote.status === 'pendiente' && (
+                    <button
+                      type="button"
+                      onClick={() => approveQuote(quote.id)}
+                      disabled={approvingId === quote.id}
+                      className="mt-3 block w-full rounded-2xl bg-brand-blue px-5 py-3 text-center text-sm font-medium text-white disabled:opacity-60"
+                    >
+                      {approvingId === quote.id ? 'Aprobando…' : 'Aprobar cotización'}
+                    </button>
+                  )}
                 </Card>
               ))}
+              {approveError && <p className="text-sm text-red-600">{approveError}</p>}
             </div>
           )}
 
