@@ -5,16 +5,30 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password, require_role
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.user import UserCreate, UserOut, UserUpdate
+from app.schemas.user import TechnicianOut, UserCreate, UserOut, UserUpdate
 
 router = APIRouter(prefix="/api/users", tags=["users"])
 
 admin_only = require_role("admin")
+allowed_roles = require_role("admin", "oficina", "tecnico")
 
 
 @router.get("", response_model=list[UserOut])
 def list_users(db: Session = Depends(get_db), _=Depends(admin_only)):
     return db.query(User).order_by(User.name).all()
+
+
+@router.get("/technicians", response_model=list[TechnicianOut])
+def list_technicians(db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    """Lista liviana (solo id/nombre) para asignar técnico a un ticket — a diferencia de
+    GET /api/users (admin-only, expone email/rol/estado), esta la puede llamar cualquier
+    rol que gestione tickets."""
+    return (
+        db.query(User)
+        .filter(User.role == "tecnico", User.is_active.is_(True))
+        .order_by(User.name)
+        .all()
+    )
 
 
 @router.post("", response_model=UserOut, status_code=status.HTTP_201_CREATED)

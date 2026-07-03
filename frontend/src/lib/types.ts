@@ -337,6 +337,11 @@ export const EXTENSION_STATUS_LABELS: Record<ExtensionStatus, string> = {
   rechazada: 'Rechazada',
 }
 
+export interface Technician {
+  id: number
+  name: string
+}
+
 export type TicketStatus = 'abierto' | 'en_proceso' | 'resuelto' | 'cerrado'
 
 export interface Ticket {

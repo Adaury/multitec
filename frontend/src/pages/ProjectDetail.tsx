@@ -23,6 +23,7 @@ import type {
   QuoteHistoryEntry,
   StageName,
   Survey,
+  Technician,
   Ticket,
   TicketHistoryEntry,
   TicketStatus,
@@ -1541,9 +1542,14 @@ function TicketsTab({ projectId }: { projectId: number }) {
     queryKey: ['tickets', projectId],
     queryFn: async () => (await api.get<Ticket[]>(`/projects/${projectId}/tickets`)).data,
   })
+  const { data: technicians } = useQuery({
+    queryKey: ['technicians'],
+    queryFn: async () => (await api.get<Technician[]>('/users/technicians')).data,
+  })
 
   const [showForm, setShowForm] = useState(false)
   const [problem, setProblem] = useState('')
+  const [technicianId, setTechnicianId] = useState<number | ''>('')
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
   function invalidate() {
@@ -1551,13 +1557,24 @@ function TicketsTab({ projectId }: { projectId: number }) {
   }
 
   const createTicket = useMutation({
-    mutationFn: async () => (await api.post(`/projects/${projectId}/tickets`, { problem })).data,
+    mutationFn: async () =>
+      (
+        await api.post(`/projects/${projectId}/tickets`, {
+          problem,
+          technician_id: technicianId || null,
+        })
+      ).data,
     onSuccess: () => {
       invalidate()
       setShowForm(false)
       setProblem('')
+      setTechnicianId('')
     },
   })
+
+  function technicianName(id: number | null) {
+    return technicians?.find((t) => t.id === id)?.name
+  }
 
   return (
     <div className="space-y-4">
@@ -1576,6 +1593,20 @@ function TicketsTab({ projectId }: { projectId: number }) {
           <Field label="Problema">
             <Textarea rows={3} value={problem} onChange={(e) => setProblem(e.target.value)} />
           </Field>
+          <Field label="Técnico asignado (opcional)">
+            <select
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+              value={technicianId}
+              onChange={(e) => setTechnicianId(e.target.value ? Number(e.target.value) : '')}
+            >
+              <option value="">Sin asignar</option>
+              {technicians?.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Button onClick={() => createTicket.mutate()} disabled={createTicket.isPending || !problem}>
             {createTicket.isPending ? 'Guardando…' : 'Crear ticket'}
           </Button>
@@ -1587,6 +1618,8 @@ function TicketsTab({ projectId }: { projectId: number }) {
           <TicketCard
             key={ticket.id}
             ticket={ticket}
+            technicians={technicians ?? []}
+            technicianName={technicianName(ticket.technician_id)}
             expanded={expandedId === ticket.id}
             onToggle={() => setExpandedId(expandedId === ticket.id ? null : ticket.id)}
             onChanged={invalidate}
@@ -1600,11 +1633,15 @@ function TicketsTab({ projectId }: { projectId: number }) {
 
 function TicketCard({
   ticket,
+  technicians,
+  technicianName,
   expanded,
   onToggle,
   onChanged,
 }: {
   ticket: Ticket
+  technicians: Technician[]
+  technicianName: string | undefined
   expanded: boolean
   onToggle: () => void
   onChanged: () => void
@@ -1618,7 +1655,7 @@ function TicketCard({
   })
 
   const updateTicket = useMutation({
-    mutationFn: async (payload: { solution?: string; status?: TicketStatus }) =>
+    mutationFn: async (payload: { solution?: string; status?: TicketStatus; technician_id?: number | null }) =>
       (await api.put(`/tickets/${ticket.id}`, payload)).data,
     onSuccess: onChanged,
   })
@@ -1631,6 +1668,7 @@ function TicketCard({
           <Badge tone={TICKET_STATUS_TONE[ticket.status]}>{TICKET_STATUS_LABELS[ticket.status]}</Badge>
         </div>
         <p className="mt-1 text-sm text-gray-500">{ticket.problem}</p>
+        <p className="mt-1 text-xs text-gray-400">Técnico: {technicianName ?? 'Sin asignar'}</p>
       </button>
 
       {expanded && (
@@ -1640,6 +1678,24 @@ function TicketCard({
               <span className="font-medium text-gray-800">Solución:</span> {ticket.solution}
             </p>
           )}
+
+          <Field label="Técnico asignado">
+            <select
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+              value={ticket.technician_id ?? ''}
+              onChange={(e) =>
+                updateTicket.mutate({ technician_id: e.target.value ? Number(e.target.value) : null })
+              }
+              disabled={updateTicket.isPending}
+            >
+              <option value="">Sin asignar</option>
+              {technicians.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </Field>
 
           {ticket.status !== 'cerrado' && (
             <div className="space-y-2">

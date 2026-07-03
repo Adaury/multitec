@@ -78,7 +78,8 @@ Construido después del brief original: NCF en Facturación, PDF de Cotización/
 inicio (`/`, solo admin/oficina) — cotizaciones pendientes, tickets abiertos por técnico,
 proyectos por estado, y un gráfico de facturación de los últimos 6 meses — y una
 **búsqueda global** (ícono 🔍, disponible para los tres roles) que encuentra clientes,
-proyectos y tickets desde cualquier pantalla.
+proyectos y tickets desde cualquier pantalla, y **asignación de técnico a tickets** desde
+la propia pestaña Tickets.
 
 ## Capturas
 

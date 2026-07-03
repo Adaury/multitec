@@ -31,3 +31,11 @@ class UserOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class TechnicianOut(BaseModel):
+    id: int
+    name: str
+
+    class Config:
+        from_attributes = True

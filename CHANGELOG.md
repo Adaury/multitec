@@ -8,6 +8,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Asignar técnico a un ticket desde la UI**: cada ticket tiene un selector "Técnico
+  asignado" (al crearlo y para reasignarlo después), poblado desde el nuevo
+  `GET /api/users/technicians` (nombre/id únicamente, a diferencia de `GET /api/users`
+  que es admin-only y expone más datos — este lo puede llamar cualquier rol que gestione
+  tickets). Antes `technician_id` existía en el modelo pero no había forma de asignarlo
+  desde la interfaz, así que el Dashboard siempre mostraba todo bajo "Sin asignar".
+  3 tests nuevos.
 - **Búsqueda global** (`GET /api/search`, ícono 🔍 en el encabezado, accesible desde
   cualquier pantalla): encuentra clientes (nombre/empresa/RNC), proyectos (código,
   descripción, o por el nombre del cliente) y tickets (código o descripción del
