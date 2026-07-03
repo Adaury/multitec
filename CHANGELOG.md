@@ -8,6 +8,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Suite de tests automatizados del backend** (pytest, 27 tests): autenticación/roles,
+  clientes, proyectos, el flujo presupuesto→cotización→aprobación→materiales (incluyendo
+  no-duplicación al re-aprobar), ejecución por etapas, restricción admin-only de
+  facturación, y los endpoints de IA con Ollama mockeado. Corre contra SQLite aislado en
+  cada push/PR vía GitHub Actions (job `backend` nuevo en `ci.yml`).
 - **Búsqueda semántica entre proyectos** en "Preguntar a la IA": opción "Todos los
   proyectos" que compara la pregunta contra el embedding de cada proyecto (Ollama +
   `nomic-embed-text`, guardado en la tabla `project_embeddings`, sin depender de
@@ -28,6 +33,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Corregido
 
+- `backend/app/main.py` ya no falla al arrancar si `backend/uploads/` no existe (pasa
+  en un clon nuevo, ya que está en `.gitignore`) — ahora se crea automáticamente antes
+  de montar `StaticFiles`. Detectado al escribir los tests.
 - Numeración duplicada en la sección "Configurar la IA" del README.
 
 ## [2026-07-02] — Lanzamiento inicial: fases 1-5 + IA local

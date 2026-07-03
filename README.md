@@ -89,6 +89,21 @@ uvicorn app.main:app --reload --port 8000
 - Swagger interactivo: http://127.0.0.1:8000/docs
 - Salud: http://127.0.0.1:8000/api/health
 
+### Tests (backend)
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+pytest -v
+```
+
+Corre contra una base SQLite temporal aislada (no toca `multitec.db`) y no depende de
+Ollama — los endpoints de IA se prueban con mocks. Cubre autenticación y roles, clientes,
+proyectos (código automático + registros iniciales), el flujo completo
+presupuesto→cotización→aprobación→materiales (incluyendo que no se dupliquen materiales
+al re-aprobar), ejecución por etapas, y la restricción "solo admin convierte a factura".
+Corre automáticamente en cada push/PR vía GitHub Actions.
+
 ### Configurar la IA (Fase 5) — Ollama local, gratis
 
 1. Instala [Ollama](https://ollama.com/download) (o vía `winget install --id Ollama.Ollama -e`
