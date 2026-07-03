@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import require_role
@@ -13,6 +14,7 @@ from app.schemas.invoice import InvoiceHistoryOut, InvoiceOut, PreInvoiceCreate,
 from app.schemas.ncf import ConvertToInvoiceRequest
 from app.services.code_generator import next_code
 from app.services.ncf import assign_ncf, default_ncf_type
+from app.services.pdf import build_invoice_pdf
 from app.services.totals import LineInput, compute_totals
 
 router = APIRouter(tags=["invoices"])
@@ -193,6 +195,19 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), _=Depends(allowe
     if invoice is None:
         raise HTTPException(status_code=404, detail="Factura no encontrada")
     return invoice
+
+
+@router.get("/api/invoices/{invoice_id}/pdf")
+def get_invoice_pdf(invoice_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    invoice = db.query(Invoice).options(joinedload(Invoice.items)).filter(Invoice.id == invoice_id).one_or_none()
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
+    pdf_bytes = build_invoice_pdf(invoice)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{invoice.code}.pdf"'},
+    )
 
 
 @router.get("/api/invoices/{invoice_id}/history", response_model=list[InvoiceHistoryOut])

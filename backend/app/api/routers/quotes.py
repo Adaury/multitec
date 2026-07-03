@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import get_settings
@@ -12,6 +13,7 @@ from app.models.quote import Quote, QuoteHistory, QuoteItem
 from app.models.user import User
 from app.schemas.quote import QuoteCreate, QuoteHistoryOut, QuoteOut, QuoteUpdate, RejectIn
 from app.services.code_generator import next_code
+from app.services.pdf import build_quote_pdf
 from app.services.quote_archiver import archive_stale_quotes
 from app.services.totals import LineInput, compute_totals
 
@@ -96,6 +98,17 @@ def create_quote(
 def get_quote(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
     archive_stale_quotes(db)
     return _get_quote(db, quote_id)
+
+
+@router.get("/api/quotes/{quote_id}/pdf")
+def get_quote_pdf(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    quote = _get_quote(db, quote_id)
+    pdf_bytes = build_quote_pdf(quote)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{quote.code}.pdf"'},
+    )
 
 
 @router.put("/api/quotes/{quote_id}", response_model=QuoteOut)

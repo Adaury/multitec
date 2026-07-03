@@ -8,6 +8,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Descargar PDF** en Cotización y Factura (`GET /api/quotes/{id}/pdf`,
+  `GET /api/invoices/{id}/pdf`, con `reportlab`): membrete de la empresa (nombre/RNC/
+  dirección/teléfono, configurable en `.env`), datos del cliente y proyecto, líneas con
+  precios, subtotal/ITBIS/total, y el NCF en la factura. Antes solo se podían ver en
+  pantalla, sin forma de entregarle un documento formal al cliente.
 - **NCF (Números de Comprobante Fiscal) en Facturación**: secuencias autorizadas por la
   DGII administrables desde `/ncf` (solo admin) — tipo (B01 crédito fiscal, B02 consumo,
   B14 regímenes especiales, B15 gubernamental), rango, vencimiento y activar/desactivar.

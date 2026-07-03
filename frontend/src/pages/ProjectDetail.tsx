@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, downloadFile } from '../lib/api'
 import type {
   Budget,
   BudgetSuggestionOut,
@@ -730,6 +730,13 @@ function QuoteCard({
             </div>
           </div>
 
+          <Button
+            variant="secondary"
+            onClick={() => downloadFile(`/quotes/${quote.id}/pdf`, `${quote.code}.pdf`)}
+          >
+            Descargar PDF
+          </Button>
+
           {quote.status === 'pendiente' && (
             <div className="flex gap-2">
               <Button onClick={() => approve.mutate()} disabled={approve.isPending}>
@@ -1336,6 +1343,12 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
               <span>{formatDOP(invoice.total)}</span>
             </div>
           </div>
+          <Button
+            variant="secondary"
+            onClick={() => downloadFile(`/invoices/${invoice.id}/pdf`, `${invoice.code}.pdf`)}
+          >
+            Descargar PDF
+          </Button>
           {history && history.length > 0 && (
             <div>
               <p className="mb-1 text-xs font-medium text-gray-500">Historial</p>

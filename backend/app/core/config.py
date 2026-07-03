@@ -29,6 +29,12 @@ class Settings(BaseSettings):
     itbis_rate: float = 0.18
     quote_stale_days: int = 7
 
+    # Membrete de los PDF de Cotización/Factura — ajustar en .env con los datos reales.
+    company_name: str = "Multitec"
+    company_rnc: str = ""
+    company_address: str = ""
+    company_phone: str = ""
+
     anthropic_api_key: str = ""
 
     # IA local (Ollama) — ver services/ai_client.py
