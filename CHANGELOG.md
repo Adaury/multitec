@@ -104,6 +104,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
     en `op.batch_alter_table(..., recreate='always')`. Encontrado al armar el job de CI
     de E2E, que corre las migraciones contra SQLite fresco — nadie lo había hecho desde
     que estas migraciones se generaron trabajando directo contra Postgres.
+- El job `E2E (Playwright)` fallaba en su primera corrida real en GitHub Actions: el
+  `vite dev` del runner tardaba justo un poco más de los 30s que esperaba el chequeo de
+  salud del workflow. Subido a 60s.
 
 ## [2026-07-02] — Lanzamiento inicial: fases 1-5 + IA local
 

@@ -96,7 +96,7 @@ jobs:
         working-directory: frontend
         run: |
           nohup npm run dev -- --port 5173 > /tmp/frontend.log 2>&1 &
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             if curl -sf http://127.0.0.1:5173 > /dev/null; then break; fi
             sleep 1
           done
