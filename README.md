@@ -73,19 +73,25 @@ Construidas hasta ahora:
 
 Con esto quedan completadas las 5 fases del brief original.
 
-Construido después del brief original: NCF en Facturación, PDF de Cotización/Factura
-(con una versión sin precios), un **Dashboard con reportes/KPIs** en la pantalla de
-inicio (`/`, solo admin/oficina) — cotizaciones pendientes, tickets abiertos por técnico,
-proyectos por estado, y un gráfico de facturación de los últimos 6 meses — y una
-**búsqueda global** (ícono 🔍, disponible para los tres roles) que encuentra clientes,
-proyectos y tickets desde cualquier pantalla, **asignación de técnico a tickets** desde
-la propia pestaña Tickets, **notificaciones por correo** (cotización pendiente, ticket
-asignado, factura emitida — ver [Notificaciones por
-correo](#notificaciones-por-correo)) con su equivalente **dentro de la app** (campanita
-🔔 con contador de no leídas), **control de inventario de bodega** en el Catálogo
-(entradas/salidas de stock por producto, con historial), **exportar a CSV** (Clientes,
-Proyectos, Facturas, resumen del Dashboard), y un **reporte 607 (Ventas) para la DGII**
-en `/ncf` — ver la advertencia de alcance en [Reporte 607](#reporte-607-ventas-dgii).
+Construido después del brief original:
+
+- **NCF en Facturación** y **PDF de Cotización/Factura** (con una versión sin precios).
+- **Dashboard con reportes/KPIs** en la pantalla de inicio (`/`, solo admin/oficina) —
+  cotizaciones pendientes, tickets abiertos por técnico, proyectos por estado, y un
+  gráfico de facturación de los últimos 6 meses.
+- **Búsqueda global** (ícono 🔍, disponible para los tres roles) que encuentra clientes,
+  proyectos y tickets desde cualquier pantalla.
+- **Asignación de técnico a tickets** desde la propia pestaña Tickets.
+- **Notificaciones por correo** (cotización pendiente, ticket asignado, factura emitida —
+  ver [Notificaciones por correo](#notificaciones-por-correo)) con su equivalente
+  **dentro de la app** (campanita 🔔 con contador de no leídas).
+- **Control de inventario de bodega** en el Catálogo (entradas/salidas de stock por
+  producto, con historial).
+- **Exportar a CSV** (Clientes, Proyectos, Facturas, resumen del Dashboard).
+- **Reporte 607 (Ventas) para la DGII** en `/ncf` — ver la advertencia de alcance en
+  [Reporte 607](#reporte-607-ventas-dgii).
+- **Calendario de visitas técnicas** (`/calendario`, los tres roles) — agenda simple por
+  día, con técnico y hora opcionales.
 
 ## Capturas
 

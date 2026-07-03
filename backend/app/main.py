@@ -31,6 +31,7 @@ from app.api.routers import (
     surveys,
     tickets,
     users,
+    visits,
 )
 from app.core.config import INSECURE_DEFAULT_JWT_SECRET, get_settings
 from app.core.limiter import limiter
@@ -96,6 +97,7 @@ app.include_router(ncf.router)
 app.include_router(reports.router)
 app.include_router(search.router)
 app.include_router(notifications.router)
+app.include_router(visits.router)
 
 
 @app.get("/api/health")

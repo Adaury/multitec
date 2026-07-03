@@ -18,6 +18,7 @@ from app.models.stock_movement import StockMovement
 from app.models.survey import Survey, SurveyAsset
 from app.models.ticket import Ticket, TicketHistory
 from app.models.user import User
+from app.models.visit import Visit
 
 __all__ = [
     "Budget",
@@ -50,4 +51,5 @@ __all__ = [
     "Ticket",
     "TicketHistory",
     "User",
+    "Visit",
 ]

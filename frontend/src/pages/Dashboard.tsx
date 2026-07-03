@@ -15,6 +15,7 @@ const quickActions = [
 const baseMenu = [
   { label: 'Clientes', icon: '👤', to: '/clientes' },
   { label: 'Proyectos', icon: '📁', to: '/proyectos' },
+  { label: 'Calendario', icon: '📅', to: '/calendario' },
   { label: 'Catálogo', icon: '📦', to: '/catalogo' },
   { label: 'Presupuestos', icon: '💰', to: '/presupuestos' },
   { label: 'Cotizaciones', icon: '🧾', to: '/cotizaciones' },

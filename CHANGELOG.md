@@ -8,6 +8,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Calendario de visitas técnicas** (`/calendario`, los tres roles): agenda simple por
+  día — navegación con flechas o selector de fecha, agendar una visita a un proyecto con
+  técnico y hora opcionales, y marcar completada/cancelada. `GET /api/visits?start=&end=`
+  para listar por rango de fechas, `POST/PUT /api/visits` para agendar/actualizar. Mismo
+  esquema de permisos que Tickets — un técnico también puede agendar y actualizar sus
+  propias visitas. 7 tests nuevos.
 - **Reporte 607 (Ventas) para la DGII**, en `/ncf` (solo admin/oficina): exporta las
   facturas de un mes en las columnas del formato 607 (RNC/cédula del comprador, tipo de
   identificación inferido del RNC, NCF, tipo de ingreso, fecha, monto facturado, ITBIS).

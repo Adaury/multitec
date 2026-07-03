@@ -13,6 +13,7 @@ import { Quotes } from './pages/Quotes'
 import { Ask } from './pages/Ask'
 import { Users } from './pages/Users'
 import { Ncf } from './pages/Ncf'
+import { Calendario } from './pages/Calendario'
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route path="/preguntar" element={<Ask />} />
           <Route path="/usuarios" element={<Users />} />
           <Route path="/ncf" element={<Ncf />} />
+          <Route path="/calendario" element={<Calendario />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

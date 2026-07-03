@@ -339,6 +339,29 @@ export interface AppNotification {
   created_at: string
 }
 
+export type VisitStatus = 'programada' | 'completada' | 'cancelada'
+
+export interface Visit {
+  id: number
+  project_id: number
+  project_code: string
+  client_name: string
+  technician_id: number | null
+  technician_name: string | null
+  scheduled_date: string
+  scheduled_time: string | null
+  notes: string | null
+  status: VisitStatus
+  created_by: number | null
+  created_at: string
+}
+
+export const VISIT_STATUS_LABELS: Record<VisitStatus, string> = {
+  programada: 'Programada',
+  completada: 'Completada',
+  cancelada: 'Cancelada',
+}
+
 export type ExtensionStatus = 'pendiente' | 'aprobada' | 'rechazada'
 
 export interface Extension {
