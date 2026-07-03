@@ -1,11 +1,20 @@
 from sqlalchemy.orm import Session
 
 from app.models.invoice import Invoice
+from app.models.notification import Notification
 from app.models.quote import Quote
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.services import email
 from app.services.pdf import build_invoice_pdf
+
+
+def _notify_user(db: Session, user_id: int, title: str, body: str, link: str | None = None) -> None:
+    """Crea la notificación dentro de la app. Se hace commit aparte (no forma parte de
+    la transacción de negocio que la disparó) para que, si algo raro pasara acá, no se
+    lleve puesta la operación principal."""
+    db.add(Notification(user_id=user_id, title=title, body=body, link=link))
+    db.commit()
 
 
 def notify_quote_pending(db: Session, quote: Quote) -> None:
@@ -18,8 +27,10 @@ def notify_quote_pending(db: Session, quote: Quote) -> None:
         f"Proyecto: {quote.project.code} — {quote.project.client.name}\n"
         f"Total: RD$ {float(quote.total):,.2f}\n"
     )
+    link = f"/proyectos/{quote.project_id}?tab=cotizacion"
     for admin in admins:
         email.send_email(admin.email, subject, body)
+        _notify_user(db, admin.id, subject, body, link)
 
 
 def notify_ticket_assigned(db: Session, ticket: Ticket) -> None:
@@ -37,6 +48,7 @@ def notify_ticket_assigned(db: Session, ticket: Ticket) -> None:
         f"Problema: {ticket.problem}\n"
     )
     email.send_email(technician.email, subject, body)
+    _notify_user(db, technician.id, subject, body, f"/proyectos/{ticket.project_id}?tab=tickets")
 
 
 def notify_invoice_issued(invoice: Invoice) -> None:

@@ -23,6 +23,7 @@ from app.api.routers import (
     logbook,
     materials,
     ncf,
+    notifications,
     projects,
     quotes,
     reports,
@@ -94,6 +95,7 @@ app.include_router(users.router)
 app.include_router(ncf.router)
 app.include_router(reports.router)
 app.include_router(search.router)
+app.include_router(notifications.router)
 
 
 @app.get("/api/health")

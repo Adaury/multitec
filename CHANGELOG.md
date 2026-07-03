@@ -8,6 +8,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Notificaciones dentro de la app**: campanita 🔔 en el encabezado (visible en toda la
+  app) con las mismas dos alertas que ya iban por correo — cotización pendiente de
+  aprobar (a los admins) y ticket asignado (al técnico) — ahora también como
+  notificación en vivo, con contador de no leídas (`GET /api/notifications/unread-count`,
+  refresco cada 30s), lista desplegable (`GET /api/notifications`), marcar como
+  leída/marcar todas, y clic para ir directo a la pestaña relevante del proyecto. La
+  notificación de factura emitida sigue siendo solo por correo, ya que va al cliente
+  (que no tiene cuenta en el sistema). 5 tests nuevos.
 - **Exportar a CSV** (admin/oficina): botón "Exportar CSV" en Clientes y Proyectos, y
   "Exportar resumen"/"Exportar facturas" en el Dashboard — descargan `text/csv` con BOM
   UTF-8 (para que Excel en Windows muestre bien tildes y la ñ). El resumen del dashboard

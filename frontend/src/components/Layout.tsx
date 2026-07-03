@@ -4,6 +4,7 @@ import { api, logout } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import type { CurrentUser } from '../lib/types'
 import { GlobalSearch } from './GlobalSearch'
+import { NotificationBell } from './NotificationBell'
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: '🏠', end: true },
@@ -32,6 +33,7 @@ export function Layout() {
           <p className="text-xs text-gray-500">{user?.name}</p>
         </div>
         <div className="flex items-center gap-2">
+          <NotificationBell />
           <GlobalSearch />
           <button
             onClick={() => logout()}

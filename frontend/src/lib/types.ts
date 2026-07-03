@@ -330,6 +330,15 @@ export interface SearchResults {
   tickets: { id: number; code: string; problem: string; project_id: number; project_code: string }[]
 }
 
+export interface AppNotification {
+  id: number
+  title: string
+  body: string
+  link: string | null
+  read: boolean
+  created_at: string
+}
+
 export type ExtensionStatus = 'pendiente' | 'aprobada' | 'rechazada'
 
 export interface Extension {
