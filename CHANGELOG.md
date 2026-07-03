@@ -105,8 +105,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
     de E2E, que corre las migraciones contra SQLite fresco — nadie lo había hecho desde
     que estas migraciones se generaron trabajando directo contra Postgres.
 - El job `E2E (Playwright)` fallaba en su primera corrida real en GitHub Actions: el
-  `vite dev` del runner tardaba justo un poco más de los 30s que esperaba el chequeo de
-  salud del workflow. Subido a 60s.
+  chequeo de salud del workflow le hacía `curl` a `http://127.0.0.1:5173`, pero Vite (sin
+  `--host`) escucha en `localhost`, que en el runner de Ubuntu resuelve primero a `::1`
+  (IPv6) — el `curl` a la IPv4 explícita nunca conectaba aunque Vite ya estuviera arriba.
+  Cambiado a `http://localhost:5173`, igual que ya usaba `playwright.config.ts`.
 
 ## [2026-07-02] — Lanzamiento inicial: fases 1-5 + IA local
 

@@ -96,11 +96,11 @@ jobs:
         working-directory: frontend
         run: |
           nohup npm run dev -- --port 5173 > /tmp/frontend.log 2>&1 &
-          for i in $(seq 1 60); do
-            if curl -sf http://127.0.0.1:5173 > /dev/null; then break; fi
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5173 > /dev/null; then break; fi
             sleep 1
           done
-          curl -sf http://127.0.0.1:5173 || (cat /tmp/frontend.log && exit 1)
+          curl -sf http://localhost:5173 || (cat /tmp/frontend.log && exit 1)
 
       - name: Run Playwright tests
         working-directory: frontend
