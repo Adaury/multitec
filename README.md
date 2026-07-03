@@ -83,8 +83,9 @@ la propia pestaña Tickets, **notificaciones por correo** (cotización pendiente
 asignado, factura emitida — ver [Notificaciones por
 correo](#notificaciones-por-correo)) con su equivalente **dentro de la app** (campanita
 🔔 con contador de no leídas), **control de inventario de bodega** en el Catálogo
-(entradas/salidas de stock por producto, con historial), y **exportar a CSV** (Clientes,
-Proyectos, Facturas, resumen del Dashboard).
+(entradas/salidas de stock por producto, con historial), **exportar a CSV** (Clientes,
+Proyectos, Facturas, resumen del Dashboard), y un **reporte 607 (Ventas) para la DGII**
+en `/ncf` — ver la advertencia de alcance en [Reporte 607](#reporte-607-ventas-dgii).
 
 ## Capturas
 
@@ -263,6 +264,23 @@ correos no se envían de verdad — solo quedan registrados en `backend/logs/app
 ("modo consola"), así que no hace falta una cuenta SMTP real para desarrollar. Un fallo
 de SMTP nunca revierte ni bloquea la operación que disparó el correo (crear la
 cotización, asignar el ticket, emitir la factura) — solo se registra el error en el log.
+
+### Reporte 607 (Ventas DGII)
+
+En `/ncf` (solo admin/oficina), botón para exportar en CSV las facturas de un mes con las
+columnas del formato 607 de la DGII (RNC/cédula del comprador, NCF, fecha, monto
+facturado, ITBIS...).
+
+**Alcance limitado, léelo antes de usarlo para remitir de verdad:**
+
+- No se implementó el formato 606 (Compras) — el sistema no lleva facturas de
+  proveedores con su propio NCF/RNC, haría falta un módulo de compras que no existe.
+- No se trackea forma de pago (efectivo/tarjeta/crédito) ni retenciones de ITBIS/ISR, así
+  que esas columnas del 607 salen vacías — hay que completarlas a mano si aplican.
+- La estructura de columnas es la mejor aproximación posible a partir de fuentes públicas
+  de la DGII; no se pudo verificar campo por campo contra la plantilla oficial vigente
+  (requiere descargar un ZIP de dgii.gov.do). **Verifica el archivo contra la plantilla
+  oficial actual antes de remitirlo** — la pantalla lo recuerda explícitamente.
 
 ## Frontend — arrancar en desarrollo
 

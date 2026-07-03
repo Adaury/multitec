@@ -8,6 +8,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Reporte 607 (Ventas) para la DGII**, en `/ncf` (solo admin/oficina): exporta las
+  facturas de un mes en las columnas del formato 607 (RNC/cédula del comprador, tipo de
+  identificación inferido del RNC, NCF, tipo de ingreso, fecha, monto facturado, ITBIS).
+  **Alcance deliberadamente limitado**: no se generó el formato 606 (Compras) porque el
+  sistema no lleva registro de facturas de proveedores con su propio NCF/RNC — haría
+  falta un módulo de compras que no existe hoy. Tampoco se trackea forma de pago
+  (efectivo/tarjeta/crédito) ni retenciones, así que esas columnas del 607 quedan vacías
+  para completar a mano si aplican. La estructura de columnas es la mejor aproximación
+  disponible a partir de fuentes públicas de la DGII, no se pudo verificar byte a byte
+  contra la plantilla oficial vigente — **hay que confirmarla contra dgii.gov.do antes de
+  remitir el archivo**, algo que se advierte explícitamente en la propia pantalla.
+  5 tests nuevos.
 - **Notificaciones dentro de la app**: campanita 🔔 en el encabezado (visible en toda la
   app) con las mismas dos alertas que ya iban por correo — cotización pendiente de
   aprobar (a los admins) y ticket asignado (al técnico) — ahora también como
