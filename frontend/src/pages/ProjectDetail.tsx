@@ -132,7 +132,7 @@ export function ProjectDetail() {
       <Card>
         <div className="flex items-center justify-between">
           <p className="text-lg font-semibold text-gray-900">{project.code}</p>
-          <Badge>{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge>
+          {tab !== 'tickets' && <Badge>{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge>}
         </div>
         <p className="mt-1 text-sm text-gray-500">{project.client.name}</p>
       </Card>

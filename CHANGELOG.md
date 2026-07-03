@@ -96,6 +96,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Corregido
 
+- La pestaña **Tickets** de un proyecto mostraba el badge de estado general del proyecto
+  (p. ej. "Levantamiento") junto al código en el encabezado, aunque los tickets tienen su
+  propio estado independiente (abierto/en proceso/cerrado) — daba a entender que el
+  ticket estaba "en Levantamiento". Ese badge ahora se oculta específicamente en la
+  pestaña Tickets.
 - `backend/app/main.py` ya no falla al arrancar si `backend/uploads/` no existe (pasa
   en un clon nuevo, ya que está en `.gitignore`) — ahora se crea automáticamente antes
   de montar `StaticFiles`. Detectado al escribir los tests.
