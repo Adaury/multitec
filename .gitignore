@@ -11,6 +11,12 @@ frontend/node_modules/
 frontend/dist/
 frontend/dev-dist/
 
+# E2E (Playwright) — contiene tokens de sesión reales, nunca se comitea
+frontend/e2e/.auth-state.json
+frontend/test-results/
+frontend/playwright-report/
+frontend/blob-report/
+
 # Deploy (Windows Server)
 deploy/backups/
 deploy/logs/

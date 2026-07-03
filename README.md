@@ -150,6 +150,23 @@ al re-aprobar), ejecución por etapas, la restricción "solo admin convierte a f
 que las columnas de auditoría (`created_by`) se llenen correctamente. Corre
 automáticamente en cada push/PR vía GitHub Actions.
 
+### Tests E2E (frontend, Playwright)
+
+```bash
+cd frontend
+npm install
+npx playwright install chromium
+npm run test:e2e            # requiere backend en :8000 y frontend en :5173 ya corriendo
+```
+
+Prueba la UI real en un navegador: login/logout con revocación de sesión, crear cliente
+y proyecto, el flujo completo presupuesto→cotización (ITBIS 18%)→aprobar→materiales, y
+gestión de usuarios (crear, correo duplicado, protección contra auto-degradarse). No
+depende de Ollama — ningún test usa los botones de IA. La mayoría de los tests reusan
+una sola sesión iniciada una vez (`e2e/global-setup.ts`) para no agotar el rate limit de
+login; solo `auth.spec.ts` arranca sin sesión a propósito. Corre automáticamente en CI
+contra un backend real (SQLite fresco + admin sembrado) y un `vite dev` real.
+
 ### Configurar la IA (Fase 5) — Ollama local, gratis
 
 1. Instala [Ollama](https://ollama.com/download) (o vía `winget install --id Ollama.Ollama -e`

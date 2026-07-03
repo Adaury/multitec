@@ -8,6 +8,13 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Tests E2E de UI con Playwright** (`frontend/e2e/`), integrados a un nuevo job de CI
+  (`E2E (Playwright)`) que levanta un backend real (SQLite fresco + migraciones +
+  seed) y un `vite dev` real en el runner, y corre los tests contra la app de verdad:
+  login/logout con revocación de sesión, crear cliente + proyecto, flujo completo
+  presupuesto→cotización→aprobar (verificando el cálculo de ITBIS 18%)→materiales, y
+  gestión de usuarios. La mayoría de los tests reusan una sesión iniciada una sola vez
+  (`global-setup.ts`) para no agotar el rate limit de login.
 - **Gestión de usuarios** (`/usuarios`, solo `admin`): `GET/POST /api/users`,
   `PUT /api/users/{id}` para crear usuarios oficina/técnico, cambiar rol, activar/
   desactivar y resetear contraseña desde la app — antes solo existía el admin inicial
@@ -87,6 +94,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   diferencia de Postgres) — se normaliza a UTC antes de comparar. El manejo global de
   errores lo atrapó como un 500 limpio en vez de tumbar el proceso; el test de
   integración lo expuso de inmediato.
+- **`alembic upgrade head` estaba roto en SQLite desde las migraciones de refresh
+  tokens/auditoría** — dos bugs reales que habrían bloqueado a cualquiera siguiendo el
+  setup de desarrollo documentado (SQLite es el default en `.env.example`):
+  - `server_default=sa.text('now()')` es sintaxis específica de Postgres; en SQLite
+    `now()` no existe. Cambiado a `CURRENT_TIMESTAMP` (estándar SQL, funciona en ambos).
+  - `op.create_foreign_key` después de `op.add_column` no funciona en SQLite fuera de
+    "batch mode" (`NotImplementedError: No support for ALTER of constraints`). Envuelto
+    en `op.batch_alter_table(..., recreate='always')`. Encontrado al armar el job de CI
+    de E2E, que corre las migraciones contra SQLite fresco — nadie lo había hecho desde
+    que estas migraciones se generaron trabajando directo contra Postgres.
 
 ## [2026-07-02] — Lanzamiento inicial: fases 1-5 + IA local
 

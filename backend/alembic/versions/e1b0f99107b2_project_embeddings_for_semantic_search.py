@@ -23,7 +23,7 @@ def upgrade() -> None:
     op.create_table('project_embeddings',
     sa.Column('project_id', sa.Integer(), nullable=False),
     sa.Column('embedding', sa.JSON(), nullable=False),
-    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
     sa.ForeignKeyConstraint(['project_id'], ['projects.id'], ondelete='CASCADE'),
     sa.PrimaryKeyConstraint('project_id')
     )
