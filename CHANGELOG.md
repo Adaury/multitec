@@ -8,14 +8,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
-- **Descargar PDF** en Cotización y Factura (`GET /api/quotes/{id}/pdf`,
-  `GET /api/invoices/{id}/pdf`, con `reportlab`): membrete de la empresa (nombre/RNC/
-  dirección/teléfono, configurable en `.env`), datos del cliente y proyecto, líneas con
-  precios, subtotal/ITBIS/total, y el NCF en la factura. Antes solo se podían ver en
-  pantalla, sin forma de entregarle un documento formal al cliente. La Factura tiene un
-  segundo botón **"PDF sin precios"** (`?variant=global`): mismo documento pero solo con
-  descripción y cantidad de cada línea — sin precio unitario, subtotal, ITBIS, total ni
-  NCF — para entregar como detalle técnico de lo instalado sin exponer montos.
+- **PDF de Cotización y Factura** (`GET /api/quotes/{id}/pdf`, `GET /api/invoices/{id}/pdf`,
+  con `reportlab`): membrete de la empresa (nombre/RNC/dirección/teléfono, configurable en
+  `.env`), datos del cliente y proyecto, líneas con precios, subtotal/ITBIS/total, y el
+  NCF en la factura. Antes solo se podían ver en pantalla, sin forma de entregarle un
+  documento formal al cliente. La Factura tiene una segunda versión, **"Detalle de
+  trabajo (sin precios)"** (`?variant=global`): mismas líneas con descripción y cantidad,
+  sin precio unitario ni desglose de ITBIS, pero con el **total general del servicio** al
+  final (sin el NCF, que es propio del documento fiscal con precios) — para entregar como
+  detalle técnico sin exponer el desglose de montos. Cada una de las dos versiones tiene
+  botones **"Ver"** (abre el PDF en una pestaña nueva) y **"Descargar"**.
 - **NCF (Números de Comprobante Fiscal) en Facturación**: secuencias autorizadas por la
   DGII administrables desde `/ncf` (solo admin) — tipo (B01 crédito fiscal, B02 consumo,
   B14 regímenes especiales, B15 gubernamental), rango, vencimiento y activar/desactivar.
@@ -96,6 +98,18 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Corregido
 
+- `assign_ncf` no tenía criterio de desempate cuando dos secuencias NCF activas del mismo
+  tipo compartían fecha de vencimiento (p. ej. dos rangos autorizados el mismo día) —
+  podía resolverse de forma no determinista y, en el peor caso, generar un NCF ya usado
+  por otra secuencia, lo que la restricción `UNIQUE` de la base rechazaba como un 500
+  genérico. Ahora se desempata por `id` (la secuencia más antigua gana) y, si aun así hay
+  colisión (rangos realmente superpuestos configurados por error), se devuelve un 400 con
+  el mensaje explicando qué revisar, en vez de un error genérico. Encontrado al verificar
+  manualmente el flujo de conversión con secuencias de prueba duplicadas.
+- El botón **"Ver"** de los PDF de Factura abría una pestaña en blanco: `window.open`
+  se llamaba después de un `await` (fuera de la pila síncrona del click), así que el
+  navegador lo trataba como un popup no solicitado. Se abre la pestaña primero,
+  sincrónicamente, y se navega a la URL del PDF una vez que el blob llega.
 - La pestaña **Tickets** de un proyecto mostraba el badge de estado general del proyecto
   (p. ej. "Levantamiento") junto al código en el encabezado, aunque los tickets tienen su
   propio estado independiente (abierto/en proceso/cerrado) — daba a entender que el

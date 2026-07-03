@@ -25,7 +25,7 @@ def assign_ncf(db: Session, ncf_type: str) -> tuple[str, str]:
             NcfSequence.expires_at >= date.today(),
             NcfSequence.next_number <= NcfSequence.range_end,
         )
-        .order_by(NcfSequence.expires_at)
+        .order_by(NcfSequence.expires_at, NcfSequence.id)
         .limit(1)
         .with_for_update()
     ).scalar_one_or_none()

@@ -45,12 +45,13 @@ Construidas hasta ahora:
   asigna un **NCF** (Número de Comprobante Fiscal, requisito DGII) tomado automáticamente
   de una secuencia autorizada administrable en **`/ncf`** (solo admin) — el tipo por
   defecto se infiere de si el cliente tiene RNC (B01 crédito fiscal) o no (B02 consumo),
-  editable antes de convertir. Cotización y Factura tienen botón **"Descargar PDF"** con
-  membrete de la empresa (configurable en `.env`), datos del cliente/proyecto, líneas,
-  totales y el NCF; la Factura además tiene **"PDF sin precios"** — mismo documento pero
-  solo con descripción y cantidad, sin montos ni NCF, para entregar como detalle técnico.
-  La pestaña **Factura** también muestra una **referencia
-  del levantamiento** (notas, observaciones y fotos) como respaldo de lo facturado.
+  editable antes de convertir. Cotización y Factura tienen botones **"Ver"/"Descargar"**
+  con membrete de la empresa (configurable en `.env`), datos del cliente/proyecto, líneas,
+  totales y el NCF; la Factura además tiene una versión **"Detalle de trabajo (sin
+  precios)"** — mismas líneas con descripción/cantidad y el total general del servicio,
+  sin precio unitario, ITBIS ni NCF. La pestaña **Factura** también muestra una
+  **referencia del levantamiento** (notas, observaciones y fotos) como respaldo de lo
+  facturado.
   Pestaña **Ampliaciones** (siempre atadas al mismo proyecto, con enlace opcional a una
   cotización). Pestaña **Tickets** de soporte con historial de estados.
 - **Fase 5 (IA):** **"🤖 Organizar con IA"** en Levantamiento (resume notas + analiza

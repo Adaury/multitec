@@ -2,6 +2,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import require_role
@@ -173,9 +174,21 @@ def convert_to_invoice(
 
     pre_invoice.status = "facturada"
     db.add(invoice)
-    db.flush()
-    db.add(InvoiceHistory(invoice_id=invoice.id, action="creada", note=f"Convertida desde prefactura {pre_invoice.code}"))
-    db.commit()
+    try:
+        db.flush()
+        db.add(
+            InvoiceHistory(invoice_id=invoice.id, action="creada", note=f"Convertida desde prefactura {pre_invoice.code}")
+        )
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"El NCF {ncf} ya fue usado. Probablemente hay dos secuencias {ncf_type} activas con rangos "
+                "superpuestos — revisa las secuencias NCF en Configuración > NCF y desactiva la duplicada."
+            ),
+        )
     db.refresh(invoice)
     return invoice
 

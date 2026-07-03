@@ -67,6 +67,21 @@ export async function downloadFile(path: string, filename: string) {
   URL.revokeObjectURL(url)
 }
 
+export async function viewFile(path: string) {
+  // window.open debe llamarse sincrónicamente dentro del gesto del usuario (el click) o
+  // el navegador lo trata como popup no solicitado y abre una pestaña en blanco — por eso
+  // se abre primero y se navega después de que llegue el blob, en vez de esperar el await
+  // y abrir recién con la URL final ya resuelta.
+  const newWindow = window.open('', '_blank')
+  const response = await api.get(path, { responseType: 'blob' })
+  const url = URL.createObjectURL(response.data)
+  if (newWindow) {
+    newWindow.location.href = url
+  } else {
+    window.open(url, '_blank')
+  }
+}
+
 export async function logout() {
   const refreshToken = useAuthStore.getState().refreshToken
   if (refreshToken) {

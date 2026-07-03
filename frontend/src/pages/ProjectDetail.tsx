@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { api, downloadFile } from '../lib/api'
+import { api, downloadFile, viewFile } from '../lib/api'
 import type {
   Budget,
   BudgetSuggestionOut,
@@ -1343,21 +1343,47 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
               <span>{formatDOP(invoice.total)}</span>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => downloadFile(`/invoices/${invoice.id}/pdf`, `${invoice.code}.pdf`)}
-            >
-              Descargar PDF
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                downloadFile(`/invoices/${invoice.id}/pdf?variant=global`, `${invoice.code}-global.pdf`)
-              }
-            >
-              PDF sin precios
-            </Button>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-gray-500">Factura (con precios)</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  onClick={() => viewFile(`/invoices/${invoice.id}/pdf`)}
+                >
+                  Ver
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  onClick={() => downloadFile(`/invoices/${invoice.id}/pdf`, `${invoice.code}.pdf`)}
+                >
+                  Descargar
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-gray-500">Detalle de trabajo (sin precios)</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  onClick={() => viewFile(`/invoices/${invoice.id}/pdf?variant=global`)}
+                >
+                  Ver
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  onClick={() =>
+                    downloadFile(`/invoices/${invoice.id}/pdf?variant=global`, `${invoice.code}-global.pdf`)
+                  }
+                >
+                  Descargar
+                </Button>
+              </div>
+            </div>
           </div>
           {history && history.length > 0 && (
             <div>

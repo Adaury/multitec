@@ -37,7 +37,8 @@ def _build_pdf(
     ncf: str | None = None,
     status_label: str | None = None,
     notes: str | None = None,
-    show_prices: bool = True,
+    show_line_prices: bool = True,
+    show_breakdown: bool = True,
 ) -> bytes:
     settings = get_settings()
     buf = BytesIO()
@@ -83,7 +84,7 @@ def _build_pdf(
     story.append(header_table)
     story.append(Spacer(1, 8 * mm))
 
-    if show_prices:
+    if show_line_prices:
         rows = [["Descripción", "Cant.", "Precio unit.", "Subtotal"]]
         for item in items:
             rows.append(
@@ -116,20 +117,25 @@ def _build_pdf(
     story.append(items_table)
     story.append(Spacer(1, 6 * mm))
 
-    if show_prices:
-        totals_rows = [
-            ["Subtotal", _money(subtotal)],
-            [f"ITBIS ({settings.itbis_rate * 100:.0f}%)", _money(itbis)],
-            ["Total", _money(total)],
-        ]
+    if show_breakdown:
+        if show_line_prices:
+            totals_rows = [
+                ["Subtotal", _money(subtotal)],
+                [f"ITBIS ({settings.itbis_rate * 100:.0f}%)", _money(itbis)],
+                ["Total", _money(total)],
+            ]
+        else:
+            # Sin desglose por línea: solo el precio global del servicio completo.
+            totals_rows = [["Total del servicio", _money(total)]]
+        bold_row = len(totals_rows) - 1
         totals_table = Table(totals_rows, colWidths=[140 * mm, 30 * mm])
         totals_table.setStyle(
             TableStyle(
                 [
                     ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
                     ("FONTSIZE", (0, 0), (-1, -1), 9),
-                    ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
-                    ("LINEABOVE", (0, 2), (-1, 2), 0.75, colors.black),
+                    ("FONTNAME", (0, bold_row), (-1, bold_row), "Helvetica-Bold"),
+                    ("LINEABOVE", (0, bold_row), (-1, bold_row), 0.75, colors.black),
                     ("TOPPADDING", (0, 0), (-1, -1), 3),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
                 ]
@@ -163,9 +169,9 @@ def build_quote_pdf(quote: Quote) -> bytes:
 
 
 def build_invoice_pdf(invoice: Invoice, variant: str = "detallada") -> bytes:
-    show_prices = variant != "global"
+    show_line_prices = variant != "global"
     return _build_pdf(
-        doc_title="Factura" if show_prices else "Factura — Detalle de trabajo",
+        doc_title="Factura" if show_line_prices else "Factura — Detalle de trabajo",
         code=invoice.code,
         created_at=invoice.created_at,
         client=invoice.project.client,
@@ -174,6 +180,7 @@ def build_invoice_pdf(invoice: Invoice, variant: str = "detallada") -> bytes:
         subtotal=float(invoice.subtotal),
         itbis=float(invoice.itbis),
         total=float(invoice.total),
-        ncf=invoice.ncf if show_prices else None,
-        show_prices=show_prices,
+        ncf=invoice.ncf if show_line_prices else None,
+        show_line_prices=show_line_prices,
+        show_breakdown=True,
     )

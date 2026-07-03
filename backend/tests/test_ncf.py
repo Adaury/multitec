@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+from app.models.invoice import Invoice
 from tests.conftest import auth_headers, make_project, seed_ncf_sequence
 
 
@@ -145,3 +146,50 @@ def test_ncf_sequence_exhaustion(client, admin_token, db_session):
     pre_invoice2 = _pre_invoice(client, headers, project2)
     second = client.post(f"/api/pre-invoices/{pre_invoice2['id']}/convert-to-invoice", headers=headers)
     assert second.status_code == 400
+
+
+def test_overlapping_active_sequences_pick_deterministically(client, admin_token, db_session):
+    """Dos secuencias B02 activas con el mismo rango y vencimiento (error de captura del
+    admin) no deben resolverse al azar — siempre gana la más antigua (menor id), así que
+    conversiones repetidas nunca chocan entre sí mientras esa siga vigente."""
+    headers = auth_headers(admin_token)
+    seq_a = seed_ncf_sequence(db_session, ncf_type="B02")
+    seed_ncf_sequence(db_session, ncf_type="B02")  # rango idéntico, vencimiento idéntico
+
+    project = make_project(client, headers)
+    pre_invoice = _pre_invoice(client, headers, project)
+    invoice = client.post(f"/api/pre-invoices/{pre_invoice['id']}/convert-to-invoice", headers=headers)
+    assert invoice.status_code == 201
+    assert invoice.json()["ncf"] == "B0200000001"
+
+    db_session.refresh(seq_a)
+    assert seq_a.next_number == 2  # se consumió de la secuencia con menor id, no de la otra
+
+
+def test_ncf_collision_returns_clean_400_not_500(client, admin_token, db_session):
+    """Si por algún motivo ya existe una factura con el NCF que le tocaría a la siguiente
+    (p. ej. secuencias solapadas creadas manualmente), el conflicto de unicidad en BD debe
+    traducirse en un 400 explicable, no un 500 genérico."""
+    headers = auth_headers(admin_token)
+    seed_ncf_sequence(db_session, ncf_type="B02")
+
+    project = make_project(client, headers)
+    other_pre_invoice = _pre_invoice(client, headers, project)
+    db_session.add(
+        Invoice(
+            code="FAC-PRECOLISION",
+            project_id=project["id"],
+            pre_invoice_id=other_pre_invoice["id"],
+            ncf="B0200000001",
+            ncf_type="B02",
+            subtotal=0,
+            itbis=0,
+            total=0,
+        )
+    )
+    db_session.commit()
+
+    pre_invoice = _pre_invoice(client, headers, project)
+    resp = client.post(f"/api/pre-invoices/{pre_invoice['id']}/convert-to-invoice", headers=headers)
+    assert resp.status_code == 400
+    assert "ya fue usado" in resp.json()["detail"]
