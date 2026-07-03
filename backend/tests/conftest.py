@@ -95,6 +95,35 @@ def make_project(client: TestClient, headers: dict, client_name: str = "Cliente 
     return project_resp.json()
 
 
+def seed_ncf_sequence(
+    db,
+    ncf_type: str = "B02",
+    range_start: int = 1,
+    range_end: int = 99999999,
+    expires_at=None,
+    active: bool = True,
+):
+    """Crea una secuencia NCF de prueba — convert-to-invoice necesita una secuencia
+    activa y vigente para el tipo correspondiente o falla con 400."""
+    from datetime import date, timedelta
+
+    from app.models.ncf_sequence import NcfSequence
+
+    sequence = NcfSequence(
+        ncf_type=ncf_type,
+        description=f"Secuencia de prueba {ncf_type}",
+        range_start=range_start,
+        range_end=range_end,
+        next_number=range_start,
+        expires_at=expires_at or (date.today() + timedelta(days=365)),
+        active=active,
+    )
+    db.add(sequence)
+    db.commit()
+    db.refresh(sequence)
+    return sequence
+
+
 @pytest.fixture
 def admin_token(client, db_session):
     create_user(db_session, "admin@test.com", "adminpass123", "admin")

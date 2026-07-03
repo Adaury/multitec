@@ -25,7 +25,9 @@ const baseMenu = [
 export function Dashboard() {
   const navigate = useNavigate()
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
-  const menu = isAdmin ? [...baseMenu, { label: 'Usuarios', icon: '⚙️', to: '/usuarios' }] : baseMenu
+  const menu = isAdmin
+    ? [...baseMenu, { label: 'Usuarios', icon: '⚙️', to: '/usuarios' }, { label: 'NCF', icon: '🧾', to: '/ncf' }]
+    : baseMenu
 
   return (
     <div className="space-y-6 py-4">

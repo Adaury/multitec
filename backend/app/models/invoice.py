@@ -52,6 +52,8 @@ class Invoice(Base):
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
     pre_invoice_id: Mapped[int] = mapped_column(ForeignKey("pre_invoices.id"), unique=True)
+    ncf: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
+    ncf_type: Mapped[str | None] = mapped_column(String(3), nullable=True)
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     itbis: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)

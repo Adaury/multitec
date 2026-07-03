@@ -63,6 +63,8 @@ class InvoiceOut(BaseModel):
     code: str
     project_id: int
     pre_invoice_id: int
+    ncf: str | None = None
+    ncf_type: str | None = None
     subtotal: float
     itbis: float
     total: float

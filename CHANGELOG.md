@@ -8,6 +8,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **NCF (Números de Comprobante Fiscal) en Facturación**: secuencias autorizadas por la
+  DGII administrables desde `/ncf` (solo admin) — tipo (B01 crédito fiscal, B02 consumo,
+  B14 regímenes especiales, B15 gubernamental), rango, vencimiento y activar/desactivar.
+  Al convertir una prefactura en factura se le asigna automáticamente el siguiente número
+  de la secuencia vigente correspondiente (rechaza si está vencida, agotada o inactiva);
+  el tipo por defecto se infiere de si el cliente tiene RNC (B01) o no (B02), pero el
+  admin puede elegir otro tipo antes de convertir. El NCF queda expuesto en la factura y
+  en el tab de Factura del proyecto. 8 tests nuevos.
 - **Tests E2E de UI con Playwright** (`frontend/e2e/`), integrados a un nuevo job de CI
   (`E2E (Playwright)`) que levanta un backend real (SQLite fresco + migraciones +
   seed) y un `vite dev` real en el runner, y corre los tests contra la app de verdad:

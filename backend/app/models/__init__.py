@@ -7,6 +7,7 @@ from app.models.extension import Extension
 from app.models.invoice import Invoice, InvoiceHistory, InvoiceItem, PreInvoice, PreInvoiceItem
 from app.models.logbook import LogEntry, LogEntryAsset
 from app.models.material import Material
+from app.models.ncf_sequence import NcfSequence
 from app.models.product import Product
 from app.models.project import Project
 from app.models.quote import Quote, QuoteHistory, QuoteItem
@@ -28,6 +29,7 @@ __all__ = [
     "LogEntry",
     "LogEntryAsset",
     "Material",
+    "NcfSequence",
     "PreInvoice",
     "PreInvoiceItem",
     "Product",

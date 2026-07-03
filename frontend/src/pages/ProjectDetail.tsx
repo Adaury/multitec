@@ -15,6 +15,7 @@ import type {
   LogEntry,
   Material,
   MaterialStatus,
+  NcfType,
   PreInvoice,
   Product,
   ProjectDetail as ProjectDetailType,
@@ -29,6 +30,8 @@ import type {
 import {
   EXTENSION_STATUS_LABELS,
   MATERIAL_STATUS_LABELS,
+  NCF_TYPE_LABELS,
+  NCF_TYPES,
   PROJECT_STATUS_LABELS,
   QUOTE_HISTORY_LABELS,
   QUOTE_STATUS_LABELS,
@@ -156,7 +159,13 @@ export function ProjectDetail() {
       {tab === 'compras' && <PurchasesTab projectId={project.id} />}
       {tab === 'ejecucion' && <ExecutionTab projectId={project.id} />}
       {tab === 'bitacora' && <LogbookTab projectId={project.id} />}
-      {tab === 'prefactura' && <PreInvoiceTab projectId={project.id} onConverted={() => setTab('factura')} />}
+      {tab === 'prefactura' && (
+        <PreInvoiceTab
+          projectId={project.id}
+          clientHasRnc={!!project.client.rnc}
+          onConverted={() => setTab('factura')}
+        />
+      )}
       {tab === 'factura' && <InvoiceTab projectId={project.id} />}
       {tab === 'ampliaciones' && <ExtensionsTab projectId={project.id} />}
       {tab === 'tickets' && <TicketsTab projectId={project.id} />}
@@ -1082,9 +1091,18 @@ function LogbookTab({ projectId }: { projectId: number }) {
   )
 }
 
-function PreInvoiceTab({ projectId, onConverted }: { projectId: number; onConverted: () => void }) {
+function PreInvoiceTab({
+  projectId,
+  clientHasRnc,
+  onConverted,
+}: {
+  projectId: number
+  clientHasRnc: boolean
+  onConverted: () => void
+}) {
   const queryClient = useQueryClient()
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
+  const [ncfTypeByPreInvoice, setNcfTypeByPreInvoice] = useState<Record<number, NcfType>>({})
 
   const { data: quotes } = useQuery({
     queryKey: ['quotes', projectId],
@@ -1099,16 +1117,28 @@ function PreInvoiceTab({ projectId, onConverted }: { projectId: number; onConver
     queryClient.invalidateQueries({ queryKey: ['pre-invoices', projectId] })
   }
 
+  function ncfTypeFor(preInvoiceId: number): NcfType {
+    return ncfTypeByPreInvoice[preInvoiceId] ?? (clientHasRnc ? 'B01' : 'B02')
+  }
+
   const generate = useMutation({
     mutationFn: async (quoteId: number) => (await api.post(`/quotes/${quoteId}/generate-pre-invoice`)).data,
     onSuccess: invalidate,
   })
+  const [convertError, setConvertError] = useState<string | null>(null)
   const convert = useMutation({
-    mutationFn: async (preInvoiceId: number) => (await api.post(`/pre-invoices/${preInvoiceId}/convert-to-invoice`)).data,
+    mutationFn: async (preInvoiceId: number) =>
+      (
+        await api.post(`/pre-invoices/${preInvoiceId}/convert-to-invoice`, {
+          ncf_type: ncfTypeFor(preInvoiceId),
+        })
+      ).data,
     onSuccess: () => {
+      setConvertError(null)
       invalidate()
       onConverted()
     },
+    onError: (err: any) => setConvertError(err?.response?.data?.detail ?? 'Error al convertir a factura'),
   })
 
   const usedQuoteIds = new Set(preInvoices?.map((p) => p.source_quote_id).filter(Boolean))
@@ -1174,9 +1204,27 @@ function PreInvoiceTab({ projectId, onConverted }: { projectId: number; onConver
               </div>
             </div>
             {pfc.status === 'pendiente' && isAdmin && (
-              <Button className="mt-3" onClick={() => convert.mutate(pfc.id)} disabled={convert.isPending}>
-                {convert.isPending ? 'Convirtiendo…' : 'Convertir a factura'}
-              </Button>
+              <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+                <Field label="Tipo de NCF">
+                  <select
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+                    value={ncfTypeFor(pfc.id)}
+                    onChange={(e) =>
+                      setNcfTypeByPreInvoice((prev) => ({ ...prev, [pfc.id]: e.target.value as NcfType }))
+                    }
+                  >
+                    {NCF_TYPES.map((t) => (
+                      <option key={t} value={t}>
+                        {NCF_TYPE_LABELS[t]}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                {convertError && <p className="text-sm text-red-600">{convertError}</p>}
+                <Button onClick={() => convert.mutate(pfc.id)} disabled={convert.isPending}>
+                  {convert.isPending ? 'Convirtiendo…' : 'Convertir a factura'}
+                </Button>
+              </div>
             )}
             {pfc.status === 'pendiente' && !isAdmin && (
               <p className="mt-3 text-xs text-gray-400">Solo un administrador puede convertir a factura.</p>
@@ -1255,7 +1303,10 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
     <Card>
       <button className="w-full text-left" onClick={onToggle}>
         <div className="flex items-center justify-between">
-          <p className="font-medium text-gray-900">{invoice.code}</p>
+          <div>
+            <p className="font-medium text-gray-900">{invoice.code}</p>
+            {invoice.ncf && <p className="text-xs text-gray-500">NCF: {invoice.ncf}</p>}
+          </div>
           <p className="text-sm font-semibold text-gray-800">{formatDOP(invoice.total)}</p>
         </div>
       </button>

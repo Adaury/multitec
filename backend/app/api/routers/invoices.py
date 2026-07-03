@@ -3,12 +3,16 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import require_role
 from app.db.session import get_db
+from app.models.client import Client
 from app.models.invoice import Invoice, InvoiceHistory, InvoiceItem, PreInvoice, PreInvoiceItem
 from app.models.product import Product
+from app.models.project import Project
 from app.models.quote import Quote
 from app.models.user import User
 from app.schemas.invoice import InvoiceHistoryOut, InvoiceOut, PreInvoiceCreate, PreInvoiceOut
+from app.schemas.ncf import ConvertToInvoiceRequest
 from app.services.code_generator import next_code
+from app.services.ncf import assign_ncf, default_ncf_type
 from app.services.totals import LineInput, compute_totals
 
 router = APIRouter(tags=["invoices"])
@@ -124,17 +128,29 @@ def get_pre_invoice(pre_invoice_id: int, db: Session = Depends(get_db), _=Depend
 
 
 @router.post("/api/pre-invoices/{pre_invoice_id}/convert-to-invoice", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED)
-def convert_to_invoice(pre_invoice_id: int, db: Session = Depends(get_db), current_user: User = Depends(admin_only)):
+def convert_to_invoice(
+    pre_invoice_id: int,
+    payload: ConvertToInvoiceRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_only),
+):
     """§13-14: 'el administrador decide convertir a factura' — único endpoint admin-only."""
     pre_invoice = _get_pre_invoice(db, pre_invoice_id)
     if pre_invoice.status == "facturada":
         raise HTTPException(status_code=400, detail="Esta prefactura ya fue facturada")
+
+    project = db.get(Project, pre_invoice.project_id)
+    client = db.get(Client, project.client_id)
+    ncf_type = (payload.ncf_type if payload else None) or default_ncf_type(client)
+    ncf, ncf_type = assign_ncf(db, ncf_type)
 
     code = next_code(db, "FAC")
     invoice = Invoice(
         code=code,
         project_id=pre_invoice.project_id,
         pre_invoice_id=pre_invoice.id,
+        ncf=ncf,
+        ncf_type=ncf_type,
         subtotal=pre_invoice.subtotal,
         itbis=pre_invoice.itbis,
         total=pre_invoice.total,

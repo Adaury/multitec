@@ -264,6 +264,8 @@ export interface Invoice {
   code: string
   project_id: number
   pre_invoice_id: number
+  ncf: string | null
+  ncf_type: string | null
   subtotal: number
   itbis: number
   total: number
@@ -275,6 +277,29 @@ export interface InvoiceHistoryEntry {
   id: number
   action: string
   note: string | null
+  created_at: string
+}
+
+export const NCF_TYPES = ['B01', 'B02', 'B14', 'B15'] as const
+export type NcfType = (typeof NCF_TYPES)[number]
+
+export const NCF_TYPE_LABELS: Record<NcfType, string> = {
+  B01: 'B01 — Crédito Fiscal',
+  B02: 'B02 — Consumo',
+  B14: 'B14 — Regímenes Especiales',
+  B15: 'B15 — Gubernamental',
+}
+
+export interface NcfSequence {
+  id: number
+  ncf_type: NcfType
+  description: string
+  range_start: number
+  range_end: number
+  next_number: number
+  expires_at: string
+  active: boolean
+  created_by: number | null
   created_at: string
 }
 

@@ -1,4 +1,4 @@
-from tests.conftest import auth_headers, make_project
+from tests.conftest import auth_headers, make_project, seed_ncf_sequence
 
 
 def _approved_quote(client, headers, project):
@@ -12,9 +12,10 @@ def _approved_quote(client, headers, project):
     return quote
 
 
-def test_only_admin_can_convert_pre_invoice_to_invoice(client, admin_token, oficina_token):
+def test_only_admin_can_convert_pre_invoice_to_invoice(client, admin_token, oficina_token, db_session):
     admin_headers = auth_headers(admin_token)
     oficina_headers = auth_headers(oficina_token)
+    seed_ncf_sequence(db_session, ncf_type="B02")
 
     project = make_project(client, admin_headers)
     quote = _approved_quote(client, admin_headers, project)
@@ -34,6 +35,9 @@ def test_only_admin_can_convert_pre_invoice_to_invoice(client, admin_token, ofic
     assert allowed.status_code == 201
     assert allowed.json()["total"] == pre_invoice["total"]
     assert allowed.json()["code"] == "FAC-000001"
+    # cliente de prueba no tiene RNC -> B02 (consumo) por defecto
+    assert allowed.json()["ncf"] == "B0200000001"
+    assert allowed.json()["ncf_type"] == "B02"
 
     # ya facturada: una segunda conversión debe fallar
     again = client.post(f"/api/pre-invoices/{pre_invoice['id']}/convert-to-invoice", headers=admin_headers)
