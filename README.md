@@ -73,6 +73,11 @@ Construidas hasta ahora:
 
 Con esto quedan completadas las 5 fases del brief original.
 
+Construido después del brief original: NCF en Facturación, PDF de Cotización/Factura
+(con una versión sin precios), y un **Dashboard con reportes/KPIs** en la pantalla de
+inicio (`/`, solo admin/oficina) — cotizaciones pendientes, tickets abiertos por técnico,
+proyectos por estado, y un gráfico de facturación de los últimos 6 meses.
+
 ## Capturas
 
 <p>

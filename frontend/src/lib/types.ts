@@ -303,6 +303,14 @@ export interface NcfSequence {
   created_at: string
 }
 
+export interface DashboardSummary {
+  projects_by_status: { status: string; count: number }[]
+  monthly_invoicing: { month: string; total: number }[]
+  quotes_pending: number
+  open_tickets_by_technician: { technician: string; count: number }[]
+  open_tickets_total: number
+}
+
 export type ExtensionStatus = 'pendiente' | 'aprobada' | 'rechazada'
 
 export interface Extension {

@@ -8,6 +8,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Dashboard con reportes/KPIs** (`GET /api/reports/dashboard`, solo admin/oficina):
+  cotizaciones pendientes de decisión, tickets abiertos (total y por técnico), proyectos
+  agrupados por estado, y facturación de los últimos 6 meses en un gráfico de barras
+  simple (CSS, sin librería de gráficos). Aparece en la pantalla de inicio arriba del
+  menú; no visible para el rol `tecnico` (datos comerciales/financieros). 4 tests nuevos.
 - **PDF de Cotización y Factura** (`GET /api/quotes/{id}/pdf`, `GET /api/invoices/{id}/pdf`,
   con `reportlab`): membrete de la empresa (nombre/RNC/dirección/teléfono, configurable en
   `.env`), datos del cliente y proyecto, líneas con precios, subtotal/ITBIS/total, y el

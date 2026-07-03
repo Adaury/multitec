@@ -24,6 +24,7 @@ from app.api.routers import (
     ncf,
     projects,
     quotes,
+    reports,
     surveys,
     tickets,
     users,
@@ -88,6 +89,7 @@ app.include_router(tickets.router)
 app.include_router(ai.router)
 app.include_router(users.router)
 app.include_router(ncf.router)
+app.include_router(reports.router)
 
 
 @app.get("/api/health")
