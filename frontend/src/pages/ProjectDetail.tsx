@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, downloadFile, viewFile } from '../lib/api'
 import type {
   Budget,
@@ -114,7 +114,10 @@ const TABS: { key: Tab; label: string }[] = [
 export function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [tab, setTab] = useState<Tab>('info')
+  const [searchParams] = useSearchParams()
+  const tabParam = searchParams.get('tab')
+  const initialTab = TABS.some((t) => t.key === tabParam) ? (tabParam as Tab) : 'info'
+  const [tab, setTab] = useState<Tab>(initialTab)
 
   const { data: project } = useQuery({
     queryKey: ['projects', id],

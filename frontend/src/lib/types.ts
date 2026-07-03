@@ -311,6 +311,12 @@ export interface DashboardSummary {
   open_tickets_total: number
 }
 
+export interface SearchResults {
+  clients: { id: number; name: string; company: string | null }[]
+  projects: { id: number; code: string; client_name: string; status: string }[]
+  tickets: { id: number; code: string; problem: string; project_id: number; project_code: string }[]
+}
+
 export type ExtensionStatus = 'pendiente' | 'aprobada' | 'rechazada'
 
 export interface Extension {

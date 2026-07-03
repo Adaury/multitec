@@ -8,6 +8,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Búsqueda global** (`GET /api/search`, ícono 🔍 en el encabezado, accesible desde
+  cualquier pantalla): encuentra clientes (nombre/empresa/RNC), proyectos (código,
+  descripción, o por el nombre del cliente) y tickets (código o descripción del
+  problema) mientras se escribe (debounce 300ms, mínimo 2 caracteres). Disponible para
+  los tres roles, ya que solo expone lo que cada uno ya puede ver en sus respectivas
+  listas. Los resultados de tickets llevan directo a la pestaña Tickets del proyecto
+  (`/proyectos/{id}?tab=tickets` — la pestaña inicial de un proyecto ahora se puede fijar
+  por URL). 4 tests nuevos.
 - **Dashboard con reportes/KPIs** (`GET /api/reports/dashboard`, solo admin/oficina):
   cotizaciones pendientes de decisión, tickets abiertos (total y por técnico), proyectos
   agrupados por estado, y facturación de los últimos 6 meses en un gráfico de barras

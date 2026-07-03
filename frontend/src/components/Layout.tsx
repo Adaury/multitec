@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import { api, logout } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import type { CurrentUser } from '../lib/types'
+import { GlobalSearch } from './GlobalSearch'
 
 const navItems = [
   { to: '/', label: 'Inicio', icon: '🏠', end: true },
@@ -30,12 +31,15 @@ export function Layout() {
           <p className="text-lg font-semibold text-gray-900">Multitec</p>
           <p className="text-xs text-gray-500">{user?.name}</p>
         </div>
-        <button
-          onClick={() => logout()}
-          className="rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-black/5"
-        >
-          Salir
-        </button>
+        <div className="flex items-center gap-2">
+          <GlobalSearch />
+          <button
+            onClick={() => logout()}
+            className="rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-black/5"
+          >
+            Salir
+          </button>
+        </div>
       </header>
 
       <main className="flex-1 px-5">
