@@ -16,7 +16,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.sequence import CodeSequence
 from app.models.stock_movement import StockMovement
 from app.models.survey import Survey, SurveyAsset
-from app.models.ticket import Ticket, TicketHistory
+from app.models.ticket import Ticket, TicketAsset, TicketHistory
 from app.models.user import User
 from app.models.visit import Visit
 
@@ -49,6 +49,7 @@ __all__ = [
     "Survey",
     "SurveyAsset",
     "Ticket",
+    "TicketAsset",
     "TicketHistory",
     "User",
     "Visit",

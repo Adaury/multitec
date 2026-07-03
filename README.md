@@ -92,6 +92,8 @@ Construido después del brief original:
   [Reporte 607](#reporte-607-ventas-dgii).
 - **Calendario de visitas técnicas** (`/calendario`, los tres roles) — agenda simple por
   día, con técnico y hora opcionales.
+- **Fotos de evidencia en Tickets** — subir/borrar fotos individuales, como ya era
+  posible en Levantamiento y Bitácora.
 
 ## Capturas
 

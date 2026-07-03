@@ -389,6 +389,13 @@ export interface Technician {
 
 export type TicketStatus = 'abierto' | 'en_proceso' | 'resuelto' | 'cerrado'
 
+export interface TicketAsset {
+  id: number
+  file_path: string
+  description: string | null
+  created_at: string
+}
+
 export interface Ticket {
   id: number
   code: string
@@ -399,6 +406,7 @@ export interface Ticket {
   status: TicketStatus
   created_at: string
   resolved_at: string | null
+  assets: TicketAsset[]
 }
 
 export interface TicketHistoryEntry {

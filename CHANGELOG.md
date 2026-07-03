@@ -8,6 +8,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Fotos de evidencia en Tickets**: cada ticket ahora puede llevar fotos adjuntas (p.
+  ej. antes/después de una reparación), igual que Levantamiento y Bitácora ya podían —
+  era el único módulo con soporte de fotos que le faltaba. Subir (`POST
+  /api/tickets/{id}/photos`) y borrar (`DELETE /api/tickets/{id}/photos/{asset_id}`)
+  individualmente, mismos roles que el resto de Tickets. 6 tests nuevos.
 - **Calendario de visitas técnicas** (`/calendario`, los tres roles): agenda simple por
   día — navegación con flechas o selector de fecha, agendar una visita a un proyecto con
   técnico y hora opcionales, y marcar completada/cancelada. `GET /api/visits?start=&end=`

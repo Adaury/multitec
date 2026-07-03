@@ -30,6 +30,7 @@ class Ticket(Base):
     history: Mapped[list["TicketHistory"]] = relationship(
         back_populates="ticket", cascade="all, delete-orphan", order_by="TicketHistory.created_at"
     )
+    assets: Mapped[list["TicketAsset"]] = relationship(back_populates="ticket", cascade="all, delete-orphan")
 
 
 class TicketHistory(Base):
@@ -42,3 +43,17 @@ class TicketHistory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     ticket: Mapped["Ticket"] = relationship(back_populates="history")
+
+
+class TicketAsset(Base):
+    """Foto de evidencia adjunta a un ticket (p. ej. al resolverlo)."""
+
+    __tablename__ = "ticket_assets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("tickets.id"))
+    file_path: Mapped[str] = mapped_column(String(500))
+    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    ticket: Mapped["Ticket"] = relationship(back_populates="assets")

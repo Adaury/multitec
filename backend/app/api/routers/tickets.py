@@ -1,19 +1,25 @@
+import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy.orm import Session, joinedload
 
+from app.core.config import get_settings
 from app.core.security import require_role
 from app.db.session import get_db
-from app.models.ticket import TICKET_STATUSES, Ticket, TicketHistory
+from app.models.ticket import TICKET_STATUSES, Ticket, TicketAsset, TicketHistory
 from app.models.user import User
-from app.schemas.ticket import TicketCreate, TicketHistoryOut, TicketOut, TicketUpdate
+from app.schemas.ticket import TicketAssetOut, TicketCreate, TicketHistoryOut, TicketOut, TicketUpdate
 from app.services.code_generator import next_code
 from app.services.notifications import notify_ticket_assigned
+from app.services.uploads import enforce_upload_size
 
 router = APIRouter(tags=["tickets"])
 
 allowed_roles = require_role("admin", "oficina", "tecnico")
+
+ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/heic", "image/webp"}
 
 
 def _get_ticket(db: Session, ticket_id: int) -> Ticket:
@@ -27,6 +33,7 @@ def _get_ticket(db: Session, ticket_id: int) -> Ticket:
 def list_tickets(project_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
     return (
         db.query(Ticket)
+        .options(joinedload(Ticket.assets))
         .filter(Ticket.project_id == project_id)
         .order_by(Ticket.created_at.desc())
         .all()
@@ -88,3 +95,47 @@ def get_ticket_history(ticket_id: int, db: Session = Depends(get_db), _=Depends(
         .order_by(TicketHistory.created_at)
         .all()
     )
+
+
+@router.post("/api/tickets/{ticket_id}/photos", response_model=TicketAssetOut, status_code=status.HTTP_201_CREATED)
+async def upload_ticket_photo(
+    ticket_id: int,
+    description: str | None = Form(None),
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
+    ticket = _get_ticket(db, ticket_id)
+    if file.content_type not in ALLOWED_PHOTO_TYPES:
+        raise HTTPException(status_code=400, detail=f"Tipo de archivo no permitido: {file.content_type}")
+
+    settings = get_settings()
+    ticket_dir = Path(settings.upload_dir) / "tickets" / str(ticket.id)
+    ticket_dir.mkdir(parents=True, exist_ok=True)
+
+    extension = Path(file.filename or "").suffix
+    stored_name = f"{uuid.uuid4().hex}{extension}"
+    destination = ticket_dir / stored_name
+
+    contents = await file.read()
+    enforce_upload_size(contents)
+    destination.write_bytes(contents)
+
+    asset = TicketAsset(ticket_id=ticket.id, file_path=str(destination.as_posix()), description=description)
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+@router.delete("/api/tickets/{ticket_id}/photos/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_ticket_photo(ticket_id: int, asset_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    ticket = _get_ticket(db, ticket_id)
+    asset = next((a for a in ticket.assets if a.id == asset_id), None)
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    file_path = Path(asset.file_path)
+    db.delete(asset)
+    db.commit()
+    file_path.unlink(missing_ok=True)

@@ -14,6 +14,16 @@ class TicketUpdate(BaseModel):
     technician_id: int | None = None
 
 
+class TicketAssetOut(BaseModel):
+    id: int
+    file_path: str
+    description: str | None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class TicketOut(BaseModel):
     id: int
     code: str
@@ -26,6 +36,7 @@ class TicketOut(BaseModel):
     created_at: datetime
     updated_at: datetime | None = None
     resolved_at: datetime | None
+    assets: list[TicketAssetOut] = []
 
     class Config:
         from_attributes = True

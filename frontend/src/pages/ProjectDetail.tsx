@@ -1647,6 +1647,7 @@ function TicketCard({
   onChanged: () => void
 }) {
   const [solution, setSolution] = useState(ticket.solution ?? '')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const { data: history } = useQuery({
     queryKey: ['ticket-history', ticket.id],
@@ -1657,6 +1658,20 @@ function TicketCard({
   const updateTicket = useMutation({
     mutationFn: async (payload: { solution?: string; status?: TicketStatus; technician_id?: number | null }) =>
       (await api.put(`/tickets/${ticket.id}`, payload)).data,
+    onSuccess: onChanged,
+  })
+
+  const uploadPhoto = useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return (await api.post(`/tickets/${ticket.id}/photos`, form)).data
+    },
+    onSuccess: onChanged,
+  })
+
+  const deletePhoto = useMutation({
+    mutationFn: async (assetId: number) => api.delete(`/tickets/${ticket.id}/photos/${assetId}`),
     onSuccess: onChanged,
   })
 
@@ -1733,6 +1748,45 @@ function TicketCard({
               </div>
             </div>
           )}
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-gray-500">Fotos de evidencia</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0]
+                if (file) uploadPhoto.mutate(file)
+                e.target.value = ''
+              }}
+            />
+            <div className="grid grid-cols-3 gap-2">
+              {ticket.assets.map((asset) => (
+                <div key={asset.id} className="relative">
+                  <img
+                    src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+                    className="aspect-square rounded-xl object-cover"
+                    alt="Foto de evidencia del ticket"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => deletePhoto.mutate(asset.id)}
+                    disabled={deletePhoto.isPending}
+                    aria-label="Borrar foto"
+                    className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-xs text-white"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+            <Button variant="secondary" onClick={() => fileInputRef.current?.click()} disabled={uploadPhoto.isPending}>
+              {uploadPhoto.isPending ? 'Subiendo…' : '📷 Agregar foto'}
+            </Button>
+          </div>
 
           {history && history.length > 0 && (
             <div>
