@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, downloadFile } from '../lib/api'
 import { Card } from '../components/ui'
 import { useAuthStore } from '../lib/authStore'
 import { formatDOP } from '../lib/format'
@@ -60,7 +60,23 @@ function DashboardKpis() {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-gray-900">Resumen</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-gray-900">Resumen</h2>
+        <div className="flex gap-2">
+          <button
+            onClick={() => downloadFile('/reports/dashboard/export', 'dashboard.csv')}
+            className="rounded-full bg-brand-gray px-3 py-1.5 text-xs font-medium text-gray-700"
+          >
+            Exportar resumen
+          </button>
+          <button
+            onClick={() => downloadFile('/invoices/export', 'facturas.csv')}
+            className="rounded-full bg-brand-gray px-3 py-1.5 text-xs font-medium text-gray-700"
+          >
+            Exportar facturas
+          </button>
+        </div>
+      </div>
       <div className="mt-3 grid grid-cols-2 gap-3">
         <Card>
           <p className="text-xs font-medium text-gray-500">Cotizaciones pendientes</p>

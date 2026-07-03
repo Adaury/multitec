@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, downloadFile } from '../lib/api'
 import type { Client, ClientInput } from '../lib/types'
+import { useAuthStore } from '../lib/authStore'
 import { Button, Card, Field, Input, Textarea } from '../components/ui'
 
 function useClients() {
@@ -22,6 +23,8 @@ export function Clients() {
   const [form, setForm] = useState<ClientInput>(emptyClient())
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const role = useAuthStore((s) => s.user?.role)
+  const canExport = role === 'admin' || role === 'oficina'
 
   const createClient = useMutation({
     mutationFn: async (payload: ClientInput) => (await api.post('/clients', payload)).data,
@@ -36,12 +39,22 @@ export function Clients() {
     <div className="space-y-4 py-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Clientes</h1>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
-        >
-          {showForm ? 'Cancelar' : '+ Nuevo'}
-        </button>
+        <div className="flex gap-2">
+          {canExport && (
+            <button
+              onClick={() => downloadFile('/clients/export', 'clientes.csv')}
+              className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700"
+            >
+              Exportar CSV
+            </button>
+          )}
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
+          >
+            {showForm ? 'Cancelar' : '+ Nuevo'}
+          </button>
+        </div>
       </div>
 
       {showForm && (

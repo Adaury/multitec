@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import require_role
@@ -9,6 +10,7 @@ from app.models.survey import Survey
 from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectDetailOut, ProjectOut, ProjectUpdate
 from app.services.code_generator import next_code
+from app.services.csv_export import build_csv
 from app.services.execution import ensure_stages
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -40,6 +42,27 @@ def create_project(payload: ProjectCreate, db: Session = Depends(get_db), curren
     db.commit()
     db.refresh(project)
     return project
+
+
+@router.get("/export")
+def export_projects_csv(db: Session = Depends(get_db), _=Depends(write_roles)):
+    projects = (
+        db.query(Project)
+        .options(joinedload(Project.client))
+        .order_by(Project.created_at.desc())
+        .all()
+    )
+    headers = ["Código", "Cliente", "Estado", "Fecha", "Descripción"]
+    rows = [
+        [p.code, p.client.name, p.status, p.date.isoformat(), p.description or ""]
+        for p in projects
+    ]
+    csv_bytes = build_csv(headers, rows)
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="proyectos.csv"'},
+    )
 
 
 @router.get("/{project_id}", response_model=ProjectDetailOut)

@@ -8,6 +8,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Exportar a CSV** (admin/oficina): botón "Exportar CSV" en Clientes y Proyectos, y
+  "Exportar resumen"/"Exportar facturas" en el Dashboard — descargan `text/csv` con BOM
+  UTF-8 (para que Excel en Windows muestre bien tildes y la ñ). El resumen del dashboard
+  exporta cada sección (cotizaciones pendientes, tickets abiertos, proyectos por estado,
+  facturación mensual, tickets por técnico) como filas `Sección,Etiqueta,Valor`.
+  6 tests nuevos.
 - **Control de inventario de bodega** en el Catálogo: cada producto tiene ahora
   `stock_quantity` y un botón para expandirlo y registrar **entradas/salidas**
   (`POST /api/products/{id}/stock-movements`) con motivo opcional e historial completo.

@@ -81,8 +81,9 @@ proyectos por estado, y un gráfico de facturación de los últimos 6 meses — 
 proyectos y tickets desde cualquier pantalla, **asignación de técnico a tickets** desde
 la propia pestaña Tickets, **notificaciones por correo** (cotización pendiente, ticket
 asignado, factura emitida — ver [Notificaciones por
-correo](#notificaciones-por-correo)), y **control de inventario de bodega** en el
-Catálogo (entradas/salidas de stock por producto, con historial).
+correo](#notificaciones-por-correo)), **control de inventario de bodega** en el
+Catálogo (entradas/salidas de stock por producto, con historial), y **exportar a CSV**
+(Clientes, Proyectos, Facturas, resumen del Dashboard).
 
 ## Capturas
 

@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, downloadFile } from '../lib/api'
 import type { Client, Project } from '../lib/types'
 import { PROJECT_STATUS_LABELS } from '../lib/types'
+import { useAuthStore } from '../lib/authStore'
 import { Badge, Button, Card, Field, Textarea } from '../components/ui'
 
 export function Projects() {
@@ -12,6 +13,8 @@ export function Projects() {
   const [clientId, setClientId] = useState('')
   const [description, setDescription] = useState('')
   const queryClient = useQueryClient()
+  const role = useAuthStore((s) => s.user?.role)
+  const canExport = role === 'admin' || role === 'oficina'
 
   const { data: projects, isLoading } = useQuery({
     queryKey: ['projects'],
@@ -39,12 +42,22 @@ export function Projects() {
     <div className="space-y-4 py-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900">Proyectos</h1>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
-        >
-          {showForm ? 'Cancelar' : '+ Nuevo'}
-        </button>
+        <div className="flex gap-2">
+          {canExport && (
+            <button
+              onClick={() => downloadFile('/projects/export', 'proyectos.csv')}
+              className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700"
+            >
+              Exportar CSV
+            </button>
+          )}
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
+          >
+            {showForm ? 'Cancelar' : '+ Nuevo'}
+          </button>
+        </div>
       </div>
 
       {showForm && (

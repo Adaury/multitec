@@ -16,6 +16,7 @@ from app.models.user import User
 from app.schemas.invoice import InvoiceHistoryOut, InvoiceOut, PreInvoiceCreate, PreInvoiceOut
 from app.schemas.ncf import ConvertToInvoiceRequest
 from app.services.code_generator import next_code
+from app.services.csv_export import build_csv
 from app.services.ncf import assign_ncf, default_ncf_type
 from app.services.notifications import notify_invoice_issued
 from app.services.pdf import build_invoice_pdf
@@ -203,6 +204,36 @@ def list_invoices(project_id: int, db: Session = Depends(get_db), _=Depends(allo
         .filter(Invoice.project_id == project_id)
         .order_by(Invoice.created_at.desc())
         .all()
+    )
+
+
+@router.get("/api/invoices/export")
+def export_invoices_csv(db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    invoices = (
+        db.query(Invoice)
+        .options(joinedload(Invoice.project).joinedload(Project.client))
+        .order_by(Invoice.created_at.desc())
+        .all()
+    )
+    headers = ["Código", "NCF", "Proyecto", "Cliente", "Subtotal", "ITBIS", "Total", "Fecha"]
+    rows = [
+        [
+            inv.code,
+            inv.ncf or "",
+            inv.project.code,
+            inv.project.client.name,
+            float(inv.subtotal),
+            float(inv.itbis),
+            float(inv.total),
+            inv.created_at.strftime("%Y-%m-%d"),
+        ]
+        for inv in invoices
+    ]
+    csv_bytes = build_csv(headers, rows)
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="facturas.csv"'},
     )
 
 
