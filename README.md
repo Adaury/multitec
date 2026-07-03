@@ -245,3 +245,7 @@ multitec/
 Todas las fases del brief original están construidas, incluyendo IA local, PostgreSQL,
 búsqueda semántica entre proyectos y despliegue en Windows Server. Sin pendientes
 conocidos del brief original — futuras ideas se registran como Issues en el repositorio.
+
+Existe además una visión (no comprometida) de arquitectura multiplataforma — apps
+nativas de móvil (Flutter), escritorio Windows y macOS sobre el mismo backend — en
+[docs/architecture-vision-multiplatform.md](docs/architecture-vision-multiplatform.md).
