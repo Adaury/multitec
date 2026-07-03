@@ -11,6 +11,7 @@ import { ProjectDetail } from './pages/ProjectDetail'
 import { Budgets } from './pages/Budgets'
 import { Quotes } from './pages/Quotes'
 import { Ask } from './pages/Ask'
+import { Users } from './pages/Users'
 
 function App() {
   return (
@@ -27,6 +28,7 @@ function App() {
           <Route path="/presupuestos" element={<Budgets />} />
           <Route path="/cotizaciones" element={<Quotes />} />
           <Route path="/preguntar" element={<Ask />} />
+          <Route path="/usuarios" element={<Users />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,10 +1,20 @@
-export type Role = 'admin' | 'oficina'
+export type Role = 'admin' | 'oficina' | 'tecnico'
 
 export interface CurrentUser {
   id: number
   name: string
   email: string
   role: Role
+}
+
+export interface ManagedUser {
+  id: number
+  name: string
+  email: string
+  role: Role
+  is_active: boolean
+  created_by: number | null
+  created_at: string
 }
 
 export interface Client {

@@ -25,7 +25,10 @@ Construidas hasta ahora:
   cuándo se modificó por última vez** (`created_by` / `created_at` / `updated_at`).
   Logging centralizado a archivo (`backend/logs/app.log`, con rotación) y manejo global
   de errores: cualquier excepción no prevista devuelve un mensaje genérico al cliente y
-  el detalle completo queda solo en el log del servidor.
+  el detalle completo queda solo en el log del servidor. Pantalla **Usuarios**
+  (`/usuarios`, solo admin): crear usuarios oficina/técnico, cambiar rol, activar/
+  desactivar, resetear contraseña — un admin no puede desactivarse ni quitarse el rol
+  admin a sí mismo.
 - **Fase 2 (comercial):** pestañas **Presupuesto** (resumen, solo total, líneas de catálogo
   o texto libre) y **Cotización** (detalle con ITBIS 18%, estados pendiente/aprobada/no
   aprobada/archivada, auto-archivo tras 7 días sin decisión, historial), con conversión de
@@ -222,9 +225,8 @@ npm run dev
 Definido en `backend/.env` (`ADMIN_EMAIL` / `ADMIN_PASSWORD`), creado por
 `python -m app.db.seed`. Cámbialo antes de desplegar a producción.
 
-Durante las pruebas de Fase 4 se creó además un usuario de prueba con rol `oficina`:
-`oficina@multitec.com` / `oficina123` — útil para probar la restricción de "solo admin
-convierte a factura". Elimínalo antes de producción si no lo necesitas.
+Para agregar más usuarios (`oficina` / `tecnico`), inicia sesión como admin y ve a
+**Usuarios** (`/usuarios`) — ya no hace falta tocar la base de datos directamente.
 
 ## Despliegue en Windows Server
 

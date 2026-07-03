@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Card } from '../components/ui'
+import { useAuthStore } from '../lib/authStore'
 
 const quickActions = [
   { label: 'Nuevo Proyecto', icon: '➕', to: '/proyectos?nuevo=1' },
@@ -7,7 +8,7 @@ const quickActions = [
   { label: 'Nueva Cotización', icon: '🧾', to: '/proyectos' },
 ]
 
-const menu = [
+const baseMenu = [
   { label: 'Clientes', icon: '👤', to: '/clientes' },
   { label: 'Proyectos', icon: '📁', to: '/proyectos' },
   { label: 'Catálogo', icon: '📦', to: '/catalogo' },
@@ -19,11 +20,12 @@ const menu = [
   { label: 'Bitácora', icon: '📓', to: '/proyectos' },
   { label: 'Tickets', icon: '🎫', to: '/proyectos' },
   { label: 'Preguntar IA', icon: '🤖', to: '/preguntar' },
-  { label: 'Configuración', icon: '⚙️', to: null },
 ]
 
 export function Dashboard() {
   const navigate = useNavigate()
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
+  const menu = isAdmin ? [...baseMenu, { label: 'Usuarios', icon: '⚙️', to: '/usuarios' }] : baseMenu
 
   return (
     <div className="space-y-6 py-4">

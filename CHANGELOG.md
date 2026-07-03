@@ -8,6 +8,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Gestión de usuarios** (`/usuarios`, solo `admin`): `GET/POST /api/users`,
+  `PUT /api/users/{id}` para crear usuarios oficina/técnico, cambiar rol, activar/
+  desactivar y resetear contraseña desde la app — antes solo existía el admin inicial
+  vía `python -m app.db.seed`, sin forma de agregar más usuarios sin tocar la base de
+  datos directamente. Un admin no puede desactivarse ni quitarse el rol admin a sí
+  mismo (evita quedarse sin ningún admin activo). 9 tests nuevos.
 - **Endurecimiento de seguridad y manejo de errores del backend:**
   - Rate limiting (`slowapi`) en login (10/min) y refresh (30/min) por IP.
   - Límite de tamaño de subida de archivos (`MAX_UPLOAD_MB`, 25 MB por defecto) en
