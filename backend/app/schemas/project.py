@@ -37,6 +37,7 @@ class ProjectOut(BaseModel):
 
 class ProjectDetailOut(ProjectOut):
     client: ClientOut
+    public_token: str | None = None
 
     class Config:
         from_attributes = True

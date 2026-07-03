@@ -43,6 +43,44 @@ export interface Project {
 
 export interface ProjectDetail extends Project {
   client: Client
+  public_token: string | null
+}
+
+export interface PublicQuoteItem {
+  description: string
+  quantity: number
+  unit_price: number
+  subtotal: number
+}
+
+export interface PublicQuote {
+  code: string
+  status: QuoteStatus
+  subtotal: number
+  itbis: number
+  total: number
+  created_at: string
+  items: PublicQuoteItem[]
+}
+
+export interface PublicInvoice {
+  id: number
+  code: string
+  ncf: string | null
+  subtotal: number
+  itbis: number
+  total: number
+  created_at: string
+}
+
+export interface PublicProject {
+  code: string
+  status: string
+  date: string
+  description: string | null
+  client_name: string
+  quotes: PublicQuote[]
+  invoices: PublicInvoice[]
 }
 
 export interface SurveyAsset {

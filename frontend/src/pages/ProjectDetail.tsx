@@ -178,24 +178,85 @@ export function ProjectDetail() {
 }
 
 function InfoTab({ project }: { project: ProjectDetailType }) {
+  const queryClient = useQueryClient()
+  const role = useAuthStore((s) => s.user?.role)
+  const canManagePortal = role === 'admin' || role === 'oficina'
+  const [copied, setCopied] = useState(false)
+
+  function invalidate() {
+    queryClient.invalidateQueries({ queryKey: ['projects'] })
+  }
+
+  const createLink = useMutation({
+    mutationFn: async () => (await api.post(`/projects/${project.id}/public-link`)).data,
+    onSuccess: invalidate,
+  })
+  const revokeLink = useMutation({
+    mutationFn: async () => api.delete(`/projects/${project.id}/public-link`),
+    onSuccess: invalidate,
+  })
+
+  const portalUrl = project.public_token
+    ? `${window.location.origin}/portal/${project.public_token}`
+    : null
+
   return (
-    <Card className="space-y-2 text-sm text-gray-600">
-      <p>
-        <span className="font-medium text-gray-800">Cliente:</span> {project.client.name}
-        {project.client.company ? ` (${project.client.company})` : ''}
-      </p>
-      <p>
-        <span className="font-medium text-gray-800">Fecha:</span> {project.date}
-      </p>
-      <p>
-        <span className="font-medium text-gray-800">Estado:</span> {PROJECT_STATUS_LABELS[project.status] ?? project.status}
-      </p>
-      {project.description && (
+    <div className="space-y-4">
+      <Card className="space-y-2 text-sm text-gray-600">
         <p>
-          <span className="font-medium text-gray-800">Descripción:</span> {project.description}
+          <span className="font-medium text-gray-800">Cliente:</span> {project.client.name}
+          {project.client.company ? ` (${project.client.company})` : ''}
         </p>
+        <p>
+          <span className="font-medium text-gray-800">Fecha:</span> {project.date}
+        </p>
+        <p>
+          <span className="font-medium text-gray-800">Estado:</span> {PROJECT_STATUS_LABELS[project.status] ?? project.status}
+        </p>
+        {project.description && (
+          <p>
+            <span className="font-medium text-gray-800">Descripción:</span> {project.description}
+          </p>
+        )}
+      </Card>
+
+      {canManagePortal && (
+        <Card className="space-y-2">
+          <p className="text-sm font-medium text-gray-800">Portal de cliente</p>
+          <p className="text-xs text-gray-500">
+            Enlace de solo lectura, sin necesidad de iniciar sesión, para que el cliente vea el estado de su
+            proyecto, sus cotizaciones y sus facturas (con PDF descargable).
+          </p>
+          {portalUrl ? (
+            <div className="space-y-2">
+              <div className="rounded-xl bg-brand-gray px-3 py-2 text-xs text-gray-600 break-all">{portalUrl}</div>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    navigator.clipboard.writeText(portalUrl)
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 2000)
+                  }}
+                >
+                  {copied ? 'Copiado ✓' : 'Copiar enlace'}
+                </Button>
+                <Button variant="secondary" onClick={() => createLink.mutate()} disabled={createLink.isPending}>
+                  Regenerar
+                </Button>
+                <Button variant="ghost" onClick={() => revokeLink.mutate()} disabled={revokeLink.isPending}>
+                  Desactivar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button onClick={() => createLink.mutate()} disabled={createLink.isPending}>
+              {createLink.isPending ? 'Generando…' : 'Generar enlace'}
+            </Button>
+          )}
+        </Card>
       )}
-    </Card>
+    </div>
   )
 }
 

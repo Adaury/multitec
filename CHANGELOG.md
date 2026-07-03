@@ -8,6 +8,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Portal de cliente** (`/portal/{token}`, sin login): enlace de solo lectura para que
+  un cliente vea el estado de su proyecto, sus cotizaciones (con líneas y totales) y sus
+  facturas (con NCF y PDF descargable). Se activa por proyecto desde la pestaña
+  Información (solo admin/oficina) — "Generar enlace" crea un token opaco de 256 bits
+  (`secrets.token_urlsafe(32)`, no el id numérico del proyecto, que sería trivial de
+  adivinar/enumerar), "Regenerar" invalida el anterior, "Desactivar" apaga el portal sin
+  borrar el proyecto. Los endpoints públicos (`/api/public/projects/{token}` y su PDF de
+  factura) tienen rate limiting (30/min) igual que login, y el endpoint del PDF valida
+  que la factura pedida pertenezca al proyecto del token, no solo que exista. 9 tests
+  nuevos.
 - **Fotos de evidencia en Tickets**: cada ticket ahora puede llevar fotos adjuntas (p.
   ej. antes/después de una reparación), igual que Levantamiento y Bitácora ya podían —
   era el único módulo con soporte de fotos que le faltaba. Subir (`POST

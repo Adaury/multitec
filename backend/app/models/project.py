@@ -25,6 +25,10 @@ class Project(Base):
     date: Mapped[date] = mapped_column(Date, default=date.today)
     status: Mapped[str] = mapped_column(String(30), default="levantamiento")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Token opaco para el portal de cliente (sin login) — NULL = portal desactivado. Ver
+    # api/routers/public.py. No usar el id numérico como identificador público: sería
+    # trivial enumerar todos los proyectos de la empresa.
+    public_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)

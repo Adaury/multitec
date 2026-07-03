@@ -14,11 +14,13 @@ import { Ask } from './pages/Ask'
 import { Users } from './pages/Users'
 import { Ncf } from './pages/Ncf'
 import { Calendario } from './pages/Calendario'
+import { PortalCliente } from './pages/PortalCliente'
 
 function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/portal/:token" element={<PortalCliente />} />
       <Route element={<ProtectedRoute />}>
         <Route element={<Layout />}>
           <Route path="/" element={<Dashboard />} />

@@ -94,6 +94,9 @@ Construido después del brief original:
   día, con técnico y hora opcionales.
 - **Fotos de evidencia en Tickets** — subir/borrar fotos individuales, como ya era
   posible en Levantamiento y Bitácora.
+- **Portal de cliente** (`/portal/{token}`, sin login) — el cliente ve el estado de su
+  proyecto, cotizaciones y facturas (con PDF), a través de un enlace con token opaco
+  activable/regenerable/desactivable desde la pestaña Información del proyecto.
 
 ## Capturas
 
@@ -140,6 +143,11 @@ dinero ni facturación.
 - Advertencia automática al arrancar si `JWT_SECRET` sigue en su valor por defecto (ver
   [deploy/README.md](deploy/README.md) para la lista completa de qué cambiar antes de
   producción).
+- **Portal de cliente**: los únicos endpoints sin autenticación de todo el backend
+  (`/api/public/projects/{token}...`) — protegidos por un token opaco de 256 bits
+  (`secrets.token_urlsafe(32)`, no el id numérico del proyecto), con el mismo rate
+  limiting que login (30/min por IP) y validación de que cada recurso pedido (p. ej. una
+  factura) realmente pertenezca al proyecto del token.
 
 ## Requisitos
 
