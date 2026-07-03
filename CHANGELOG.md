@@ -8,6 +8,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Borrar fotos/notas de voz del Levantamiento** individualmente (nuevo endpoint
+  `DELETE /api/projects/{id}/survey/assets/{asset_id}`, botón ✕ en cada foto/audio en
+  el frontend). Las notas de texto ya eran editables desde Fase 1.
+- **Referencia del levantamiento en la pestaña Factura**: notas, observaciones y fotos
+  del levantamiento se muestran como respaldo de lo facturado.
 - **Suite de tests automatizados del backend** (pytest, 27 tests): autenticación/roles,
   clientes, proyectos, el flujo presupuesto→cotización→aprobación→materiales (incluyendo
   no-duplicación al re-aprobar), ejecución por etapas, restricción admin-only de

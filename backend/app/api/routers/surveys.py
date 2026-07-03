@@ -85,3 +85,16 @@ async def upload_asset(
     db.commit()
     db.refresh(asset)
     return asset
+
+
+@router.delete("/assets/{asset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_asset(project_id: int, asset_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    survey = _get_survey(db, project_id)
+    asset = next((a for a in survey.assets if a.id == asset_id), None)
+    if asset is None:
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+
+    file_path = Path(asset.file_path)
+    db.delete(asset)
+    db.commit()
+    file_path.unlink(missing_ok=True)

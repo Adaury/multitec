@@ -16,7 +16,9 @@ siempre de un proyecto.
 Construidas hasta ahora:
 
 - **Fase 1 (fundación):** autenticación con roles, Clientes, núcleo Proyecto con pestañas
-  (Información / Levantamiento / Ingeniería) y Catálogo con código automático.
+  (Información / Levantamiento / Ingeniería) y Catálogo con código automático. Las notas
+  del Levantamiento se pueden editar en cualquier momento, y cada foto/nota de voz
+  adjunta se puede borrar individualmente.
 - **Fase 2 (comercial):** pestañas **Presupuesto** (resumen, solo total, líneas de catálogo
   o texto libre) y **Cotización** (detalle con ITBIS 18%, estados pendiente/aprobada/no
   aprobada/archivada, auto-archivo tras 7 días sin decisión, historial), con conversión de
@@ -29,9 +31,11 @@ Construidas hasta ahora:
 - **Fase 4 (administrativa):** pestaña **Prefactura** generada desde una cotización
   aprobada (subtotal/ITBIS/total); pestaña **Factura** de solo lectura con historial —
   la conversión Prefactura→Factura es la única acción del sistema restringida a rol
-  **admin** (oficina puede crear/ver prefacturas pero no convertirlas). Pestaña
-  **Ampliaciones** (siempre atadas al mismo proyecto, con enlace opcional a una
-  cotización). Pestaña **Tickets** de soporte con historial de estados.
+  **admin** (oficina puede crear/ver prefacturas pero no convertirlas). La pestaña
+  **Factura** también muestra una **referencia del levantamiento** (notas, observaciones
+  y fotos) como respaldo de lo facturado. Pestaña **Ampliaciones** (siempre atadas al
+  mismo proyecto, con enlace opcional a una cotización). Pestaña **Tickets** de soporte
+  con historial de estados.
 - **Fase 5 (IA):** **"🤖 Organizar con IA"** en Levantamiento (resume notas + analiza
   fotos, guarda en `Survey.ai_summary`). **Dictado por voz** (🎙️) en los campos de texto
   del Levantamiento vía Web Speech API del navegador — ningún modelo de IA transcribe

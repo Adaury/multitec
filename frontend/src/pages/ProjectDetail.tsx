@@ -226,6 +226,12 @@ function LevantamientoTab({ projectId }: { projectId: number }) {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['survey', projectId] }),
   })
 
+  const deleteAsset = useMutation({
+    mutationFn: async (assetId: number) =>
+      api.delete(`/projects/${projectId}/survey/assets/${assetId}`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['survey', projectId] }),
+  })
+
   const [aiError, setAiError] = useState<string | null>(null)
   const aiSummarize = useMutation({
     mutationFn: async () => (await api.post(`/projects/${projectId}/survey/ai-summarize`)).data,
@@ -300,12 +306,22 @@ function LevantamientoTab({ projectId }: { projectId: number }) {
           {survey?.assets
             .filter((a) => a.kind === 'photo')
             .map((asset) => (
-              <img
-                key={asset.id}
-                src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
-                className="aspect-square rounded-xl object-cover"
-                alt="Foto de levantamiento"
-              />
+              <div key={asset.id} className="relative">
+                <img
+                  src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+                  className="aspect-square rounded-xl object-cover"
+                  alt="Foto de levantamiento"
+                />
+                <button
+                  type="button"
+                  onClick={() => deleteAsset.mutate(asset.id)}
+                  disabled={deleteAsset.isPending}
+                  aria-label="Borrar foto"
+                  className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-xs text-white"
+                >
+                  ✕
+                </button>
+              </div>
             ))}
         </div>
 
@@ -313,12 +329,22 @@ function LevantamientoTab({ projectId }: { projectId: number }) {
           {survey?.assets
             .filter((a) => a.kind === 'audio')
             .map((asset) => (
-              <audio
-                key={asset.id}
-                controls
-                src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
-                className="w-full"
-              />
+              <div key={asset.id} className="flex items-center gap-2">
+                <audio
+                  controls
+                  src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+                  className="w-full"
+                />
+                <button
+                  type="button"
+                  onClick={() => deleteAsset.mutate(asset.id)}
+                  disabled={deleteAsset.isPending}
+                  aria-label="Borrar nota de voz"
+                  className="shrink-0 text-lg text-red-500"
+                >
+                  ✕
+                </button>
+              </div>
             ))}
         </div>
       </Card>
@@ -1169,10 +1195,42 @@ function InvoiceTab({ projectId }: { projectId: number }) {
     queryKey: ['invoices', projectId],
     queryFn: async () => (await api.get<Invoice[]>(`/projects/${projectId}/invoices`)).data,
   })
+  const { data: survey } = useQuery({
+    queryKey: ['survey', projectId],
+    queryFn: async () => (await api.get<Survey>(`/projects/${projectId}/survey`)).data,
+  })
+
+  const hasSurveyReference =
+    survey && (survey.notes || survey.observations || survey.assets.some((a) => a.kind === 'photo'))
 
   return (
     <div className="space-y-3">
       <p className="text-sm text-gray-500">Facturas emitidas (solo lectura).</p>
+
+      {hasSurveyReference && (
+        <Card className="space-y-2">
+          <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
+            Referencia del levantamiento
+          </p>
+          {survey?.notes && <p className="text-sm text-gray-700">{survey.notes}</p>}
+          {survey?.observations && <p className="text-sm text-gray-700">{survey.observations}</p>}
+          {survey && survey.assets.filter((a) => a.kind === 'photo').length > 0 && (
+            <div className="grid grid-cols-4 gap-2">
+              {survey.assets
+                .filter((a) => a.kind === 'photo')
+                .map((asset) => (
+                  <img
+                    key={asset.id}
+                    src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+                    className="aspect-square rounded-lg object-cover"
+                    alt="Foto de levantamiento"
+                  />
+                ))}
+            </div>
+          )}
+        </Card>
+      )}
+
       {invoices?.map((invoice) => (
         <InvoiceCard
           key={invoice.id}
