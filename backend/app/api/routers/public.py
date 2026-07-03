@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.quote import Quote
+from app.models.ticket import Ticket
 from app.schemas.public import PublicLinkOut, PublicProjectOut
 from app.services.pdf import build_invoice_pdf
 
@@ -48,6 +49,7 @@ def _get_project_by_token(db: Session, token: str) -> Project:
             joinedload(Project.client),
             joinedload(Project.quotes).joinedload(Quote.items),
             joinedload(Project.invoices).joinedload(Invoice.items),
+            joinedload(Project.tickets).joinedload(Ticket.technician),
         )
         .filter(Project.public_token == token)
         .one_or_none()
@@ -69,6 +71,18 @@ def get_public_project(request: Request, token: str, db: Session = Depends(get_d
         "client_name": project.client.name,
         "quotes": project.quotes,
         "invoices": project.invoices,
+        "tickets": [
+            {
+                "code": ticket.code,
+                "problem": ticket.problem,
+                "solution": ticket.solution,
+                "status": ticket.status,
+                "technician_name": ticket.technician.name if ticket.technician else None,
+                "created_at": ticket.created_at,
+                "resolved_at": ticket.resolved_at,
+            }
+            for ticket in project.tickets
+        ],
     }
 
 

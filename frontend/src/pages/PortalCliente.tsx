@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { PROJECT_STATUS_LABELS, QUOTE_STATUS_LABELS, type PublicProject } from '../lib/types'
+import { PROJECT_STATUS_LABELS, QUOTE_STATUS_LABELS, TICKET_STATUS_LABELS, type PublicProject } from '../lib/types'
 import { formatDOP } from '../lib/format'
 import { Badge, Card } from '../components/ui'
 
@@ -110,8 +110,31 @@ export function PortalCliente() {
             </div>
           )}
 
-          {project.quotes.length === 0 && project.invoices.length === 0 && (
-            <p className="text-sm text-gray-500">Aún no hay cotizaciones ni facturas para este proyecto.</p>
+          {project.tickets.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-sm font-semibold text-gray-800">Tickets de soporte</h2>
+              {project.tickets.map((ticket) => (
+                <Card key={ticket.code}>
+                  <div className="flex items-center justify-between">
+                    <p className="font-medium text-gray-900">{ticket.code}</p>
+                    <Badge>{TICKET_STATUS_LABELS[ticket.status] ?? ticket.status}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-gray-600">{ticket.problem}</p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Técnico: {ticket.technician_name ?? 'Sin asignar'}
+                  </p>
+                  {ticket.solution && (
+                    <p className="mt-2 text-sm text-gray-600">
+                      <span className="font-medium text-gray-800">Solución:</span> {ticket.solution}
+                    </p>
+                  )}
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {project.quotes.length === 0 && project.invoices.length === 0 && project.tickets.length === 0 && (
+            <p className="text-sm text-gray-500">Aún no hay cotizaciones, facturas ni tickets para este proyecto.</p>
           )}
         </div>
       )}

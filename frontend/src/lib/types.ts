@@ -73,6 +73,16 @@ export interface PublicInvoice {
   created_at: string
 }
 
+export interface PublicTicket {
+  code: string
+  problem: string
+  solution: string | null
+  status: TicketStatus
+  technician_name: string | null
+  created_at: string
+  resolved_at: string | null
+}
+
 export interface PublicProject {
   code: string
   status: string
@@ -81,6 +91,7 @@ export interface PublicProject {
   client_name: string
   quotes: PublicQuote[]
   invoices: PublicInvoice[]
+  tickets: PublicTicket[]
 }
 
 export interface SurveyAsset {

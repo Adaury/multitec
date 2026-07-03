@@ -1,4 +1,4 @@
-from tests.conftest import auth_headers, make_project, seed_ncf_sequence
+from tests.conftest import auth_headers, create_user, make_project, seed_ncf_sequence
 
 
 def _approved_budget_items(client, headers, project):
@@ -25,6 +25,7 @@ def test_generate_and_access_public_link(client, admin_token):
     assert body["client_name"] == "Portal Test Client"
     assert body["quotes"] == []
     assert body["invoices"] == []
+    assert body["tickets"] == []
 
 
 def test_public_portal_requires_no_auth(client, admin_token):
@@ -82,6 +83,34 @@ def test_public_portal_shows_quotes_and_invoices(client, admin_token, db_session
     assert public["quotes"][0]["status"] == "aprobada"
     assert len(public["invoices"]) == 1
     assert public["invoices"][0]["ncf"] == invoice["ncf"]
+
+
+def test_public_portal_shows_tickets(client, admin_token, db_session):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    tecnico = create_user(db_session, "tecnico-portal@test.com", "tecnicopass123", "tecnico")
+
+    ticket = client.post(
+        f"/api/projects/{project['id']}/tickets",
+        json={"problem": "Cámara sin señal", "technician_id": tecnico.id},
+        headers=headers,
+    ).json()
+    client.put(
+        f"/api/tickets/{ticket['id']}",
+        json={"status": "resuelto", "solution": "Se reemplazó el cable de red"},
+        headers=headers,
+    )
+
+    token = client.post(f"/api/projects/{project['id']}/public-link", headers=headers).json()["token"]
+    public = client.get(f"/api/public/projects/{token}").json()
+
+    assert len(public["tickets"]) == 1
+    ticket_out = public["tickets"][0]
+    assert ticket_out["code"] == ticket["code"]
+    assert ticket_out["problem"] == "Cámara sin señal"
+    assert ticket_out["status"] == "resuelto"
+    assert ticket_out["solution"] == "Se reemplazó el cable de red"
+    assert ticket_out["technician_name"] == "tecnico-portal"
 
 
 def test_public_invoice_pdf_download(client, admin_token, db_session):

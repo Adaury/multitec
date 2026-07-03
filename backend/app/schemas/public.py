@@ -39,6 +39,19 @@ class PublicInvoiceOut(BaseModel):
         from_attributes = True
 
 
+class PublicTicketOut(BaseModel):
+    code: str
+    problem: str
+    solution: str | None
+    status: str
+    technician_name: str | None
+    created_at: datetime
+    resolved_at: datetime | None
+
+    class Config:
+        from_attributes = True
+
+
 class PublicProjectOut(BaseModel):
     code: str
     status: str
@@ -47,6 +60,7 @@ class PublicProjectOut(BaseModel):
     client_name: str
     quotes: list[PublicQuoteOut]
     invoices: list[PublicInvoiceOut]
+    tickets: list[PublicTicketOut]
 
 
 class PublicLinkOut(BaseModel):
