@@ -11,7 +11,7 @@ from app.services.execution import stage_progress
 
 router = APIRouter(prefix="/api/projects/{project_id}/execution", tags=["execution"])
 
-allowed_roles = require_role("admin", "oficina")
+allowed_roles = require_role("admin", "oficina", "tecnico")
 
 
 def _get_stages(db: Session, project_id: int) -> list[ProjectStage]:

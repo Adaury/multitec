@@ -1,10 +1,10 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class LogEntryCreate(BaseModel):
-    comment: str
+    comment: str = Field(max_length=5000)
     entry_date: date | None = None
 
 

@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
@@ -19,7 +21,9 @@ from app.services.embeddings import reindex_project, search_projects
 
 router = APIRouter(tags=["ai"])
 
-allowed_roles = require_role("admin", "oficina")
+logger = logging.getLogger("multitec.ai")
+
+allowed_roles = require_role("admin", "oficina", "tecnico")
 
 
 def _get_project(db: Session, project_id: int) -> Project:
@@ -103,6 +107,7 @@ def _reindex_quietly(db: Session, project: Project, context: str) -> None:
         reindex_project(db, project, context)
     except Exception:
         db.rollback()
+        logger.exception("No se pudo actualizar el embedding del proyecto %s", project.id)
 
 
 @router.post("/api/projects/{project_id}/survey/ai-summarize", response_model=SurveyOut)

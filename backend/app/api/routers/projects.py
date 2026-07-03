@@ -6,13 +6,17 @@ from app.db.session import get_db
 from app.models.engineering import Engineering
 from app.models.project import Project
 from app.models.survey import Survey
+from app.models.user import User
 from app.schemas.project import ProjectCreate, ProjectDetailOut, ProjectOut, ProjectUpdate
 from app.services.code_generator import next_code
 from app.services.execution import ensure_stages
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
-allowed_roles = require_role("admin", "oficina")
+# Técnico puede ver proyectos (para saber en qué trabajar) pero no crear/editar —
+# eso es responsabilidad de oficina/admin.
+allowed_roles = require_role("admin", "oficina", "tecnico")
+write_roles = require_role("admin", "oficina")
 
 
 @router.get("", response_model=list[ProjectOut])
@@ -21,16 +25,16 @@ def list_projects(db: Session = Depends(get_db), _=Depends(allowed_roles)):
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
-def create_project(payload: ProjectCreate, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def create_project(payload: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(write_roles)):
     code = next_code(db, "PRY")
     data = payload.model_dump(exclude_unset=True)
-    project = Project(code=code, **data)
+    project = Project(code=code, created_by=current_user.id, **data)
     db.add(project)
     db.flush()
 
     # Cada proyecto nace con su levantamiento e ingeniería vacíos (núcleo del ERP)
-    db.add(Survey(project_id=project.id))
-    db.add(Engineering(project_id=project.id))
+    db.add(Survey(project_id=project.id, created_by=current_user.id))
+    db.add(Engineering(project_id=project.id, created_by=current_user.id))
     ensure_stages(db, project)
 
     db.commit()
@@ -52,7 +56,7 @@ def get_project(project_id: int, db: Session = Depends(get_db), _=Depends(allowe
 
 
 @router.put("/{project_id}", response_model=ProjectOut)
-def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db), _=Depends(write_roles)):
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")

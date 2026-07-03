@@ -17,6 +17,9 @@ class Survey(Base):
     measurements: Mapped[str | None] = mapped_column(Text, nullable=True)
     observations: Mapped[str | None] = mapped_column(Text, nullable=True)
     ai_summary: Mapped[str | None] = mapped_column(Text, nullable=True)  # gancho para IA (Fase 5)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="survey")
     assets: Mapped[list["SurveyAsset"]] = relationship(back_populates="survey", cascade="all, delete-orphan")

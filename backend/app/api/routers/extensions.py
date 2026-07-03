@@ -5,6 +5,7 @@ from app.core.security import require_role
 from app.db.session import get_db
 from app.models.extension import EXTENSION_STATUSES, Extension
 from app.models.quote import Quote
+from app.models.user import User
 from app.schemas.extension import ExtensionCreate, ExtensionOut, ExtensionStatusUpdate
 from app.services.code_generator import next_code
 
@@ -24,7 +25,12 @@ def list_extensions(project_id: int, db: Session = Depends(get_db), _=Depends(al
 
 
 @router.post("/api/projects/{project_id}/extensions", response_model=ExtensionOut, status_code=status.HTTP_201_CREATED)
-def create_extension(project_id: int, payload: ExtensionCreate, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def create_extension(
+    project_id: int,
+    payload: ExtensionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(allowed_roles),
+):
     if payload.quote_id is not None:
         quote = db.get(Quote, payload.quote_id)
         if quote is None or quote.project_id != project_id:
@@ -32,7 +38,7 @@ def create_extension(project_id: int, payload: ExtensionCreate, db: Session = De
 
     code = next_code(db, "AMP")
     data = payload.model_dump(exclude_unset=True)
-    extension = Extension(code=code, project_id=project_id, **data)
+    extension = Extension(code=code, project_id=project_id, created_by=current_user.id, **data)
     db.add(extension)
     db.commit()
     db.refresh(extension)

@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models.invoice import Invoice, InvoiceHistory, InvoiceItem, PreInvoice, PreInvoiceItem
 from app.models.product import Product
 from app.models.quote import Quote
+from app.models.user import User
 from app.schemas.invoice import InvoiceHistoryOut, InvoiceOut, PreInvoiceCreate, PreInvoiceOut
 from app.services.code_generator import next_code
 from app.services.totals import LineInput, compute_totals
@@ -52,10 +53,13 @@ def list_pre_invoices(project_id: int, db: Session = Depends(get_db), _=Depends(
 
 @router.post("/api/projects/{project_id}/pre-invoices", response_model=PreInvoiceOut, status_code=status.HTTP_201_CREATED)
 def create_pre_invoice(
-    project_id: int, payload: PreInvoiceCreate, db: Session = Depends(get_db), _=Depends(allowed_roles)
+    project_id: int,
+    payload: PreInvoiceCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(allowed_roles),
 ):
     code = next_code(db, "PFC")
-    pre_invoice = PreInvoice(code=code, project_id=project_id, notes=payload.notes)
+    pre_invoice = PreInvoice(code=code, project_id=project_id, notes=payload.notes, created_by=current_user.id)
 
     for item in payload.items:
         description, unit_price = _resolve_item_fields(db, item.product_id, item.description, item.unit_price)
@@ -79,7 +83,7 @@ def create_pre_invoice(
 
 
 @router.post("/api/quotes/{quote_id}/generate-pre-invoice", response_model=PreInvoiceOut, status_code=status.HTTP_201_CREATED)
-def generate_pre_invoice(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def generate_pre_invoice(quote_id: int, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
     quote = db.query(Quote).options(joinedload(Quote.items)).filter(Quote.id == quote_id).one_or_none()
     if quote is None:
         raise HTTPException(status_code=404, detail="Cotización no encontrada")
@@ -95,6 +99,7 @@ def generate_pre_invoice(quote_id: int, db: Session = Depends(get_db), _=Depends
         subtotal=quote.subtotal,
         itbis=quote.itbis,
         total=quote.total,
+        created_by=current_user.id,
     )
     for item in quote.items:
         pre_invoice.items.append(
@@ -119,7 +124,7 @@ def get_pre_invoice(pre_invoice_id: int, db: Session = Depends(get_db), _=Depend
 
 
 @router.post("/api/pre-invoices/{pre_invoice_id}/convert-to-invoice", response_model=InvoiceOut, status_code=status.HTTP_201_CREATED)
-def convert_to_invoice(pre_invoice_id: int, db: Session = Depends(get_db), _=Depends(admin_only)):
+def convert_to_invoice(pre_invoice_id: int, db: Session = Depends(get_db), current_user: User = Depends(admin_only)):
     """§13-14: 'el administrador decide convertir a factura' — único endpoint admin-only."""
     pre_invoice = _get_pre_invoice(db, pre_invoice_id)
     if pre_invoice.status == "facturada":
@@ -133,6 +138,7 @@ def convert_to_invoice(pre_invoice_id: int, db: Session = Depends(get_db), _=Dep
         subtotal=pre_invoice.subtotal,
         itbis=pre_invoice.itbis,
         total=pre_invoice.total,
+        created_by=current_user.id,
     )
     for item in pre_invoice.items:
         invoice.items.append(

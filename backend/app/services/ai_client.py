@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 import ollama
@@ -8,6 +9,8 @@ from app.core.config import get_settings
 
 SUPPORTED_IMAGE_TYPES = {".jpg", ".jpeg", ".png", ".webp"}
 MAX_IMAGES = 6
+
+logger = logging.getLogger("multitec.ai")
 
 
 def get_client() -> ollama.Client:
@@ -21,12 +24,15 @@ def _call(fn):
     except HTTPException:
         raise
     except Exception as e:
+        # El detalle completo de la excepción se registra en el log del servidor, no se
+        # le manda al cliente — puede incluir rutas internas o detalles de conexión.
+        logger.exception("Fallo llamando a Ollama")
         raise HTTPException(
             status_code=400,
             detail=(
                 "Ollama no está corriendo o falta un modelo. Instala Ollama desde "
                 "https://ollama.com, luego ejecuta 'ollama pull llama3.2' y "
-                f"'ollama pull llava'. Detalle: {e}"
+                f"'ollama pull llava'. ({type(e).__name__})"
             ),
         )
 

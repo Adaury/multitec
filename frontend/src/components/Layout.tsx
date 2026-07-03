@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, logout } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import type { CurrentUser } from '../lib/types'
 
@@ -12,7 +12,7 @@ const navItems = [
 ]
 
 export function Layout() {
-  const { user, logout, setUser } = useAuthStore()
+  const { user, setUser } = useAuthStore()
 
   useEffect(() => {
     if (!user) {
@@ -31,7 +31,7 @@ export function Layout() {
           <p className="text-xs text-gray-500">{user?.name}</p>
         </div>
         <button
-          onClick={logout}
+          onClick={() => logout()}
           className="rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-black/5"
         >
           Salir

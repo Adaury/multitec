@@ -1,17 +1,17 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class PreInvoiceItemIn(BaseModel):
     product_id: int | None = None
-    description: str
+    description: str = Field(max_length=500)
     quantity: float = 1
     unit_price: float = 0
 
 
 class PreInvoiceCreate(BaseModel):
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=5000)
     items: list[PreInvoiceItemIn] = []
 
 
@@ -37,7 +37,9 @@ class PreInvoiceOut(BaseModel):
     subtotal: float
     itbis: float
     total: float
+    created_by: int | None = None
     created_at: datetime
+    updated_at: datetime | None = None
     items: list[PreInvoiceItemOut] = []
 
     class Config:
@@ -64,6 +66,7 @@ class InvoiceOut(BaseModel):
     subtotal: float
     itbis: float
     total: float
+    created_by: int | None = None
     created_at: datetime
     items: list[InvoiceItemOut] = []
 

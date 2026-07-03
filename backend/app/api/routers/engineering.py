@@ -8,7 +8,7 @@ from app.schemas.engineering import EngineeringOut, EngineeringUpdate
 
 router = APIRouter(prefix="/api/projects/{project_id}/engineering", tags=["engineering"])
 
-allowed_roles = require_role("admin", "oficina")
+allowed_roles = require_role("admin", "oficina", "tecnico")
 
 
 @router.get("", response_model=EngineeringOut)

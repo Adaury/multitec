@@ -15,10 +15,17 @@ siempre de un proyecto.
 
 Construidas hasta ahora:
 
-- **Fase 1 (fundación):** autenticación con roles, Clientes, núcleo Proyecto con pestañas
-  (Información / Levantamiento / Ingeniería) y Catálogo con código automático. Las notas
-  del Levantamiento se pueden editar en cualquier momento, y cada foto/nota de voz
-  adjunta se puede borrar individualmente.
+- **Fase 1 (fundación):** autenticación con roles (`admin` / `oficina` / `tecnico`),
+  Clientes, núcleo Proyecto con pestañas (Información / Levantamiento / Ingeniería) y
+  Catálogo con código automático. Las notas del Levantamiento se pueden editar en
+  cualquier momento, y cada foto/nota de voz adjunta se puede borrar individualmente.
+  Login con **access token + refresh token** (el access token dura 60 min y se renueva
+  solo; el refresh token es revocable server-side — "Salir" lo invalida de verdad, no
+  solo borra el token del navegador). Cada registro principal guarda **quién lo creó y
+  cuándo se modificó por última vez** (`created_by` / `created_at` / `updated_at`).
+  Logging centralizado a archivo (`backend/logs/app.log`, con rotación) y manejo global
+  de errores: cualquier excepción no prevista devuelve un mensaje genérico al cliente y
+  el detalle completo queda solo en el log del servidor.
 - **Fase 2 (comercial):** pestañas **Presupuesto** (resumen, solo total, líneas de catálogo
   o texto libre) y **Cotización** (detalle con ITBIS 18%, estados pendiente/aprobada/no
   aprobada/archivada, auto-archivo tras 7 días sin decisión, historial), con conversión de
@@ -64,12 +71,42 @@ Con esto quedan completadas las 5 fases del brief original.
 
 ## Arquitectura
 
-- **Backend:** FastAPI + SQLAlchemy + Alembic, Python 3.14. Autenticación JWT, roles
-  `admin` / `oficina`.
+- **Backend:** FastAPI + SQLAlchemy + Alembic, Python 3.14. Autenticación JWT (access +
+  refresh token), roles `admin` / `oficina` / `tecnico`.
 - **Base de datos:** SQLite por defecto en desarrollo (`backend/multitec.db`). Cambiar
   `DATABASE_URL` en `backend/.env` para usar PostgreSQL sin tocar el código.
 - **Frontend:** React + Vite + TypeScript + Tailwind CSS v4, PWA (instalable en iPhone y
   escritorio), mobile-first, estilo inspirado en Apple.
+
+## Roles y permisos
+
+| | Clientes / Proyectos | Levantamiento / Ingeniería / Ejecución / Bitácora / Tickets | Presupuestos / Cotizaciones / Compras / Facturación / Ampliaciones / Catálogo | Convertir Prefactura → Factura |
+|---|---|---|---|---|
+| **admin** | leer y escribir | leer y escribir | leer y escribir | ✅ único rol que puede |
+| **oficina** | leer y escribir | leer y escribir | leer y escribir | ❌ |
+| **tecnico** | solo leer | leer y escribir | ❌ sin acceso | ❌ |
+
+`tecnico` es para el personal de campo: puede ver en qué proyecto trabajar y llenar todo
+lo operativo (levantamiento, ejecución, bitácora, tickets), pero no gestiona clientes,
+dinero ni facturación.
+
+## Seguridad
+
+- **Rate limiting** en `/api/auth/login` (10 intentos/minuto por IP) y `/api/auth/refresh`
+  (30/minuto), vía `slowapi`.
+- **Límite de tamaño de subida** de fotos/audio (`MAX_UPLOAD_MB`, 25 MB por defecto).
+- **Validación de longitud** en todos los campos de texto libre expuestos por la API
+  (nombres, notas, descripciones), para que coincidan con los límites de columna en la
+  base de datos y no se puedan enviar payloads arbitrariamente grandes.
+- **Manejo global de errores**: cualquier excepción no capturada devuelve un 500 genérico
+  al cliente (nunca detalles internos como rutas o queries) y queda registrada completa
+  en `backend/logs/app.log`.
+- **Refresh tokens revocables**: se guarda solo un hash SHA-256 en la base de datos
+  (nunca el token en texto plano); "Salir" revoca el token en el servidor, no solo borra
+  el `localStorage`.
+- Advertencia automática al arrancar si `JWT_SECRET` sigue en su valor por defecto (ver
+  [deploy/README.md](deploy/README.md) para la lista completa de qué cambiar antes de
+  producción).
 
 ## Requisitos
 
@@ -102,11 +139,13 @@ pytest -v
 ```
 
 Corre contra una base SQLite temporal aislada (no toca `multitec.db`) y no depende de
-Ollama — los endpoints de IA se prueban con mocks. Cubre autenticación y roles, clientes,
-proyectos (código automático + registros iniciales), el flujo completo
+Ollama — los endpoints de IA se prueban con mocks. Cubre autenticación y roles (incluido
+`tecnico`), refresh tokens, rate limiting, límite de tamaño de subida, manejo global de
+errores, clientes, proyectos (código automático + registros iniciales), el flujo completo
 presupuesto→cotización→aprobación→materiales (incluyendo que no se dupliquen materiales
-al re-aprobar), ejecución por etapas, y la restricción "solo admin convierte a factura".
-Corre automáticamente en cada push/PR vía GitHub Actions.
+al re-aprobar), ejecución por etapas, la restricción "solo admin convierte a factura", y
+que las columnas de auditoría (`created_by`) se llenen correctamente. Corre
+automáticamente en cada push/PR vía GitHub Actions.
 
 ### Configurar la IA (Fase 5) — Ollama local, gratis
 

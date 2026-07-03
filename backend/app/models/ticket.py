@@ -20,11 +20,13 @@ class Ticket(Base):
     problem: Mapped[str] = mapped_column(Text)
     solution: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="abierto")
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="tickets")
-    technician: Mapped["User"] = relationship()
+    technician: Mapped["User"] = relationship(foreign_keys=[technician_id])
     history: Mapped[list["TicketHistory"]] = relationship(
         back_populates="ticket", cascade="all, delete-orphan", order_by="TicketHistory.created_at"
     )

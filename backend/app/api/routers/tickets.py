@@ -6,12 +6,13 @@ from sqlalchemy.orm import Session
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.ticket import TICKET_STATUSES, Ticket, TicketHistory
+from app.models.user import User
 from app.schemas.ticket import TicketCreate, TicketHistoryOut, TicketOut, TicketUpdate
 from app.services.code_generator import next_code
 
 router = APIRouter(tags=["tickets"])
 
-allowed_roles = require_role("admin", "oficina")
+allowed_roles = require_role("admin", "oficina", "tecnico")
 
 
 def _get_ticket(db: Session, ticket_id: int) -> Ticket:
@@ -32,7 +33,9 @@ def list_tickets(project_id: int, db: Session = Depends(get_db), _=Depends(allow
 
 
 @router.post("/api/projects/{project_id}/tickets", response_model=TicketOut, status_code=status.HTTP_201_CREATED)
-def create_ticket(project_id: int, payload: TicketCreate, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def create_ticket(
+    project_id: int, payload: TicketCreate, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)
+):
     code = next_code(db, "TKT")
     ticket = Ticket(
         code=code,
@@ -40,6 +43,7 @@ def create_ticket(project_id: int, payload: TicketCreate, db: Session = Depends(
         problem=payload.problem,
         technician_id=payload.technician_id,
         status="abierto",
+        created_by=current_user.id,
     )
     db.add(ticket)
     db.flush()

@@ -6,15 +6,16 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import get_settings
-from app.core.security import get_current_user, require_role
+from app.core.security import require_role
 from app.db.session import get_db
 from app.models.logbook import LogEntry, LogEntryAsset
 from app.models.user import User
 from app.schemas.logbook import LogEntryAssetOut, LogEntryCreate, LogEntryOut
+from app.services.uploads import enforce_upload_size
 
 router = APIRouter(tags=["logbook"])
 
-allowed_roles = require_role("admin", "oficina")
+allowed_roles = require_role("admin", "oficina", "tecnico")
 
 ALLOWED_PHOTO_TYPES = {"image/jpeg", "image/png", "image/heic", "image/webp"}
 
@@ -35,7 +36,7 @@ def create_log_entry(
     project_id: int,
     payload: LogEntryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(allowed_roles),
 ):
     entry = LogEntry(
         project_id=project_id,
@@ -72,6 +73,7 @@ async def upload_log_photo(
     destination = entry_dir / stored_name
 
     contents = await file.read()
+    enforce_upload_size(contents)
     destination.write_bytes(contents)
 
     asset = LogEntryAsset(log_entry_id=entry.id, file_path=str(destination.as_posix()), description=description)

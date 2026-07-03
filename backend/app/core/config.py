@@ -2,15 +2,20 @@ from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+INSECURE_DEFAULT_JWT_SECRET = "change-this-secret-in-production"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     database_url: str = "sqlite:///./multitec.db"
 
-    jwt_secret: str = "change-this-secret-in-production"
+    jwt_secret: str = INSECURE_DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
-    access_token_expire_minutes: int = 480
+    # Access token corto (se renueva solo via /api/auth/refresh); la sesión real la
+    # sostiene el refresh token, que sí es revocable server-side.
+    access_token_expire_minutes: int = 60
+    refresh_token_expire_days: int = 30
 
     admin_email: str = "admin@multitec.com"
     admin_password: str = "change-this-password"
@@ -19,6 +24,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     upload_dir: str = "./uploads"
+    max_upload_mb: int = 25
 
     itbis_rate: float = 0.18
     quote_stale_days: int = 7

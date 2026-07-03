@@ -20,7 +20,9 @@ class PreInvoice(Base):
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     itbis: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="pre_invoices")
     items: Mapped[list["PreInvoiceItem"]] = relationship(back_populates="pre_invoice", cascade="all, delete-orphan")
@@ -53,6 +55,7 @@ class Invoice(Base):
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     itbis: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     project: Mapped["Project"] = relationship(back_populates="invoices")

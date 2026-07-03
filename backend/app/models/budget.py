@@ -16,7 +16,9 @@ class Budget(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
     project: Mapped["Project"] = relationship(back_populates="budgets")
     items: Mapped[list["BudgetItem"]] = relationship(back_populates="budget", cascade="all, delete-orphan")

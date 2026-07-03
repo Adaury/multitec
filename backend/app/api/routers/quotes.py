@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.material import Material
 from app.models.product import Product
 from app.models.quote import Quote, QuoteHistory, QuoteItem
+from app.models.user import User
 from app.schemas.quote import QuoteCreate, QuoteHistoryOut, QuoteOut, QuoteUpdate, RejectIn
 from app.services.code_generator import next_code
 from app.services.quote_archiver import archive_stale_quotes
@@ -76,9 +77,11 @@ def list_quotes(status_filter: str | None = None, db: Session = Depends(get_db),
 
 
 @router.post("/api/projects/{project_id}/quotes", response_model=QuoteOut, status_code=status.HTTP_201_CREATED)
-def create_quote(project_id: int, payload: QuoteCreate, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def create_quote(
+    project_id: int, payload: QuoteCreate, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)
+):
     code = next_code(db, "COT")
-    quote = Quote(code=code, project_id=project_id, notes=payload.notes)
+    quote = Quote(code=code, project_id=project_id, notes=payload.notes, created_by=current_user.id)
     _build_quote_items(db, quote, payload.items)
 
     db.add(quote)
@@ -112,7 +115,7 @@ def update_quote(quote_id: int, payload: QuoteUpdate, db: Session = Depends(get_
 
 
 @router.post("/api/quotes/{quote_id}/approve", response_model=QuoteOut)
-def approve_quote(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def approve_quote(quote_id: int, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
     quote = _get_quote(db, quote_id)
     if quote.status not in ("pendiente", "archivada"):
         raise HTTPException(status_code=400, detail=f"No se puede aprobar una cotización '{quote.status}'")
@@ -133,6 +136,7 @@ def approve_quote(quote_id: int, db: Session = Depends(get_db), _=Depends(allowe
                     description=item.description,
                     quantity=item.quantity,
                     status="pendiente_compra",
+                    created_by=current_user.id,
                 )
             )
 

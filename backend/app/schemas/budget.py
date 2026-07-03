@@ -1,17 +1,17 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BudgetItemIn(BaseModel):
     product_id: int | None = None
-    description: str
+    description: str = Field(max_length=500)
     quantity: float = 1
     unit_price: float = 0  # usado solo para calcular el total; no se expone en la salida
 
 
 class BudgetCreate(BaseModel):
-    notes: str | None = None
+    notes: str | None = Field(default=None, max_length=5000)
     items: list[BudgetItemIn] = []
 
 
@@ -37,7 +37,9 @@ class BudgetOut(BaseModel):
     project_id: int
     notes: str | None
     total: float
+    created_by: int | None = None
     created_at: datetime
+    updated_at: datetime | None = None
     items: list[BudgetItemOut] = []
 
     class Config:

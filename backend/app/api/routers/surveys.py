@@ -9,10 +9,11 @@ from app.core.security import require_role
 from app.db.session import get_db
 from app.models.survey import Survey, SurveyAsset
 from app.schemas.survey import SurveyAssetOut, SurveyOut, SurveyUpdate
+from app.services.uploads import enforce_upload_size
 
 router = APIRouter(prefix="/api/projects/{project_id}/survey", tags=["surveys"])
 
-allowed_roles = require_role("admin", "oficina")
+allowed_roles = require_role("admin", "oficina", "tecnico")
 
 ALLOWED_KINDS = {"photo", "audio"}
 ALLOWED_CONTENT_TYPES = {
@@ -73,6 +74,7 @@ async def upload_asset(
     destination = survey_dir / stored_name
 
     contents = await file.read()
+    enforce_upload_size(contents)
     destination.write_bytes(contents)
 
     asset = SurveyAsset(

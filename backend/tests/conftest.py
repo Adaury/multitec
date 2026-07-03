@@ -36,6 +36,16 @@ def _setup_database():
 
 
 @pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Sin esto, el rate limit de /api/auth/login (10/min) se agota a mitad de la
+    suite, ya que casi todos los tests hacen login al menos una vez."""
+    from app.core.limiter import limiter
+
+    limiter.reset()
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _clean_tables():
     """Cada test parte de una base vacía — se trunca todo después de correr."""
     yield
@@ -97,5 +107,13 @@ def admin_token(client, db_session):
 def oficina_token(client, db_session):
     create_user(db_session, "oficina@test.com", "oficinapass123", "oficina")
     resp = client.post("/api/auth/login", data={"username": "oficina@test.com", "password": "oficinapass123"})
+    assert resp.status_code == 200, resp.text
+    return resp.json()["access_token"]
+
+
+@pytest.fixture
+def tecnico_token(client, db_session):
+    create_user(db_session, "tecnico@test.com", "tecnicopass123", "tecnico")
+    resp = client.post("/api/auth/login", data={"username": "tecnico@test.com", "password": "tecnicopass123"})
     assert resp.status_code == 200, resp.text
     return resp.json()["access_token"]

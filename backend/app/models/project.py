@@ -25,10 +25,12 @@ class Project(Base):
     date: Mapped[date] = mapped_column(Date, default=date.today)
     status: Mapped[str] = mapped_column(String(30), default="levantamiento")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 
     client: Mapped["Client"] = relationship(back_populates="projects")
-    responsible: Mapped["User"] = relationship()
+    responsible: Mapped["User"] = relationship(foreign_keys=[responsible_id])
     survey: Mapped["Survey"] = relationship(back_populates="project", uselist=False, cascade="all, delete-orphan")
     engineering: Mapped["Engineering"] = relationship(
         back_populates="project", uselist=False, cascade="all, delete-orphan"

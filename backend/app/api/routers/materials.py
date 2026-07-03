@@ -5,6 +5,7 @@ from app.core.security import require_role
 from app.db.session import get_db
 from app.models.material import MATERIAL_STATUSES, Material
 from app.models.product import Product
+from app.models.user import User
 from app.schemas.material import MaterialCreate, MaterialOut, MaterialStatusUpdate
 
 router = APIRouter(tags=["materials"])
@@ -34,7 +35,12 @@ def purchase_list(project_id: int, db: Session = Depends(get_db), _=Depends(allo
 
 
 @router.post("/api/projects/{project_id}/materials", response_model=MaterialOut, status_code=201)
-def create_material(project_id: int, payload: MaterialCreate, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def create_material(
+    project_id: int,
+    payload: MaterialCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(allowed_roles),
+):
     description = payload.description
     if payload.product_id is not None:
         product = db.get(Product, payload.product_id)
@@ -49,6 +55,7 @@ def create_material(project_id: int, payload: MaterialCreate, db: Session = Depe
         quantity=payload.quantity,
         notes=payload.notes,
         status="pendiente_compra",
+        created_by=current_user.id,
     )
     db.add(material)
     db.commit()

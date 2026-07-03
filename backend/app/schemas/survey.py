@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SurveyUpdate(BaseModel):
-    notes: str | None = None
-    measurements: str | None = None
-    observations: str | None = None
+    notes: str | None = Field(default=None, max_length=10000)
+    measurements: str | None = Field(default=None, max_length=10000)
+    observations: str | None = Field(default=None, max_length=10000)
 
 
 class SurveyAssetOut(BaseModel):
@@ -27,6 +27,9 @@ class SurveyOut(BaseModel):
     measurements: str | None
     observations: str | None
     ai_summary: str | None
+    created_by: int | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
     assets: list[SurveyAssetOut] = []
 
     class Config:

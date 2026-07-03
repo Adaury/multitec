@@ -8,6 +8,29 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Endurecimiento de seguridad y manejo de errores del backend:**
+  - Rate limiting (`slowapi`) en login (10/min) y refresh (30/min) por IP.
+  - Límite de tamaño de subida de archivos (`MAX_UPLOAD_MB`, 25 MB por defecto) en
+    fotos/audio de Levantamiento y Bitácora.
+  - Manejo global de excepciones: cualquier error no capturado devuelve un 500 genérico
+    al cliente y el detalle completo (con traceback) se registra en el log del servidor.
+  - Logging centralizado con rotación (`backend/logs/app.log`).
+  - Validación de longitud máxima en todos los campos de texto libre de la API
+    (alineada con los límites de columna en la base de datos).
+  - Advertencia en el arranque si `JWT_SECRET` sigue en su valor por defecto.
+  - Rol `tecnico` nuevo: acceso completo a Levantamiento/Ingeniería/Ejecución/Bitácora/
+    Tickets, solo lectura de Clientes/Proyectos, sin acceso a Presupuestos/Cotizaciones/
+    Compras/Facturación/Catálogo.
+  - **Refresh tokens**: login ahora devuelve access token (60 min) + refresh token
+    (30 días, revocable server-side vía hash SHA-256 en `refresh_tokens`).
+    `POST /api/auth/refresh` renueva el access token; `POST /api/auth/logout` revoca el
+    refresh token. El frontend renueva el access token automáticamente ante un 401
+    (interceptor de axios) y "Salir" ahora invalida la sesión en el servidor, no solo
+    borra el token del navegador.
+  - **Columnas de auditoría** (`created_by`, `updated_at`) en las 13 entidades
+    principales (Clientes, Proyectos, Levantamientos, Ingeniería, Catálogo,
+    Presupuestos, Cotizaciones, Materiales, Bitácora, Prefacturas, Facturas,
+    Ampliaciones, Tickets), expuestas en las respuestas de la API.
 - **Despliegue en Windows Server** (`deploy/`): backend como servicio de Windows
   (`MultitecBackend`, vía NSSM), Caddy como reverse proxy + HTTPS + servidor de
   estáticos del frontend (`MultitecWeb`), y backups automáticos diarios de PostgreSQL
@@ -48,6 +71,16 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   en un clon nuevo, ya que está en `.gitignore`) — ahora se crea automáticamente antes
   de montar `StaticFiles`. Detectado al escribir los tests.
 - Numeración duplicada en la sección "Configurar la IA" del README.
+- `Project.responsible` y `Ticket.technician` rompían con `AmbiguousForeignKeysError` al
+  agregar la columna `created_by` (segunda FK a `users` en la misma tabla) — se
+  desambiguó con `foreign_keys=[...]` explícito. Detectado por la suite de tests antes
+  de llegar a producción.
+- Comparación de fechas del refresh token fallaba con
+  `TypeError: can't compare offset-naive and offset-aware datetimes` en SQLite (que
+  devuelve datetimes "naive" aunque la columna sea `DateTime(timezone=True)`, a
+  diferencia de Postgres) — se normaliza a UTC antes de comparar. El manejo global de
+  errores lo atrapó como un 500 limpio en vez de tumbar el proceso; el test de
+  integración lo expuso de inmediato.
 
 ## [2026-07-02] — Lanzamiento inicial: fases 1-5 + IA local
 

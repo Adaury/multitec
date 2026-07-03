@@ -1,7 +1,12 @@
+import logging
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from starlette.middleware.cors import CORSMiddleware
 
 from app.api.routers import (
@@ -21,11 +26,37 @@ from app.api.routers import (
     surveys,
     tickets,
 )
-from app.core.config import get_settings
+from app.core.config import INSECURE_DEFAULT_JWT_SECRET, get_settings
+from app.core.limiter import limiter
+from app.core.logging_config import configure_logging
 
+configure_logging()
 settings = get_settings()
 
+logger = logging.getLogger("multitec")
+if settings.jwt_secret == INSECURE_DEFAULT_JWT_SECRET:
+    logger.warning(
+        "JWT_SECRET sigue en su valor por defecto. Esto es aceptable para desarrollo "
+        "local, pero NUNCA debe usarse en producción — cambia JWT_SECRET en backend/.env "
+        "antes de desplegar (ver deploy/README.md)."
+    )
+
 app = FastAPI(title="Multitec ERP", version="0.1.0")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """Red de seguridad: cualquier excepción no manejada se registra en el log del
+    servidor con el traceback completo, pero al cliente solo le llega un mensaje
+    genérico — nunca detalles internos (rutas, queries, stack traces)."""
+    logger.exception("Error no manejado en %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={"detail": "Ocurrió un error interno. Si persiste, contacta al administrador."},
+    )
 
 app.add_middleware(
     CORSMiddleware,
