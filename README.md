@@ -187,20 +187,22 @@ Durante las pruebas de Fase 4 se creó además un usuario de prueba con rol `ofi
 `oficina@multitec.com` / `oficina123` — útil para probar la restricción de "solo admin
 convierte a factura". Elimínalo antes de producción si no lo necesitas.
 
+## Despliegue en Windows Server
+
+Guía completa (servicios de Windows vía NSSM, Caddy como reverse proxy + HTTPS, backups
+automáticos de PostgreSQL) en **[deploy/README.md](deploy/README.md)**.
+
 ## Estructura
 
 ```
 multitec/
 ├─ backend/    FastAPI, modelos, migraciones Alembic, uploads (fotos/audio)
-└─ frontend/   React + Vite PWA
+├─ frontend/   React + Vite PWA
+└─ deploy/     Scripts y config para correr en Windows Server (ver deploy/README.md)
 ```
 
 ## Roadmap
 
-Todas las fases del brief original están construidas. Ideas para seguir creciendo el
-sistema (no solicitadas, solo sugerencias):
-
-- **Búsqueda semántica entre todos los proyectos** (embeddings/vector DB) si el Q&A actual
-  (proyecto por proyecto) resulta insuficiente en uso real.
-- **Infra:** Windows Server, servidor dedicado / cloud multiusuario (PostgreSQL ya
-  soportado, ver [Migrar a PostgreSQL](#migrar-a-postgresql)).
+Todas las fases del brief original están construidas, incluyendo IA local, PostgreSQL,
+búsqueda semántica entre proyectos y despliegue en Windows Server. Sin pendientes
+conocidos del brief original — futuras ideas se registran como Issues en el repositorio.

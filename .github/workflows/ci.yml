@@ -43,3 +43,27 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run build
+
+  deploy-scripts:
+    name: Deploy scripts (PowerShell syntax)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Parse every .ps1 for syntax errors
+        shell: powershell
+        run: |
+          $failed = $false
+          Get-ChildItem -Path deploy -Filter *.ps1 | ForEach-Object {
+            $errors = $null
+            $tokens = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $failed = $true
+              Write-Host "::error file=$($_.Name)::Syntax error(s) found"
+              $errors | ForEach-Object { Write-Host "  $($_.Message) at line $($_.Extent.StartLineNumber)" }
+            } else {
+              Write-Host "$($_.Name) -> OK"
+            }
+          }
+          if ($failed) { exit 1 }

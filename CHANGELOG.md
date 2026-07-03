@@ -8,6 +8,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Despliegue en Windows Server** (`deploy/`): backend como servicio de Windows
+  (`MultitecBackend`, vía NSSM), Caddy como reverse proxy + HTTPS + servidor de
+  estáticos del frontend (`MultitecWeb`), y backups automáticos diarios de PostgreSQL
+  vía Tarea Programada. Guía completa en `deploy/README.md`. Probado de punta a punta
+  en local: proxy `/api` y `/uploads`, fallback de SPA a `index.html`, y un backup real
+  restaurable con `pg_restore --list`.
 - **Borrar fotos/notas de voz del Levantamiento** individualmente (nuevo endpoint
   `DELETE /api/projects/{id}/survey/assets/{asset_id}`, botón ✕ en cada foto/audio en
   el frontend). Las notas de texto ya eran editables desde Fase 1.

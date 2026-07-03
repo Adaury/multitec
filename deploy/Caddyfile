@@ -1,0 +1,32 @@
+# Caddyfile de producción para Multitec en Windows Server.
+#
+# Sirve el frontend compilado (frontend/dist) como archivos estáticos y hace proxy de
+# /api y /uploads al backend FastAPI (uvicorn, corriendo como servicio de Windows en
+# 127.0.0.1:8000 — ver install-backend-service.ps1).
+#
+# Por defecto usa "tls internal" (certificado autofirmado de Caddy, válido para una red
+# local sin dominio público ni acceso a internet para ACME). Si el servidor tiene un
+# dominio real y acceso a internet, cambia el bloque de sitio por el dominio
+# (ej. "erp.multitec.com.do {") y Caddy obtiene HTTPS automático de Let's Encrypt sin
+# configuración adicional.
+
+multitec.local {
+	tls internal
+
+	# SPA: cualquier ruta que no sea archivo real cae en index.html (React Router)
+	root * ../frontend/dist
+	encode gzip
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle /uploads/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}
