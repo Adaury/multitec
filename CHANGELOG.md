@@ -8,6 +8,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Notificaciones automáticas por correo** (`backend/app/services/email.py` +
+  `notifications.py`): cotización pendiente de aprobar (a los admins activos), ticket
+  asignado (al técnico, sin re-notificar si se "reasigna" al mismo técnico), y factura
+  emitida (al cliente, con el PDF adjunto, si tiene correo registrado). Configurable por
+  `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASSWORD`/`SMTP_FROM`/`SMTP_USE_TLS` en
+  `.env` — sin `SMTP_HOST`, los correos solo se registran en el log (modo consola, no
+  hace falta SMTP real para desarrollar). Un fallo de envío nunca revierte ni bloquea la
+  operación que lo disparó, solo se registra el error. 6 tests nuevos.
 - **Asignar técnico a un ticket desde la UI**: cada ticket tiene un selector "Técnico
   asignado" (al crearlo y para reasignarlo después), poblado desde el nuevo
   `GET /api/users/technicians` (nombre/id únicamente, a diferencia de `GET /api/users`

@@ -9,6 +9,7 @@ from app.models.ticket import TICKET_STATUSES, Ticket, TicketHistory
 from app.models.user import User
 from app.schemas.ticket import TicketCreate, TicketHistoryOut, TicketOut, TicketUpdate
 from app.services.code_generator import next_code
+from app.services.notifications import notify_ticket_assigned
 
 router = APIRouter(tags=["tickets"])
 
@@ -50,6 +51,7 @@ def create_ticket(
     db.add(TicketHistory(ticket_id=ticket.id, action="abierto"))
     db.commit()
     db.refresh(ticket)
+    notify_ticket_assigned(db, ticket)
     return ticket
 
 
@@ -57,6 +59,7 @@ def create_ticket(
 def update_ticket(ticket_id: int, payload: TicketUpdate, db: Session = Depends(get_db), _=Depends(allowed_roles)):
     ticket = _get_ticket(db, ticket_id)
     data = payload.model_dump(exclude_unset=True)
+    previous_technician_id = ticket.technician_id
 
     if "status" in data:
         if data["status"] not in TICKET_STATUSES:
@@ -71,6 +74,8 @@ def update_ticket(ticket_id: int, payload: TicketUpdate, db: Session = Depends(g
 
     db.commit()
     db.refresh(ticket)
+    if ticket.technician_id is not None and ticket.technician_id != previous_technician_id:
+        notify_ticket_assigned(db, ticket)
     return ticket
 
 

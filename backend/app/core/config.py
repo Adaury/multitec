@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     company_address: str = ""
     company_phone: str = ""
 
+    # Notificaciones por correo — ver services/email.py. Sin SMTP_HOST configurado, los
+    # correos solo se registran en el log (modo consola), no rompe nada.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from: str = "no-reply@multitec.local"
+    smtp_use_tls: bool = True
+
     anthropic_api_key: str = ""
 
     # IA local (Ollama) — ver services/ai_client.py

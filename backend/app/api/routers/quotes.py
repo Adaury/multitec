@@ -13,6 +13,7 @@ from app.models.quote import Quote, QuoteHistory, QuoteItem
 from app.models.user import User
 from app.schemas.quote import QuoteCreate, QuoteHistoryOut, QuoteOut, QuoteUpdate, RejectIn
 from app.services.code_generator import next_code
+from app.services.notifications import notify_quote_pending
 from app.services.pdf import build_quote_pdf
 from app.services.quote_archiver import archive_stale_quotes
 from app.services.totals import LineInput, compute_totals
@@ -91,6 +92,7 @@ def create_quote(
     db.add(QuoteHistory(quote_id=quote.id, action="creada"))
     db.commit()
     db.refresh(quote)
+    notify_quote_pending(db, quote)
     return quote
 
 

@@ -11,6 +11,7 @@ from app.models.user import User
 from app.schemas.budget import BudgetCreate, BudgetOut, BudgetUpdate
 from app.schemas.quote import QuoteOut
 from app.services.code_generator import next_code
+from app.services.notifications import notify_quote_pending
 from app.services.totals import LineInput, compute_totals, line_subtotal
 
 router = APIRouter(tags=["budgets"])
@@ -139,4 +140,5 @@ def convert_to_quote(budget_id: int, db: Session = Depends(get_db), current_user
     db.add(QuoteHistory(quote_id=quote.id, action="creada", note=f"Generada desde presupuesto {budget.code}"))
     db.commit()
     db.refresh(quote)
+    notify_quote_pending(db, quote)
     return quote

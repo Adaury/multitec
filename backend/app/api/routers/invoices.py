@@ -17,6 +17,7 @@ from app.schemas.invoice import InvoiceHistoryOut, InvoiceOut, PreInvoiceCreate,
 from app.schemas.ncf import ConvertToInvoiceRequest
 from app.services.code_generator import next_code
 from app.services.ncf import assign_ncf, default_ncf_type
+from app.services.notifications import notify_invoice_issued
 from app.services.pdf import build_invoice_pdf
 from app.services.totals import LineInput, compute_totals
 
@@ -190,6 +191,7 @@ def convert_to_invoice(
             ),
         )
     db.refresh(invoice)
+    notify_invoice_issued(invoice)
     return invoice
 
 

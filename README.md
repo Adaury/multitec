@@ -78,8 +78,10 @@ Construido después del brief original: NCF en Facturación, PDF de Cotización/
 inicio (`/`, solo admin/oficina) — cotizaciones pendientes, tickets abiertos por técnico,
 proyectos por estado, y un gráfico de facturación de los últimos 6 meses — y una
 **búsqueda global** (ícono 🔍, disponible para los tres roles) que encuentra clientes,
-proyectos y tickets desde cualquier pantalla, y **asignación de técnico a tickets** desde
-la propia pestaña Tickets.
+proyectos y tickets desde cualquier pantalla, **asignación de técnico a tickets** desde
+la propia pestaña Tickets, y **notificaciones por correo** (cotización pendiente, ticket
+asignado, factura emitida — ver [Notificaciones por
+correo](#notificaciones-por-correo)).
 
 ## Capturas
 
@@ -240,6 +242,24 @@ contra un backend real (SQLite fresco + admin sembrado) y un `vite dev` real.
 
 Migración probada de punta a punta: las 4 migraciones de Alembic aplican limpio sobre
 PostgreSQL sin cambios (son todas `create_table`, sin `ALTER` específico de SQLite).
+
+### Notificaciones por correo
+
+Tres eventos disparan un correo automático:
+
+- **Cotización pendiente de aprobar** (al crearla, desde Presupuesto→Cotización o
+  directo): a todos los admins activos.
+- **Ticket asignado**: al correo del técnico, cuando se le asigna al crear el ticket o al
+  reasignarlo (no se re-envía si se "reasigna" al mismo técnico que ya tenía).
+- **Factura emitida**: al correo del cliente (si tiene uno registrado), con el PDF de la
+  factura adjunto.
+
+Configurar `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` /
+`SMTP_USE_TLS` en `backend/.env`. **Sin `SMTP_HOST` configurado** (el default), los
+correos no se envían de verdad — solo quedan registrados en `backend/logs/app.log`
+("modo consola"), así que no hace falta una cuenta SMTP real para desarrollar. Un fallo
+de SMTP nunca revierte ni bloquea la operación que disparó el correo (crear la
+cotización, asignar el ticket, emitir la factura) — solo se registra el error en el log.
 
 ## Frontend — arrancar en desarrollo
 
