@@ -79,9 +79,10 @@ inicio (`/`, solo admin/oficina) — cotizaciones pendientes, tickets abiertos p
 proyectos por estado, y un gráfico de facturación de los últimos 6 meses — y una
 **búsqueda global** (ícono 🔍, disponible para los tres roles) que encuentra clientes,
 proyectos y tickets desde cualquier pantalla, **asignación de técnico a tickets** desde
-la propia pestaña Tickets, y **notificaciones por correo** (cotización pendiente, ticket
+la propia pestaña Tickets, **notificaciones por correo** (cotización pendiente, ticket
 asignado, factura emitida — ver [Notificaciones por
-correo](#notificaciones-por-correo)).
+correo](#notificaciones-por-correo)), y **control de inventario de bodega** en el
+Catálogo (entradas/salidas de stock por producto, con historial).
 
 ## Capturas
 

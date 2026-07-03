@@ -25,6 +25,7 @@ class ProductOut(BaseModel):
     name: str
     unit: str
     price: float
+    stock_quantity: float
     notes: str | None
     created_by: int | None = None
     created_at: datetime | None = None

@@ -8,6 +8,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Control de inventario de bodega** en el Catálogo: cada producto tiene ahora
+  `stock_quantity` y un botón para expandirlo y registrar **entradas/salidas**
+  (`POST /api/products/{id}/stock-movements`) con motivo opcional e historial completo.
+  Una salida que supere el stock disponible se rechaza con un mensaje claro (no deja el
+  stock en negativo). Es un conteo de bodega independiente de los materiales por proyecto
+  (`Material`, ya existente) — sirve para saber qué hay físicamente disponible más allá
+  de lo ya asignado a un proyecto. Mismos roles que el resto del Catálogo (admin/oficina,
+  sin acceso para `tecnico`). 6 tests nuevos.
 - **Notificaciones automáticas por correo** (`backend/app/services/email.py` +
   `notifications.py`): cotización pendiente de aprobar (a los admins activos), ticket
   asignado (al técnico, sin re-notificar si se "reasigna" al mismo técnico), y factura

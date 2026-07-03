@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import type { Product } from '../lib/types'
+import type { Product, StockMovement, StockMovementType } from '../lib/types'
 import { PRODUCT_CATEGORY_LABELS } from '../lib/types'
-import { Button, Card, Field, Input, Textarea } from '../components/ui'
+import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
 
 interface ProductForm {
   category: string
@@ -21,6 +21,7 @@ export function Catalog() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<ProductForm>(emptyForm())
+  const [expandedId, setExpandedId] = useState<number | null>(null)
 
   const { data: products, isLoading } = useQuery({
     queryKey: ['catalog'],
@@ -99,22 +100,152 @@ export function Catalog() {
 
       <div className="space-y-3">
         {products?.map((product) => (
-          <Card key={product.id}>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-gray-900">{product.name}</p>
-                <p className="text-xs text-gray-400">
-                  {product.code} · {PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}
-                </p>
-              </div>
-              <p className="text-sm font-medium text-gray-700">
-                RD$ {product.price.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
-          </Card>
+          <ProductCard
+            key={product.id}
+            product={product}
+            expanded={expandedId === product.id}
+            onToggle={() => setExpandedId(expandedId === product.id ? null : product.id)}
+          />
         ))}
         {products?.length === 0 && <p className="text-sm text-gray-500">Aún no hay productos en el catálogo.</p>}
       </div>
     </div>
+  )
+}
+
+function ProductCard({
+  product,
+  expanded,
+  onToggle,
+}: {
+  product: Product
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [movementType, setMovementType] = useState<StockMovementType>('entrada')
+  const [quantity, setQuantity] = useState('')
+  const [reason, setReason] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const { data: movements } = useQuery({
+    queryKey: ['stock-movements', product.id],
+    queryFn: async () => (await api.get<StockMovement[]>(`/products/${product.id}/stock-movements`)).data,
+    enabled: expanded,
+  })
+
+  const registerMovement = useMutation({
+    mutationFn: async () =>
+      (
+        await api.post(`/products/${product.id}/stock-movements`, {
+          movement_type: movementType,
+          quantity: Number(quantity),
+          reason: reason || null,
+        })
+      ).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['catalog'] })
+      queryClient.invalidateQueries({ queryKey: ['stock-movements', product.id] })
+      setQuantity('')
+      setReason('')
+      setError(null)
+    },
+    onError: (err: any) => setError(err?.response?.data?.detail ?? 'Error al registrar el movimiento'),
+  })
+
+  return (
+    <Card>
+      <button className="w-full text-left" onClick={onToggle}>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="font-medium text-gray-900">{product.name}</p>
+            <p className="text-xs text-gray-400">
+              {product.code} · {PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-sm font-medium text-gray-700">
+              RD$ {product.price.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
+            </p>
+            <Badge tone={product.stock_quantity > 0 ? 'green' : 'gray'}>
+              {product.stock_quantity.toLocaleString('es-DO')} {product.unit} en bodega
+            </Badge>
+          </div>
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
+          <form
+            className="space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              registerMovement.mutate()
+            }}
+          >
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setMovementType('entrada')}
+                className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
+                  movementType === 'entrada' ? 'bg-green-50 text-green-700' : 'bg-brand-gray text-gray-500'
+                }`}
+              >
+                Entrada
+              </button>
+              <button
+                type="button"
+                onClick={() => setMovementType('salida')}
+                className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
+                  movementType === 'salida' ? 'bg-red-50 text-red-600' : 'bg-brand-gray text-gray-500'
+                }`}
+              >
+                Salida
+              </button>
+            </div>
+            <Field label="Cantidad">
+              <Input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+            </Field>
+            <Field label="Motivo (opcional)">
+              <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+            </Field>
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            <Button type="submit" disabled={registerMovement.isPending || !quantity}>
+              {registerMovement.isPending ? 'Guardando…' : 'Registrar movimiento'}
+            </Button>
+          </form>
+
+          {movements && movements.length > 0 && (
+            <div>
+              <p className="mb-1 text-xs font-medium text-gray-500">Historial</p>
+              <ul className="space-y-1 text-xs text-gray-600">
+                {movements.map((m) => (
+                  <li key={m.id} className="flex justify-between">
+                    <span>
+                      {new Date(m.created_at).toLocaleString('es-DO')} —{' '}
+                      <span className={m.movement_type === 'entrada' ? 'text-green-700' : 'text-red-600'}>
+                        {m.movement_type === 'entrada' ? '+' : '-'}
+                        {m.quantity.toLocaleString('es-DO')}
+                      </span>
+                      {m.reason ? ` (${m.reason})` : ''}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {movements && movements.length === 0 && (
+            <p className="text-xs text-gray-400">Aún no hay movimientos de stock.</p>
+          )}
+        </div>
+      )}
+    </Card>
   )
 }

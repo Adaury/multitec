@@ -13,6 +13,7 @@ from app.models.project import Project
 from app.models.quote import Quote, QuoteHistory, QuoteItem
 from app.models.refresh_token import RefreshToken
 from app.models.sequence import CodeSequence
+from app.models.stock_movement import StockMovement
 from app.models.survey import Survey, SurveyAsset
 from app.models.ticket import Ticket, TicketHistory
 from app.models.user import User
@@ -41,6 +42,7 @@ __all__ = [
     "QuoteItem",
     "RefreshToken",
     "CodeSequence",
+    "StockMovement",
     "Survey",
     "SurveyAsset",
     "Ticket",

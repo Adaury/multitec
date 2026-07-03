@@ -81,7 +81,20 @@ export interface Product {
   name: string
   unit: string
   price: number
+  stock_quantity: number
   notes: string | null
+}
+
+export type StockMovementType = 'entrada' | 'salida'
+
+export interface StockMovement {
+  id: number
+  product_id: number
+  movement_type: StockMovementType
+  quantity: number
+  reason: string | null
+  created_by: number | null
+  created_at: string
 }
 
 export interface BudgetItem {
