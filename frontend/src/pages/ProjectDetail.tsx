@@ -1343,12 +1343,22 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
               <span>{formatDOP(invoice.total)}</span>
             </div>
           </div>
-          <Button
-            variant="secondary"
-            onClick={() => downloadFile(`/invoices/${invoice.id}/pdf`, `${invoice.code}.pdf`)}
-          >
-            Descargar PDF
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => downloadFile(`/invoices/${invoice.id}/pdf`, `${invoice.code}.pdf`)}
+            >
+              Descargar PDF
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() =>
+                downloadFile(`/invoices/${invoice.id}/pdf?variant=global`, `${invoice.code}-global.pdf`)
+              }
+            >
+              PDF sin precios
+            </Button>
+          </div>
           {history && history.length > 0 && (
             <div>
               <p className="mb-1 text-xs font-medium text-gray-500">Historial</p>

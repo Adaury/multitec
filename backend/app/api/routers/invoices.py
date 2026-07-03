@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
@@ -198,15 +200,21 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), _=Depends(allowe
 
 
 @router.get("/api/invoices/{invoice_id}/pdf")
-def get_invoice_pdf(invoice_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def get_invoice_pdf(
+    invoice_id: int,
+    variant: Literal["detallada", "global"] = "detallada",
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
     invoice = db.query(Invoice).options(joinedload(Invoice.items)).filter(Invoice.id == invoice_id).one_or_none()
     if invoice is None:
         raise HTTPException(status_code=404, detail="Factura no encontrada")
-    pdf_bytes = build_invoice_pdf(invoice)
+    pdf_bytes = build_invoice_pdf(invoice, variant=variant)
+    suffix = "" if variant == "detallada" else "-global"
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{invoice.code}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{invoice.code}{suffix}.pdf"'},
     )
 
 

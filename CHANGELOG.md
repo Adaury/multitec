@@ -12,7 +12,10 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   `GET /api/invoices/{id}/pdf`, con `reportlab`): membrete de la empresa (nombre/RNC/
   dirección/teléfono, configurable en `.env`), datos del cliente y proyecto, líneas con
   precios, subtotal/ITBIS/total, y el NCF en la factura. Antes solo se podían ver en
-  pantalla, sin forma de entregarle un documento formal al cliente.
+  pantalla, sin forma de entregarle un documento formal al cliente. La Factura tiene un
+  segundo botón **"PDF sin precios"** (`?variant=global`): mismo documento pero solo con
+  descripción y cantidad de cada línea — sin precio unitario, subtotal, ITBIS, total ni
+  NCF — para entregar como detalle técnico de lo instalado sin exponer montos.
 - **NCF (Números de Comprobante Fiscal) en Facturación**: secuencias autorizadas por la
   DGII administrables desde `/ncf` (solo admin) — tipo (B01 crédito fiscal, B02 consumo,
   B14 regímenes especiales, B15 gubernamental), rango, vencimiento y activar/desactivar.

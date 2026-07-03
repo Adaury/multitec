@@ -37,6 +37,7 @@ def _build_pdf(
     ncf: str | None = None,
     status_label: str | None = None,
     notes: str | None = None,
+    show_prices: bool = True,
 ) -> bytes:
     settings = get_settings()
     buf = BytesIO()
@@ -82,11 +83,20 @@ def _build_pdf(
     story.append(header_table)
     story.append(Spacer(1, 8 * mm))
 
-    rows = [["Descripción", "Cant.", "Precio unit.", "Subtotal"]]
-    for item in items:
-        rows.append([item.description, f"{item.quantity:g}", _money(float(item.unit_price)), _money(float(item.subtotal))])
+    if show_prices:
+        rows = [["Descripción", "Cant.", "Precio unit.", "Subtotal"]]
+        for item in items:
+            rows.append(
+                [item.description, f"{item.quantity:g}", _money(float(item.unit_price)), _money(float(item.subtotal))]
+            )
+        col_widths = [85 * mm, 20 * mm, 30 * mm, 35 * mm]
+    else:
+        rows = [["Descripción", "Cant."]]
+        for item in items:
+            rows.append([item.description, f"{item.quantity:g}"])
+        col_widths = [150 * mm, 20 * mm]
 
-    items_table = Table(rows, colWidths=[85 * mm, 20 * mm, 30 * mm, 35 * mm])
+    items_table = Table(rows, colWidths=col_widths)
     items_table.setStyle(
         TableStyle(
             [
@@ -106,25 +116,26 @@ def _build_pdf(
     story.append(items_table)
     story.append(Spacer(1, 6 * mm))
 
-    totals_rows = [
-        ["Subtotal", _money(subtotal)],
-        [f"ITBIS ({settings.itbis_rate * 100:.0f}%)", _money(itbis)],
-        ["Total", _money(total)],
-    ]
-    totals_table = Table(totals_rows, colWidths=[140 * mm, 30 * mm])
-    totals_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
-                ("LINEABOVE", (0, 2), (-1, 2), 0.75, colors.black),
-                ("TOPPADDING", (0, 0), (-1, -1), 3),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ]
+    if show_prices:
+        totals_rows = [
+            ["Subtotal", _money(subtotal)],
+            [f"ITBIS ({settings.itbis_rate * 100:.0f}%)", _money(itbis)],
+            ["Total", _money(total)],
+        ]
+        totals_table = Table(totals_rows, colWidths=[140 * mm, 30 * mm])
+        totals_table.setStyle(
+            TableStyle(
+                [
+                    ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+                    ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("FONTNAME", (0, 2), (-1, 2), "Helvetica-Bold"),
+                    ("LINEABOVE", (0, 2), (-1, 2), 0.75, colors.black),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ]
+            )
         )
-    )
-    story.append(totals_table)
+        story.append(totals_table)
 
     if notes:
         story.append(Spacer(1, 8 * mm))
@@ -151,9 +162,10 @@ def build_quote_pdf(quote: Quote) -> bytes:
     )
 
 
-def build_invoice_pdf(invoice: Invoice) -> bytes:
+def build_invoice_pdf(invoice: Invoice, variant: str = "detallada") -> bytes:
+    show_prices = variant != "global"
     return _build_pdf(
-        doc_title="Factura",
+        doc_title="Factura" if show_prices else "Factura — Detalle de trabajo",
         code=invoice.code,
         created_at=invoice.created_at,
         client=invoice.project.client,
@@ -162,5 +174,6 @@ def build_invoice_pdf(invoice: Invoice) -> bytes:
         subtotal=float(invoice.subtotal),
         itbis=float(invoice.itbis),
         total=float(invoice.total),
-        ncf=invoice.ncf,
+        ncf=invoice.ncf if show_prices else None,
+        show_prices=show_prices,
     )

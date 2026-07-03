@@ -47,7 +47,9 @@ Construidas hasta ahora:
   defecto se infiere de si el cliente tiene RNC (B01 crédito fiscal) o no (B02 consumo),
   editable antes de convertir. Cotización y Factura tienen botón **"Descargar PDF"** con
   membrete de la empresa (configurable en `.env`), datos del cliente/proyecto, líneas,
-  totales y el NCF. La pestaña **Factura** también muestra una **referencia
+  totales y el NCF; la Factura además tiene **"PDF sin precios"** — mismo documento pero
+  solo con descripción y cantidad, sin montos ni NCF, para entregar como detalle técnico.
+  La pestaña **Factura** también muestra una **referencia
   del levantamiento** (notas, observaciones y fotos) como respaldo de lo facturado.
   Pestaña **Ampliaciones** (siempre atadas al mismo proyecto, con enlace opcional a una
   cotización). Pestaña **Tickets** de soporte con historial de estados.
