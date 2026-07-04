@@ -29,5 +29,9 @@ export default defineConfig({
       '/api': 'http://127.0.0.1:8000',
       '/uploads': 'http://127.0.0.1:8000',
     },
+    // Permite servir la app a través del túnel de ngrok (dominio *.ngrok-free.app,
+    // distinto cada vez) además de localhost — sin esto Vite rechaza la petición
+    // por el chequeo de Host contra DNS rebinding.
+    allowedHosts: true,
   },
 })
