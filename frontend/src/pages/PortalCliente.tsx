@@ -90,10 +90,10 @@ function ExclamationIcon({ className = 'h-6 w-6' }: { className?: string }) {
 function SectionHeading({ icon, title, count }: { icon: ReactNode; title: string; count: number }) {
   return (
     <div className="flex items-center gap-2">
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-brand-blue">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-brand-blue dark:bg-blue-950 dark:text-blue-300">
         {icon}
       </span>
-      <h2 className="text-sm font-semibold text-gray-800">{title}</h2>
+      <h2 className="text-sm font-semibold text-gray-800 dark:text-gray-200">{title}</h2>
       <span className="text-xs text-gray-400">{count}</span>
     </div>
   )
@@ -114,27 +114,31 @@ function ProjectProgress({ status }: { status: string }) {
                   idx < currentIndex
                     ? 'bg-brand-blue text-white'
                     : idx === currentIndex
-                      ? 'bg-brand-blue text-white ring-4 ring-blue-100'
-                      : 'bg-gray-100 text-gray-400'
+                      ? 'bg-brand-blue text-white ring-4 ring-blue-100 dark:ring-blue-950'
+                      : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500'
                 }`}
               >
                 {idx < currentIndex ? '✓' : idx + 1}
               </div>
               <span
                 className={`hidden w-16 text-center text-[11px] sm:block ${
-                  idx === currentIndex ? 'font-semibold text-gray-900' : 'text-gray-400'
+                  idx === currentIndex ? 'font-semibold text-gray-900 dark:text-gray-100' : 'text-gray-400'
                 }`}
               >
                 {PROJECT_STATUS_LABELS[stage]}
               </span>
             </div>
             {idx < PROJECT_STAGES.length - 1 && (
-              <div className={`mx-1 mt-3 h-0.5 flex-1 rounded ${idx < currentIndex ? 'bg-brand-blue' : 'bg-gray-100'}`} />
+              <div
+                className={`mx-1 mt-3 h-0.5 flex-1 rounded ${idx < currentIndex ? 'bg-brand-blue' : 'bg-gray-100 dark:bg-gray-800'}`}
+              />
             )}
           </div>
         ))}
       </div>
-      <p className="mt-2 text-sm font-medium text-gray-700 sm:hidden">{PROJECT_STATUS_LABELS[status]}</p>
+      <p className="mt-2 text-sm font-medium text-gray-700 sm:hidden dark:text-gray-300">
+        {PROJECT_STATUS_LABELS[status]}
+      </p>
     </div>
   )
 }
@@ -188,14 +192,16 @@ export function PortalCliente() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-bg">
+    <div className="min-h-screen bg-brand-bg dark:bg-gray-950">
       <div className="mx-auto max-w-lg px-5 py-6 md:max-w-none md:px-10 md:py-10 lg:px-16 xl:px-24 2xl:px-32">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-blue text-white">
             <ShieldIcon className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-base font-semibold leading-tight text-gray-900 md:text-lg">Multitec</p>
+            <p className="text-base font-semibold leading-tight text-gray-900 md:text-lg dark:text-gray-100">
+              Multitec
+            </p>
             <p className="text-xs text-gray-500">Portal de seguimiento del proyecto</p>
           </div>
         </div>
@@ -204,7 +210,7 @@ export function PortalCliente() {
           {loading && (
             <Card>
               <div className="flex items-center gap-3">
-                <span className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-brand-blue" />
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-brand-blue dark:border-gray-700" />
                 <p className="text-sm text-gray-500">Cargando…</p>
               </div>
             </Card>
@@ -213,10 +219,10 @@ export function PortalCliente() {
           {error && (
             <Card>
               <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-500 dark:bg-red-950 dark:text-red-400">
                   <ExclamationIcon className="h-5 w-5" />
                 </span>
-                <p className="pt-2 text-sm text-red-600">{error}</p>
+                <p className="pt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
             </Card>
           )}
@@ -226,13 +232,15 @@ export function PortalCliente() {
               <Card>
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="text-lg font-semibold text-gray-900">{project.client_name}</p>
+                    <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{project.client_name}</p>
                     <p className="mt-0.5 font-mono text-xs text-gray-400">{project.code}</p>
                   </div>
                   <Badge>{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge>
                 </div>
                 <p className="mt-1 text-xs text-gray-400">{project.date}</p>
-                {project.description && <p className="mt-3 text-sm text-gray-600">{project.description}</p>}
+                {project.description && (
+                  <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">{project.description}</p>
+                )}
                 <ProjectProgress status={project.status} />
               </Card>
 
@@ -248,12 +256,12 @@ export function PortalCliente() {
                       {project.quotes.map((quote) => (
                         <Card key={quote.code}>
                           <div className="flex items-center justify-between">
-                            <p className="font-medium text-gray-900">{quote.code}</p>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{quote.code}</p>
                             <Badge tone={QUOTE_STATUS_TONE[quote.status] ?? 'blue'}>
                               {QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
                             </Badge>
                           </div>
-                          <ul className="mt-2 space-y-1 text-sm text-gray-600">
+                          <ul className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
                             {quote.items.map((item, idx) => (
                               <li key={idx} className="flex justify-between">
                                 <span>
@@ -263,16 +271,16 @@ export function PortalCliente() {
                               </li>
                             ))}
                           </ul>
-                          <div className="mt-2 space-y-1 rounded-xl bg-brand-gray p-3 text-sm">
-                            <div className="flex justify-between text-gray-500">
+                          <div className="mt-2 space-y-1 rounded-xl bg-brand-gray p-3 text-sm dark:bg-gray-800">
+                            <div className="flex justify-between text-gray-500 dark:text-gray-400">
                               <span>Subtotal</span>
                               <span>{formatDOP(quote.subtotal)}</span>
                             </div>
-                            <div className="flex justify-between text-gray-500">
+                            <div className="flex justify-between text-gray-500 dark:text-gray-400">
                               <span>ITBIS (18%)</span>
                               <span>{formatDOP(quote.itbis)}</span>
                             </div>
-                            <div className="flex justify-between font-semibold text-gray-900">
+                            <div className="flex justify-between font-semibold text-gray-900 dark:text-gray-100">
                               <span>Total</span>
                               <span>{formatDOP(quote.total)}</span>
                             </div>
@@ -289,7 +297,7 @@ export function PortalCliente() {
                         </Card>
                       ))}
                     </div>
-                    {approveError && <p className="text-sm text-red-600">{approveError}</p>}
+                    {approveError && <p className="text-sm text-red-600 dark:text-red-400">{approveError}</p>}
                   </div>
                 )}
 
@@ -305,10 +313,12 @@ export function PortalCliente() {
                         <Card key={invoice.id}>
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="font-medium text-gray-900">{invoice.code}</p>
+                              <p className="font-medium text-gray-900 dark:text-gray-100">{invoice.code}</p>
                               {invoice.ncf && <p className="text-xs text-gray-500">NCF: {invoice.ncf}</p>}
                             </div>
-                            <p className="text-sm font-semibold text-gray-800">{formatDOP(invoice.total)}</p>
+                            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                              {formatDOP(invoice.total)}
+                            </p>
                           </div>
                           <a
                             href={`/api/public/projects/${token}/invoices/${invoice.id}/pdf`}
@@ -335,18 +345,19 @@ export function PortalCliente() {
                       {project.tickets.map((ticket) => (
                         <Card key={ticket.code}>
                           <div className="flex items-center justify-between">
-                            <p className="font-medium text-gray-900">{ticket.code}</p>
+                            <p className="font-medium text-gray-900 dark:text-gray-100">{ticket.code}</p>
                             <Badge tone={TICKET_STATUS_TONE[ticket.status] ?? 'blue'}>
                               {TICKET_STATUS_LABELS[ticket.status] ?? ticket.status}
                             </Badge>
                           </div>
-                          <p className="mt-1 text-sm text-gray-600">{ticket.problem}</p>
+                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{ticket.problem}</p>
                           <p className="mt-1 text-xs text-gray-400">
                             Técnico: {ticket.technician_name ?? 'Sin asignar'}
                           </p>
                           {ticket.solution && (
-                            <p className="mt-2 text-sm text-gray-600">
-                              <span className="font-medium text-gray-800">Solución:</span> {ticket.solution}
+                            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+                              <span className="font-medium text-gray-800 dark:text-gray-200">Solución:</span>{' '}
+                              {ticket.solution}
                             </p>
                           )}
                         </Card>
@@ -358,7 +369,7 @@ export function PortalCliente() {
 
               {project.quotes.length === 0 && project.invoices.length === 0 && project.tickets.length === 0 && (
                 <Card className="text-center">
-                  <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand-gray text-gray-400">
+                  <span className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand-gray text-gray-400 dark:bg-gray-800">
                     <DocumentIcon className="h-5 w-5" />
                   </span>
                   <p className="mt-3 text-sm text-gray-500">

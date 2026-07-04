@@ -72,7 +72,7 @@ function DictationField({
           <IconButton
             type="button"
             onClick={listening ? stop : start}
-            className={listening ? 'bg-red-100 text-red-600' : ''}
+            className={listening ? 'bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400' : ''}
             aria-label="Dictar por voz"
           >
             {listening ? '⏹' : '🎙️'}
@@ -125,29 +125,31 @@ export function ProjectDetail() {
     queryFn: async () => (await api.get<ProjectDetailType>(`/projects/${id}`)).data,
   })
 
-  if (!project) return <p className="py-4 text-sm text-gray-500">Cargando…</p>
+  if (!project) return <p className="py-4 text-sm text-gray-500 dark:text-gray-400">Cargando…</p>
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
       <button onClick={() => navigate(-1)} className="text-sm text-brand-blue">
         ← Volver
       </button>
 
       <Card>
         <div className="flex items-center justify-between">
-          <p className="text-lg font-semibold text-gray-900">{project.code}</p>
+          <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{project.code}</p>
           {tab !== 'tickets' && <Badge>{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge>}
         </div>
-        <p className="mt-1 text-sm text-gray-500">{project.client.name}</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{project.client.name}</p>
       </Card>
 
-      <div className="flex gap-2 overflow-x-auto rounded-2xl bg-brand-gray p-1">
+      <div className="flex gap-2 overflow-x-auto rounded-2xl bg-brand-gray p-1 dark:bg-gray-800">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium ${
-              tab === t.key ? 'bg-white text-brand-blue shadow-sm' : 'text-gray-500'
+              tab === t.key
+                ? 'bg-white text-brand-blue shadow-sm dark:bg-gray-700 dark:text-blue-300'
+                : 'text-gray-500 dark:text-gray-400'
             }`}
           >
             {t.label}
@@ -202,34 +204,36 @@ function InfoTab({ project }: { project: ProjectDetailType }) {
 
   return (
     <div className="space-y-4">
-      <Card className="space-y-2 text-sm text-gray-600">
+      <Card className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
         <p>
-          <span className="font-medium text-gray-800">Cliente:</span> {project.client.name}
+          <span className="font-medium text-gray-800 dark:text-gray-200">Cliente:</span> {project.client.name}
           {project.client.company ? ` (${project.client.company})` : ''}
         </p>
         <p>
-          <span className="font-medium text-gray-800">Fecha:</span> {project.date}
+          <span className="font-medium text-gray-800 dark:text-gray-200">Fecha:</span> {project.date}
         </p>
         <p>
-          <span className="font-medium text-gray-800">Estado:</span> {PROJECT_STATUS_LABELS[project.status] ?? project.status}
+          <span className="font-medium text-gray-800 dark:text-gray-200">Estado:</span> {PROJECT_STATUS_LABELS[project.status] ?? project.status}
         </p>
         {project.description && (
           <p>
-            <span className="font-medium text-gray-800">Descripción:</span> {project.description}
+            <span className="font-medium text-gray-800 dark:text-gray-200">Descripción:</span> {project.description}
           </p>
         )}
       </Card>
 
       {canManagePortal && (
         <Card className="space-y-2">
-          <p className="text-sm font-medium text-gray-800">Portal de cliente</p>
-          <p className="text-xs text-gray-500">
+          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Portal de cliente</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
             Enlace de solo lectura, sin necesidad de iniciar sesión, para que el cliente vea el estado de su
             proyecto, sus cotizaciones y sus facturas (con PDF descargable).
           </p>
           {portalUrl ? (
             <div className="space-y-2">
-              <div className="rounded-xl bg-brand-gray px-3 py-2 text-xs text-gray-600 break-all">{portalUrl}</div>
+              <div className="rounded-xl bg-brand-gray px-3 py-2 text-xs text-gray-600 break-all dark:bg-gray-800 dark:text-gray-400">
+                {portalUrl}
+              </div>
               <div className="flex gap-2">
                 <Button
                   variant="secondary"
@@ -354,7 +358,7 @@ function LevantamientoTab({ projectId }: { projectId: number }) {
       </Card>
 
       <Card className="space-y-3">
-        <p className="font-medium text-gray-800">Fotos y audio</p>
+        <p className="font-medium text-gray-800 dark:text-gray-200">Fotos y audio</p>
         <div className="flex gap-2">
           <input
             ref={fileInputRef}
@@ -425,7 +429,7 @@ function LevantamientoTab({ projectId }: { projectId: number }) {
 
       <Card className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="font-medium text-gray-800">Resumen con IA</p>
+          <p className="font-medium text-gray-800 dark:text-gray-200">Resumen con IA</p>
           <Button
             variant="secondary"
             className="w-auto px-4"
@@ -435,10 +439,10 @@ function LevantamientoTab({ projectId }: { projectId: number }) {
             {aiSummarize.isPending ? 'Organizando…' : '🤖 Organizar con IA'}
           </Button>
         </div>
-        {aiError && <p className="text-sm text-red-600">{aiError}</p>}
-        {survey?.ai_summary && <p className="whitespace-pre-line text-sm text-gray-700">{survey.ai_summary}</p>}
+        {aiError && <p className="text-sm text-red-600 dark:text-red-400">{aiError}</p>}
+        {survey?.ai_summary && <p className="whitespace-pre-line text-sm text-gray-700 dark:text-gray-300">{survey.ai_summary}</p>}
         {!survey?.ai_summary && !aiError && (
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
             Analiza las notas y fotos del levantamiento con IA y genera un resumen técnico.
           </p>
         )}
@@ -493,8 +497,8 @@ function IngenieriaTab({ projectId }: { projectId: number }) {
 
   return (
     <Card className="space-y-3">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">Borrador generado con IA a partir del levantamiento.</p>
+      <div className="flex items-center justify-between md:max-w-2xl">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Borrador generado con IA a partir del levantamiento.</p>
         <Button
           variant="secondary"
           className="w-auto shrink-0 px-4"
@@ -504,7 +508,7 @@ function IngenieriaTab({ projectId }: { projectId: number }) {
           {aiDraft.isPending ? 'Generando…' : '🤖 Generar propuesta'}
         </Button>
       </div>
-      {aiError && <p className="text-sm text-red-600">{aiError}</p>}
+      {aiError && <p className="text-sm text-red-600 dark:text-red-400">{aiError}</p>}
       <Field label="Equipos recomendados">
         <Textarea rows={2} value={form.recommended_equipment} onChange={(e) => setForm({ ...form, recommended_equipment: e.target.value })} />
       </Field>
@@ -579,8 +583,8 @@ function BudgetTab({ projectId, onConverted }: { projectId: number; onConverted:
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">Documento resumido — solo muestra el total.</p>
+      <div className="flex items-center justify-between md:max-w-2xl">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Documento resumido — solo muestra el total.</p>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
@@ -602,7 +606,7 @@ function BudgetTab({ projectId, onConverted }: { projectId: number; onConverted:
           >
             {aiSuggest.isPending ? 'Sugiriendo…' : '🤖 Sugerir materiales'}
           </Button>
-          {aiError && <p className="text-sm text-red-600">{aiError}</p>}
+          {aiError && <p className="text-sm text-red-600 dark:text-red-400">{aiError}</p>}
           <LineItemsEditor items={items} onChange={setItems} products={products ?? []} mode="budget" />
           <Button onClick={() => createBudget.mutate()} disabled={createBudget.isPending || items.length === 0}>
             {createBudget.isPending ? 'Guardando…' : 'Guardar presupuesto'}
@@ -610,15 +614,15 @@ function BudgetTab({ projectId, onConverted }: { projectId: number; onConverted:
         </Card>
       )}
 
-      <div className="space-y-3">
+      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {budgets?.map((budget) => (
           <Card key={budget.id}>
             <div className="flex items-center justify-between">
-              <p className="font-medium text-gray-900">{budget.code}</p>
-              <p className="text-sm font-semibold text-gray-800">{formatDOP(budget.total)}</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100">{budget.code}</p>
+              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{formatDOP(budget.total)}</p>
             </div>
-            {budget.notes && <p className="mt-1 text-sm text-gray-500">{budget.notes}</p>}
-            <ul className="mt-2 list-inside list-disc text-sm text-gray-600">
+            {budget.notes && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{budget.notes}</p>}
+            <ul className="mt-2 list-inside list-disc text-sm text-gray-600 dark:text-gray-400">
               {budget.items.map((item) => (
                 <li key={item.id}>
                   {item.quantity} × {item.description}
@@ -635,7 +639,7 @@ function BudgetTab({ projectId, onConverted }: { projectId: number; onConverted:
             </Button>
           </Card>
         ))}
-        {budgets?.length === 0 && <p className="text-sm text-gray-500">Aún no hay presupuestos.</p>}
+        {budgets?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay presupuestos.</p>}
       </div>
     </div>
   )
@@ -666,8 +670,8 @@ function QuoteTab({ projectId }: { projectId: number }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">Documento detallado con ITBIS 18%.</p>
+      <div className="flex items-center justify-between md:max-w-2xl">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Documento detallado con ITBIS 18%.</p>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
@@ -688,7 +692,7 @@ function QuoteTab({ projectId }: { projectId: number }) {
         </Card>
       )}
 
-      <div className="space-y-3">
+      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {quotes?.map((quote) => (
           <QuoteCard
             key={quote.id}
@@ -698,7 +702,7 @@ function QuoteTab({ projectId }: { projectId: number }) {
             projectId={projectId}
           />
         ))}
-        {quotes?.length === 0 && <p className="text-sm text-gray-500">Aún no hay cotizaciones.</p>}
+        {quotes?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay cotizaciones.</p>}
       </div>
     </div>
   )
@@ -762,15 +766,15 @@ function QuoteCard({
     <Card>
       <button className="w-full text-left" onClick={onToggle}>
         <div className="flex items-center justify-between">
-          <p className="font-medium text-gray-900">{quote.code}</p>
+          <p className="font-medium text-gray-900 dark:text-gray-100">{quote.code}</p>
           <Badge tone={STATUS_TONE[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</Badge>
         </div>
-        <p className="mt-1 text-sm text-gray-500">{formatDOP(quote.total)}</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{formatDOP(quote.total)}</p>
       </button>
 
       {expanded && (
-        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
-          <ul className="space-y-1 text-sm text-gray-600">
+        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
             {quote.items.map((item) => (
               <li key={item.id} className="flex justify-between">
                 <span>
@@ -780,16 +784,16 @@ function QuoteCard({
               </li>
             ))}
           </ul>
-          <div className="space-y-1 rounded-xl bg-brand-gray p-3 text-sm">
-            <div className="flex justify-between text-gray-500">
+          <div className="space-y-1 rounded-xl bg-brand-gray p-3 text-sm dark:bg-gray-800">
+            <div className="flex justify-between text-gray-500 dark:text-gray-400">
               <span>Subtotal</span>
               <span>{formatDOP(quote.subtotal)}</span>
             </div>
-            <div className="flex justify-between text-gray-500">
+            <div className="flex justify-between text-gray-500 dark:text-gray-400">
               <span>ITBIS (18%)</span>
               <span>{formatDOP(quote.itbis)}</span>
             </div>
-            <div className="flex justify-between font-semibold text-gray-900">
+            <div className="flex justify-between font-semibold text-gray-900 dark:text-gray-100">
               <span>Total</span>
               <span>{formatDOP(quote.total)}</span>
             </div>
@@ -835,8 +839,8 @@ function QuoteCard({
 
           {history && history.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-medium text-gray-500">Historial</p>
-              <ul className="space-y-1 text-xs text-gray-500">
+              <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Historial</p>
+              <ul className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
                 {history.map((h) => (
                   <li key={h.id}>
                     {new Date(h.created_at).toLocaleString('es-DO')} — {QUOTE_HISTORY_LABELS[h.action] ?? h.action}
@@ -902,8 +906,8 @@ function PurchasesTab({ projectId }: { projectId: number }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">Lista inteligente generada al aprobar cotizaciones.</p>
+      <div className="flex items-center justify-between md:max-w-2xl">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Lista inteligente generada al aprobar cotizaciones.</p>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
@@ -916,7 +920,7 @@ function PurchasesTab({ projectId }: { projectId: number }) {
         <Card className="space-y-3">
           <Field label="Producto (opcional)">
             <select
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               value={productId}
               onChange={(e) => selectProduct(e.target.value)}
             >
@@ -930,7 +934,7 @@ function PurchasesTab({ projectId }: { projectId: number }) {
           </Field>
           <Field label="Descripción">
             <input
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
@@ -940,7 +944,7 @@ function PurchasesTab({ projectId }: { projectId: number }) {
               type="number"
               min="0"
               step="0.01"
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               value={quantity}
               onChange={(e) => setQuantity(Number(e.target.value))}
             />
@@ -952,21 +956,21 @@ function PurchasesTab({ projectId }: { projectId: number }) {
       )}
 
       <div>
-        <p className="mb-2 text-sm font-semibold text-gray-900">
+        <p className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
           Lista de compra ({purchaseList.length})
         </p>
-        <div className="space-y-2">
+        <div className="grid items-start gap-2 md:grid-cols-2 xl:grid-cols-3">
           {purchaseList.map((m) => (
             <MaterialRow key={m.id} material={m} onStatusChange={(status) => updateStatus.mutate({ id: m.id, status })} />
           ))}
-          {purchaseList.length === 0 && <p className="text-sm text-gray-500">Nada pendiente de comprar.</p>}
+          {purchaseList.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Nada pendiente de comprar.</p>}
         </div>
       </div>
 
       {others.length > 0 && (
         <div>
-          <p className="mb-2 text-sm font-semibold text-gray-900">Otros materiales</p>
-          <div className="space-y-2">
+          <p className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Otros materiales</p>
+          <div className="grid items-start gap-2 md:grid-cols-2 xl:grid-cols-3">
             {others.map((m) => (
               <MaterialRow key={m.id} material={m} onStatusChange={(status) => updateStatus.mutate({ id: m.id, status })} />
             ))}
@@ -981,7 +985,7 @@ function MaterialRow({ material, onStatusChange }: { material: Material; onStatu
   return (
     <Card className="flex items-center justify-between gap-3">
       <div>
-        <p className="text-sm font-medium text-gray-900">
+        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
           {material.quantity} × {material.description}
         </p>
         <Badge tone={material.status === 'pendiente_compra' ? 'amber' : material.status === 'instalado' ? 'green' : 'gray'}>
@@ -989,7 +993,7 @@ function MaterialRow({ material, onStatusChange }: { material: Material; onStatu
         </Badge>
       </div>
       <select
-        className="rounded-xl border border-gray-200 bg-white px-2 py-2 text-xs"
+        className="rounded-xl border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
         value={material.status}
         onChange={(e) => onStatusChange(e.target.value as MaterialStatus)}
       >
@@ -1023,7 +1027,7 @@ function ExecutionTab({ projectId }: { projectId: number }) {
     onSuccess: invalidate,
   })
 
-  if (!execution) return <p className="text-sm text-gray-500">Cargando…</p>
+  if (!execution) return <p className="text-sm text-gray-500 dark:text-gray-400">Cargando…</p>
 
   const allDone = execution.stages.every((s) => s.completed)
   const anyDone = execution.stages.some((s) => s.completed)
@@ -1032,10 +1036,10 @@ function ExecutionTab({ projectId }: { projectId: number }) {
     <div className="space-y-4">
       <Card>
         <div className="mb-2 flex items-center justify-between">
-          <p className="text-sm font-medium text-gray-700">Avance</p>
-          <p className="text-sm font-semibold text-gray-900">{execution.progress_percent}%</p>
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Avance</p>
+          <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{execution.progress_percent}%</p>
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-brand-gray">
+        <div className="h-2 overflow-hidden rounded-full bg-brand-gray dark:bg-gray-800">
           <div className="h-full rounded-full bg-brand-blue" style={{ width: `${execution.progress_percent}%` }} />
         </div>
       </Card>
@@ -1045,12 +1049,14 @@ function ExecutionTab({ projectId }: { projectId: number }) {
           <Card key={stage.id} className="flex items-center gap-3">
             <span
               className={`flex h-8 w-8 items-center justify-center rounded-full text-sm ${
-                stage.completed ? 'bg-green-100 text-green-700' : 'bg-brand-gray text-gray-400'
+                stage.completed
+                  ? 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300'
+                  : 'bg-brand-gray text-gray-400 dark:bg-gray-800'
               }`}
             >
               {stage.completed ? '✓' : stage.order + 1}
             </span>
-            <span className={`text-sm font-medium ${stage.completed ? 'text-gray-900' : 'text-gray-500'}`}>
+            <span className={`text-sm font-medium ${stage.completed ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
               {STAGE_LABELS[stage.name as StageName]}
             </span>
           </Card>
@@ -1128,11 +1134,11 @@ function LogbookTab({ projectId }: { projectId: number }) {
         }}
       />
 
-      <div className="space-y-3">
+      <div className="space-y-3 md:max-w-2xl">
         {entries?.map((entry) => (
           <Card key={entry.id}>
             <p className="text-xs text-gray-400">{entry.entry_date}</p>
-            <p className="mt-1 text-sm text-gray-800">{entry.comment}</p>
+            <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">{entry.comment}</p>
             {entry.assets.length > 0 && (
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {entry.assets.map((asset) => (
@@ -1157,7 +1163,7 @@ function LogbookTab({ projectId }: { projectId: number }) {
             </Button>
           </Card>
         ))}
-        {entries?.length === 0 && <p className="text-sm text-gray-500">Aún no hay entradas en la bitácora.</p>}
+        {entries?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay entradas en la bitácora.</p>}
       </div>
     </div>
   )
@@ -1218,16 +1224,16 @@ function PreInvoiceTab({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500">Documento previo generado desde una cotización aprobada.</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">Documento previo generado desde una cotización aprobada.</p>
 
       {approvedWithoutPreInvoice.length > 0 && (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-700">Cotizaciones aprobadas sin prefactura</p>
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Cotizaciones aprobadas sin prefactura</p>
           {approvedWithoutPreInvoice.map((quote) => (
             <Card key={quote.id} className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-900">{quote.code}</p>
-                <p className="text-xs text-gray-500">{formatDOP(quote.total)}</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{quote.code}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">{formatDOP(quote.total)}</p>
               </div>
               <Button
                 variant="secondary"
@@ -1242,16 +1248,16 @@ function PreInvoiceTab({
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {preInvoices?.map((pfc) => (
           <Card key={pfc.id}>
             <div className="flex items-center justify-between">
-              <p className="font-medium text-gray-900">{pfc.code}</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100">{pfc.code}</p>
               <Badge tone={pfc.status === 'facturada' ? 'green' : 'blue'}>
                 {pfc.status === 'facturada' ? 'Facturada' : 'Pendiente'}
               </Badge>
             </div>
-            <ul className="mt-2 space-y-1 text-sm text-gray-600">
+            <ul className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
               {pfc.items.map((item) => (
                 <li key={item.id} className="flex justify-between">
                   <span>
@@ -1261,25 +1267,25 @@ function PreInvoiceTab({
                 </li>
               ))}
             </ul>
-            <div className="mt-2 space-y-1 rounded-xl bg-brand-gray p-3 text-sm">
-              <div className="flex justify-between text-gray-500">
+            <div className="mt-2 space-y-1 rounded-xl bg-brand-gray p-3 text-sm dark:bg-gray-800">
+              <div className="flex justify-between text-gray-500 dark:text-gray-400">
                 <span>Subtotal</span>
                 <span>{formatDOP(pfc.subtotal)}</span>
               </div>
-              <div className="flex justify-between text-gray-500">
+              <div className="flex justify-between text-gray-500 dark:text-gray-400">
                 <span>ITBIS (18%)</span>
                 <span>{formatDOP(pfc.itbis)}</span>
               </div>
-              <div className="flex justify-between font-semibold text-gray-900">
+              <div className="flex justify-between font-semibold text-gray-900 dark:text-gray-100">
                 <span>Total</span>
                 <span>{formatDOP(pfc.total)}</span>
               </div>
             </div>
             {pfc.status === 'pendiente' && isAdmin && (
-              <div className="mt-3 space-y-2 border-t border-gray-100 pt-3">
+              <div className="mt-3 space-y-2 border-t border-gray-100 pt-3 dark:border-gray-800">
                 <Field label="Tipo de NCF">
                   <select
-                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+                    className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                     value={ncfTypeFor(pfc.id)}
                     onChange={(e) =>
                       setNcfTypeByPreInvoice((prev) => ({ ...prev, [pfc.id]: e.target.value as NcfType }))
@@ -1292,7 +1298,7 @@ function PreInvoiceTab({
                     ))}
                   </select>
                 </Field>
-                {convertError && <p className="text-sm text-red-600">{convertError}</p>}
+                {convertError && <p className="text-sm text-red-600 dark:text-red-400">{convertError}</p>}
                 <Button onClick={() => convert.mutate(pfc.id)} disabled={convert.isPending}>
                   {convert.isPending ? 'Convirtiendo…' : 'Convertir a factura'}
                 </Button>
@@ -1303,7 +1309,7 @@ function PreInvoiceTab({
             )}
           </Card>
         ))}
-        {preInvoices?.length === 0 && <p className="text-sm text-gray-500">Aún no hay prefacturas.</p>}
+        {preInvoices?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay prefacturas.</p>}
       </div>
     </div>
   )
@@ -1325,15 +1331,15 @@ function InvoiceTab({ projectId }: { projectId: number }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-gray-500">Facturas emitidas (solo lectura).</p>
+      <p className="text-sm text-gray-500 dark:text-gray-400">Facturas emitidas (solo lectura).</p>
 
       {hasSurveyReference && (
         <Card className="space-y-2">
           <p className="text-xs font-medium uppercase tracking-wide text-gray-400">
             Referencia del levantamiento
           </p>
-          {survey?.notes && <p className="text-sm text-gray-700">{survey.notes}</p>}
-          {survey?.observations && <p className="text-sm text-gray-700">{survey.observations}</p>}
+          {survey?.notes && <p className="text-sm text-gray-700 dark:text-gray-300">{survey.notes}</p>}
+          {survey?.observations && <p className="text-sm text-gray-700 dark:text-gray-300">{survey.observations}</p>}
           {survey && survey.assets.filter((a) => a.kind === 'photo').length > 0 && (
             <div className="grid grid-cols-4 gap-2">
               {survey.assets
@@ -1351,15 +1357,17 @@ function InvoiceTab({ projectId }: { projectId: number }) {
         </Card>
       )}
 
-      {invoices?.map((invoice) => (
-        <InvoiceCard
-          key={invoice.id}
-          invoice={invoice}
-          expanded={expandedId === invoice.id}
-          onToggle={() => setExpandedId(expandedId === invoice.id ? null : invoice.id)}
-        />
-      ))}
-      {invoices?.length === 0 && <p className="text-sm text-gray-500">Aún no hay facturas.</p>}
+      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {invoices?.map((invoice) => (
+          <InvoiceCard
+            key={invoice.id}
+            invoice={invoice}
+            expanded={expandedId === invoice.id}
+            onToggle={() => setExpandedId(expandedId === invoice.id ? null : invoice.id)}
+          />
+        ))}
+      </div>
+      {invoices?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay facturas.</p>}
     </div>
   )
 }
@@ -1376,15 +1384,15 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
       <button className="w-full text-left" onClick={onToggle}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium text-gray-900">{invoice.code}</p>
-            {invoice.ncf && <p className="text-xs text-gray-500">NCF: {invoice.ncf}</p>}
+            <p className="font-medium text-gray-900 dark:text-gray-100">{invoice.code}</p>
+            {invoice.ncf && <p className="text-xs text-gray-500 dark:text-gray-400">NCF: {invoice.ncf}</p>}
           </div>
-          <p className="text-sm font-semibold text-gray-800">{formatDOP(invoice.total)}</p>
+          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{formatDOP(invoice.total)}</p>
         </div>
       </button>
       {expanded && (
-        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
-          <ul className="space-y-1 text-sm text-gray-600">
+        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
             {invoice.items.map((item) => (
               <li key={item.id} className="flex justify-between">
                 <span>
@@ -1394,23 +1402,23 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
               </li>
             ))}
           </ul>
-          <div className="space-y-1 rounded-xl bg-brand-gray p-3 text-sm">
-            <div className="flex justify-between text-gray-500">
+          <div className="space-y-1 rounded-xl bg-brand-gray p-3 text-sm dark:bg-gray-800">
+            <div className="flex justify-between text-gray-500 dark:text-gray-400">
               <span>Subtotal</span>
               <span>{formatDOP(invoice.subtotal)}</span>
             </div>
-            <div className="flex justify-between text-gray-500">
+            <div className="flex justify-between text-gray-500 dark:text-gray-400">
               <span>ITBIS (18%)</span>
               <span>{formatDOP(invoice.itbis)}</span>
             </div>
-            <div className="flex justify-between font-semibold text-gray-900">
+            <div className="flex justify-between font-semibold text-gray-900 dark:text-gray-100">
               <span>Total</span>
               <span>{formatDOP(invoice.total)}</span>
             </div>
           </div>
           <div className="space-y-3">
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-gray-500">Factura (con precios)</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Factura (con precios)</p>
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
@@ -1429,7 +1437,7 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
               </div>
             </div>
             <div className="space-y-1.5">
-              <p className="text-xs font-medium text-gray-500">Detalle de trabajo (sin precios)</p>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Detalle de trabajo (sin precios)</p>
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
@@ -1452,8 +1460,8 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
           </div>
           {history && history.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-medium text-gray-500">Historial</p>
-              <ul className="space-y-1 text-xs text-gray-500">
+              <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Historial</p>
+              <ul className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
                 {history.map((h) => (
                   <li key={h.id}>
                     {new Date(h.created_at).toLocaleString('es-DO')} — {QUOTE_HISTORY_LABELS[h.action] ?? h.action}
@@ -1515,8 +1523,8 @@ function ExtensionsTab({ projectId }: { projectId: number }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">Siempre pertenecen a este proyecto.</p>
+      <div className="flex items-center justify-between md:max-w-2xl">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Siempre pertenecen a este proyecto.</p>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
@@ -1529,7 +1537,7 @@ function ExtensionsTab({ projectId }: { projectId: number }) {
         <Card className="space-y-3">
           <Field label="Título">
             <input
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
             />
@@ -1539,7 +1547,7 @@ function ExtensionsTab({ projectId }: { projectId: number }) {
           </Field>
           <Field label="Cotización relacionada (opcional)">
             <select
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               value={quoteId}
               onChange={(e) => setQuoteId(e.target.value)}
             >
@@ -1557,17 +1565,17 @@ function ExtensionsTab({ projectId }: { projectId: number }) {
         </Card>
       )}
 
-      <div className="space-y-3">
+      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {extensions?.map((ext) => (
           <Card key={ext.id}>
             <div className="flex items-center justify-between">
-              <p className="font-medium text-gray-900">{ext.code}</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100">{ext.code}</p>
               <Badge tone={ext.status === 'aprobada' ? 'green' : ext.status === 'rechazada' ? 'red' : 'blue'}>
                 {EXTENSION_STATUS_LABELS[ext.status]}
               </Badge>
             </div>
-            <p className="mt-1 text-sm font-medium text-gray-800">{ext.title}</p>
-            {ext.description && <p className="text-sm text-gray-500">{ext.description}</p>}
+            <p className="mt-1 text-sm font-medium text-gray-800 dark:text-gray-200">{ext.title}</p>
+            {ext.description && <p className="text-sm text-gray-500 dark:text-gray-400">{ext.description}</p>}
             {ext.status === 'pendiente' && (
               <div className="mt-3 flex gap-2">
                 <Button onClick={() => updateStatus.mutate({ id: ext.id, status: 'aprobada' })} disabled={updateStatus.isPending}>
@@ -1584,7 +1592,7 @@ function ExtensionsTab({ projectId }: { projectId: number }) {
             )}
           </Card>
         ))}
-        {extensions?.length === 0 && <p className="text-sm text-gray-500">Aún no hay ampliaciones.</p>}
+        {extensions?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay ampliaciones.</p>}
       </div>
     </div>
   )
@@ -1639,8 +1647,8 @@ function TicketsTab({ projectId }: { projectId: number }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">Soporte técnico del proyecto.</p>
+      <div className="flex items-center justify-between md:max-w-2xl">
+        <p className="text-sm text-gray-500 dark:text-gray-400">Soporte técnico del proyecto.</p>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
@@ -1656,7 +1664,7 @@ function TicketsTab({ projectId }: { projectId: number }) {
           </Field>
           <Field label="Técnico asignado (opcional)">
             <select
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               value={technicianId}
               onChange={(e) => setTechnicianId(e.target.value ? Number(e.target.value) : '')}
             >
@@ -1674,7 +1682,7 @@ function TicketsTab({ projectId }: { projectId: number }) {
         </Card>
       )}
 
-      <div className="space-y-3">
+      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {tickets?.map((ticket) => (
           <TicketCard
             key={ticket.id}
@@ -1686,7 +1694,7 @@ function TicketsTab({ projectId }: { projectId: number }) {
             onChanged={invalidate}
           />
         ))}
-        {tickets?.length === 0 && <p className="text-sm text-gray-500">Aún no hay tickets.</p>}
+        {tickets?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay tickets.</p>}
       </div>
     </div>
   )
@@ -1740,24 +1748,24 @@ function TicketCard({
     <Card>
       <button className="w-full text-left" onClick={onToggle}>
         <div className="flex items-center justify-between">
-          <p className="font-medium text-gray-900">{ticket.code}</p>
+          <p className="font-medium text-gray-900 dark:text-gray-100">{ticket.code}</p>
           <Badge tone={TICKET_STATUS_TONE[ticket.status]}>{TICKET_STATUS_LABELS[ticket.status]}</Badge>
         </div>
-        <p className="mt-1 text-sm text-gray-500">{ticket.problem}</p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{ticket.problem}</p>
         <p className="mt-1 text-xs text-gray-400">Técnico: {technicianName ?? 'Sin asignar'}</p>
       </button>
 
       {expanded && (
-        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
+        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
           {ticket.solution && (
-            <p className="text-sm text-gray-600">
-              <span className="font-medium text-gray-800">Solución:</span> {ticket.solution}
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              <span className="font-medium text-gray-800 dark:text-gray-200">Solución:</span> {ticket.solution}
             </p>
           )}
 
           <Field label="Técnico asignado">
             <select
-              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               value={ticket.technician_id ?? ''}
               onChange={(e) =>
                 updateTicket.mutate({ technician_id: e.target.value ? Number(e.target.value) : null })
@@ -1811,7 +1819,7 @@ function TicketCard({
           )}
 
           <div className="space-y-2">
-            <p className="text-xs font-medium text-gray-500">Fotos de evidencia</p>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Fotos de evidencia</p>
             <input
               ref={fileInputRef}
               type="file"
@@ -1851,8 +1859,8 @@ function TicketCard({
 
           {history && history.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-medium text-gray-500">Historial</p>
-              <ul className="space-y-1 text-xs text-gray-500">
+              <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Historial</p>
+              <ul className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
                 {history.map((h) => (
                   <li key={h.id}>
                     {new Date(h.created_at).toLocaleString('es-DO')} — {TICKET_STATUS_LABELS[h.action as TicketStatus] ?? h.action}

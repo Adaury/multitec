@@ -43,7 +43,7 @@ function MonthlyInvoicingChart({ data }: { data: DashboardSummary['monthly_invoi
                 title={formatDOP(row.total)}
               />
             </div>
-            <span className="text-[10px] capitalize text-gray-400">{label}</span>
+            <span className="text-[10px] capitalize text-gray-400 dark:text-gray-500">{label}</span>
           </div>
         )
       })}
@@ -59,61 +59,76 @@ function DashboardKpis() {
 
   if (!data) return null
 
+  const activeProjects = data.projects_by_status
+    .filter((row) => row.status !== 'cerrado')
+    .reduce((sum, row) => sum + row.count, 0)
+  const currentMonthInvoicing = data.monthly_invoicing.at(-1)?.total ?? 0
+
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Resumen</h2>
+        <h2 className="text-lg font-semibold text-gray-900 md:text-xl dark:text-gray-100">Resumen</h2>
         <div className="flex gap-2">
           <button
             onClick={() => downloadFile('/reports/dashboard/export', 'dashboard.csv')}
-            className="rounded-full bg-brand-gray px-3 py-1.5 text-xs font-medium text-gray-700"
+            className="rounded-full bg-brand-gray px-3 py-1.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
           >
             Exportar resumen
           </button>
           <button
             onClick={() => downloadFile('/invoices/export', 'facturas.csv')}
-            className="rounded-full bg-brand-gray px-3 py-1.5 text-xs font-medium text-gray-700"
+            className="rounded-full bg-brand-gray px-3 py-1.5 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
           >
             Exportar facturas
           </button>
         </div>
       </div>
-      <div className="mt-3 grid grid-cols-2 gap-3">
+      <div className="mt-3 grid grid-cols-2 gap-3 md:mt-4 md:grid-cols-4 md:gap-4">
         <Card>
-          <p className="text-xs font-medium text-gray-500">Cotizaciones pendientes</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{data.quotes_pending}</p>
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Cotizaciones pendientes</p>
+          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{data.quotes_pending}</p>
         </Card>
         <Card>
-          <p className="text-xs font-medium text-gray-500">Tickets abiertos</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900">{data.open_tickets_total}</p>
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Tickets abiertos</p>
+          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{data.open_tickets_total}</p>
+        </Card>
+        <Card className="hidden md:block">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Proyectos activos</p>
+          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{activeProjects}</p>
+        </Card>
+        <Card className="hidden md:block">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Facturación (mes actual)</p>
+          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{formatDOP(currentMonthInvoicing)}</p>
         </Card>
       </div>
 
-      <Card className="mt-3">
-        <p className="text-xs font-medium text-gray-500">Facturación (últimos 6 meses)</p>
-        <div className="mt-3">
-          <MonthlyInvoicingChart data={data.monthly_invoicing} />
-        </div>
-      </Card>
-
-      <Card className="mt-3 space-y-2">
-        <p className="text-xs font-medium text-gray-500">Proyectos por estado</p>
-        {data.projects_by_status.map((row) => (
-          <div key={row.status} className="flex items-center justify-between text-sm">
-            <span className="text-gray-700">{PROJECT_STATUS_LABELS[row.status] ?? row.status}</span>
-            <span className="font-medium text-gray-900">{row.count}</span>
+      <div className="mt-3 grid gap-3 md:mt-4 md:grid-cols-2 md:gap-4">
+        <Card>
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Facturación (últimos 6 meses)</p>
+          <div className="mt-3">
+            <MonthlyInvoicingChart data={data.monthly_invoicing} />
           </div>
-        ))}
-        {data.projects_by_status.length === 0 && <p className="text-sm text-gray-400">Sin proyectos aún.</p>}
-      </Card>
+        </Card>
+
+        <Card className="space-y-2">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Proyectos por estado</p>
+          {data.projects_by_status.map((row) => (
+            <div key={row.status} className="flex items-center justify-between text-sm">
+              <span className="text-gray-700 dark:text-gray-300">{PROJECT_STATUS_LABELS[row.status] ?? row.status}</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">{row.count}</span>
+            </div>
+          ))}
+          {data.projects_by_status.length === 0 && <p className="text-sm text-gray-400">Sin proyectos aún.</p>}
+        </Card>
+      </div>
 
       {data.open_tickets_total > 0 && (
-        <Card className="mt-3 space-y-2">
-          <p className="text-xs font-medium text-gray-500">Tickets abiertos por técnico</p>
+        <Card className="mt-3 space-y-2 md:mt-4">
+          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Tickets abiertos por técnico</p>
           {data.open_tickets_by_technician.map((row) => (
             <div key={row.technician} className="flex items-center justify-between text-sm">
-              <span className="text-gray-700">{row.technician}</span>
-              <span className="font-medium text-gray-900">{row.count}</span>
+              <span className="text-gray-700 dark:text-gray-300">{row.technician}</span>
+              <span className="font-medium text-gray-900 dark:text-gray-100">{row.count}</span>
             </div>
           ))}
         </Card>
@@ -132,19 +147,19 @@ export function Dashboard() {
     : baseMenu
 
   return (
-    <div className="space-y-6 py-4">
+    <div className="space-y-6 py-4 md:space-y-8 md:py-8">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900">Acciones rápidas</h1>
-        <div className="mt-3 grid grid-cols-3 gap-3">
+        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Acciones rápidas</h1>
+        <div className="mt-3 grid grid-cols-3 gap-3 md:max-w-xl md:gap-4">
           {quickActions.map((action) => (
             <button
               key={action.label}
               disabled={!action.to}
               onClick={() => action.to && navigate(action.to)}
-              className="flex flex-col items-center gap-2 rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5 disabled:opacity-40"
+              className="flex flex-col items-center gap-2 rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5 disabled:opacity-40 dark:bg-gray-900 dark:ring-white/10"
             >
               <span className="text-2xl">{action.icon}</span>
-              <span className="text-xs font-medium text-gray-700">{action.label}</span>
+              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{action.label}</span>
             </button>
           ))}
         </div>
@@ -152,8 +167,10 @@ export function Dashboard() {
 
       {canSeeReports && <DashboardKpis />}
 
-      <div>
-        <h2 className="text-lg font-semibold text-gray-900">Menú</h2>
+      {/* En escritorio la barra lateral ya cubre toda la navegación — esta cuadrícula
+          solo hace falta en móvil, donde el menú de abajo apenas tiene 4 accesos. */}
+      <div className="md:hidden">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Menú</h2>
         <div className="mt-3 grid grid-cols-2 gap-3">
           {menu.map((item) => (
             <Card
@@ -166,7 +183,7 @@ export function Dashboard() {
                 className="flex w-full items-center gap-3 text-left disabled:cursor-default"
               >
                 <span className="text-xl">{item.icon}</span>
-                <span className="text-sm font-medium text-gray-800">
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
                   {item.label}
                   {!item.to && <span className="block text-[10px] font-normal text-gray-400">próximamente</span>}
                 </span>

@@ -82,9 +82,9 @@ export function Calendario() {
   })
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Calendario de visitas</h1>
+        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Calendario de visitas</h1>
         <button
           onClick={() => {
             setForm(emptyForm(selectedDate))
@@ -96,10 +96,10 @@ export function Calendario() {
         </button>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 md:max-w-sm">
         <button
           onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-          className="rounded-full bg-brand-gray px-3 py-2 text-sm text-gray-600"
+          className="rounded-full bg-brand-gray px-3 py-2 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300"
         >
           ←
         </button>
@@ -107,18 +107,18 @@ export function Calendario() {
           type="date"
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
-          className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2 text-base"
+          className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
         />
         <button
           onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-          className="rounded-full bg-brand-gray px-3 py-2 text-sm text-gray-600"
+          className="rounded-full bg-brand-gray px-3 py-2 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300"
         >
           →
         </button>
       </div>
 
       {showForm && (
-        <Card>
+        <Card className="md:max-w-2xl">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -127,36 +127,36 @@ export function Calendario() {
               createVisit.mutate()
             }}
           >
-            <Field label="Proyecto">
-              <select
-                required
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
-                value={form.project_id}
-                onChange={(e) => setForm({ ...form, project_id: e.target.value })}
-              >
-                <option value="">Selecciona un proyecto…</option>
-                {projects?.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.code}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Técnico (opcional)">
-              <select
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
-                value={form.technician_id}
-                onChange={(e) => setForm({ ...form, technician_id: e.target.value })}
-              >
-                <option value="">Sin asignar</option>
-                {technicians?.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field label="Proyecto">
+                <select
+                  required
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  value={form.project_id}
+                  onChange={(e) => setForm({ ...form, project_id: e.target.value })}
+                >
+                  <option value="">Selecciona un proyecto…</option>
+                  {projects?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.code}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Técnico (opcional)">
+                <select
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  value={form.technician_id}
+                  onChange={(e) => setForm({ ...form, technician_id: e.target.value })}
+                >
+                  <option value="">Sin asignar</option>
+                  {technicians?.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </Field>
               <Field label="Fecha">
                 <Input
                   type="date"
@@ -176,7 +176,7 @@ export function Calendario() {
             <Field label="Notas">
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </Field>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <Button type="submit" disabled={createVisit.isPending || !form.project_id}>
               {createVisit.isPending ? 'Guardando…' : 'Agendar visita'}
             </Button>
@@ -186,7 +186,7 @@ export function Calendario() {
 
       {isLoading && <p className="text-sm text-gray-500">Cargando…</p>}
 
-      <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {visits?.map((visit) => (
           <Card key={visit.id} className="space-y-2">
             <div className="flex items-center justify-between">
@@ -195,12 +195,12 @@ export function Calendario() {
               </Link>
               <Badge tone={STATUS_TONE[visit.status]}>{VISIT_STATUS_LABELS[visit.status]}</Badge>
             </div>
-            <p className="text-sm text-gray-500">{visit.client_name}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">{visit.client_name}</p>
             <div className="flex gap-3 text-xs text-gray-400">
               {visit.scheduled_time && <span>🕐 {visit.scheduled_time.slice(0, 5)}</span>}
               <span>👤 {visit.technician_name ?? 'Sin asignar'}</span>
             </div>
-            {visit.notes && <p className="text-sm text-gray-600">{visit.notes}</p>}
+            {visit.notes && <p className="text-sm text-gray-600 dark:text-gray-400">{visit.notes}</p>}
             {visit.status === 'programada' && (
               <div className="flex gap-2">
                 <Button

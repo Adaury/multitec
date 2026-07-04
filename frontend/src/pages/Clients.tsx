@@ -36,14 +36,14 @@ export function Clients() {
   })
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Clientes</h1>
+        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Clientes</h1>
         <div className="flex gap-2">
           {canExport && (
             <button
               onClick={() => downloadFile('/clients/export', 'clientes.csv')}
-              className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700"
+              className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
               Exportar CSV
             </button>
@@ -58,7 +58,7 @@ export function Clients() {
       </div>
 
       {showForm && (
-        <Card>
+        <Card className="md:max-w-2xl">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -66,21 +66,27 @@ export function Clients() {
               createClient.mutate(form)
             }}
           >
-            <Field label="Nombre">
-              <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </Field>
-            <Field label="Empresa">
-              <Input value={form.company ?? ''} onChange={(e) => setForm({ ...form, company: e.target.value })} />
-            </Field>
-            <Field label="RNC">
-              <Input value={form.rnc ?? ''} onChange={(e) => setForm({ ...form, rnc: e.target.value })} />
-            </Field>
-            <Field label="Teléfono">
-              <Input value={form.phone ?? ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-            </Field>
-            <Field label="Correo">
-              <Input type="email" value={form.email ?? ''} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-            </Field>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field label="Nombre">
+                <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </Field>
+              <Field label="Empresa">
+                <Input value={form.company ?? ''} onChange={(e) => setForm({ ...form, company: e.target.value })} />
+              </Field>
+              <Field label="RNC">
+                <Input value={form.rnc ?? ''} onChange={(e) => setForm({ ...form, rnc: e.target.value })} />
+              </Field>
+              <Field label="Teléfono">
+                <Input value={form.phone ?? ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              </Field>
+              <Field label="Correo">
+                <Input
+                  type="email"
+                  value={form.email ?? ''}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                />
+              </Field>
+            </div>
             <Field label="Dirección">
               <Textarea value={form.address ?? ''} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </Field>
@@ -96,15 +102,12 @@ export function Clients() {
 
       {isLoading && <p className="text-sm text-gray-500">Cargando…</p>}
 
-      <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {clients?.map((client) => (
-          <Card
-            key={client.id}
-            className="cursor-pointer active:scale-[0.98]"
-          >
+          <Card key={client.id} className="cursor-pointer active:scale-[0.98]">
             <button className="w-full text-left" onClick={() => navigate(`/clientes/${client.id}`)}>
-              <p className="font-medium text-gray-900">{client.name}</p>
-              {client.company && <p className="text-sm text-gray-500">{client.company}</p>}
+              <p className="font-medium text-gray-900 dark:text-gray-100">{client.name}</p>
+              {client.company && <p className="text-sm text-gray-500 dark:text-gray-400">{client.company}</p>}
               <div className="mt-1 flex gap-3 text-xs text-gray-400">
                 {client.rnc && <span>RNC {client.rnc}</span>}
                 {client.phone && <span>{client.phone}</span>}

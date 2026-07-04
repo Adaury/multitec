@@ -45,16 +45,18 @@ export function Quotes() {
   }
 
   return (
-    <div className="space-y-4 py-4">
-      <h1 className="text-xl font-semibold text-gray-900">Cotizaciones</h1>
+    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
+      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Cotizaciones</h1>
 
-      <div className="flex gap-2 overflow-x-auto rounded-2xl bg-brand-gray p-1">
+      <div className="flex gap-2 overflow-x-auto rounded-2xl bg-brand-gray p-1 md:max-w-fit dark:bg-gray-800">
         {FILTERS.map((f) => (
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
             className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium ${
-              filter === f.key ? 'bg-white text-brand-blue shadow-sm' : 'text-gray-500'
+              filter === f.key
+                ? 'bg-white text-brand-blue shadow-sm dark:bg-gray-700 dark:text-blue-300'
+                : 'text-gray-500 dark:text-gray-400'
             }`}
           >
             {f.label}
@@ -64,18 +66,18 @@ export function Quotes() {
 
       {isLoading && <p className="text-sm text-gray-500">Cargando…</p>}
 
-      <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {quotes?.map((quote) => (
           <Link key={quote.id} to={`/proyectos/${quote.project_id}`}>
             <Card className="active:scale-[0.98]">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium text-gray-900">{quote.code}</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">{quote.code}</p>
                   <p className="text-xs text-gray-400">Proyecto {projectCode(quote.project_id)}</p>
                 </div>
                 <Badge tone={STATUS_TONE[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</Badge>
               </div>
-              <p className="mt-1 text-sm text-gray-500">{formatDOP(quote.total)}</p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{formatDOP(quote.total)}</p>
             </Card>
           </Link>
         ))}

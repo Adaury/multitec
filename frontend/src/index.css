@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* dark: responde a la clase .dark en <html> (puesta por themeStore.ts), no solo a
+   prefers-color-scheme — así el interruptor manual del usuario manda sobre el SO. */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-brand-blue: #0a63e2;
   --color-brand-blue-dark: #0850b8;
@@ -20,6 +24,11 @@ body {
   color: #1c1e21;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+.dark body {
+  background: #0b0e14;
+  color: #e5e7eb;
 }
 
 input,

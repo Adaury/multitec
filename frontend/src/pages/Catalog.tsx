@@ -38,9 +38,9 @@ export function Catalog() {
   })
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Catálogo</h1>
+        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Catálogo</h1>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
@@ -50,7 +50,7 @@ export function Catalog() {
       </div>
 
       {showForm && (
-        <Card>
+        <Card className="md:max-w-2xl">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -58,34 +58,36 @@ export function Catalog() {
               createProduct.mutate(form)
             }}
           >
-            <Field label="Categoría">
-              <select
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-              >
-                {Object.entries(PRODUCT_CATEGORY_LABELS).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Nombre">
-              <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </Field>
-            <Field label="Unidad">
-              <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
-            </Field>
-            <Field label="Precio (RD$)">
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={form.price}
-                onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-              />
-            </Field>
+            <div className="grid gap-3 md:grid-cols-2">
+              <Field label="Categoría">
+                <select
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  value={form.category}
+                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                >
+                  {Object.entries(PRODUCT_CATEGORY_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Nombre">
+                <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </Field>
+              <Field label="Unidad">
+                <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+              </Field>
+              <Field label="Precio (RD$)">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.price}
+                  onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+                />
+              </Field>
+            </div>
             <Field label="Notas">
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </Field>
@@ -98,7 +100,7 @@ export function Catalog() {
 
       {isLoading && <p className="text-sm text-gray-500">Cargando…</p>}
 
-      <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {products?.map((product) => (
           <ProductCard
             key={product.id}
@@ -158,13 +160,13 @@ function ProductCard({
       <button className="w-full text-left" onClick={onToggle}>
         <div className="flex items-center justify-between">
           <div>
-            <p className="font-medium text-gray-900">{product.name}</p>
+            <p className="font-medium text-gray-900 dark:text-gray-100">{product.name}</p>
             <p className="text-xs text-gray-400">
               {product.code} · {PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}
             </p>
           </div>
           <div className="text-right">
-            <p className="text-sm font-medium text-gray-700">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               RD$ {product.price.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
             </p>
             <Badge tone={product.stock_quantity > 0 ? 'green' : 'gray'}>
@@ -175,7 +177,7 @@ function ProductCard({
       </button>
 
       {expanded && (
-        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3">
+        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
           <form
             className="space-y-2"
             onSubmit={(e) => {
@@ -188,7 +190,9 @@ function ProductCard({
                 type="button"
                 onClick={() => setMovementType('entrada')}
                 className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
-                  movementType === 'entrada' ? 'bg-green-50 text-green-700' : 'bg-brand-gray text-gray-500'
+                  movementType === 'entrada'
+                    ? 'bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300'
+                    : 'bg-brand-gray text-gray-500 dark:bg-gray-800 dark:text-gray-400'
                 }`}
               >
                 Entrada
@@ -197,7 +201,9 @@ function ProductCard({
                 type="button"
                 onClick={() => setMovementType('salida')}
                 className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
-                  movementType === 'salida' ? 'bg-red-50 text-red-600' : 'bg-brand-gray text-gray-500'
+                  movementType === 'salida'
+                    ? 'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-300'
+                    : 'bg-brand-gray text-gray-500 dark:bg-gray-800 dark:text-gray-400'
                 }`}
               >
                 Salida
@@ -216,7 +222,7 @@ function ProductCard({
             <Field label="Motivo (opcional)">
               <Input value={reason} onChange={(e) => setReason(e.target.value)} />
             </Field>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <Button type="submit" disabled={registerMovement.isPending || !quantity}>
               {registerMovement.isPending ? 'Guardando…' : 'Registrar movimiento'}
             </Button>
@@ -224,13 +230,19 @@ function ProductCard({
 
           {movements && movements.length > 0 && (
             <div>
-              <p className="mb-1 text-xs font-medium text-gray-500">Historial</p>
-              <ul className="space-y-1 text-xs text-gray-600">
+              <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Historial</p>
+              <ul className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
                 {movements.map((m) => (
                   <li key={m.id} className="flex justify-between">
                     <span>
                       {new Date(m.created_at).toLocaleString('es-DO')} —{' '}
-                      <span className={m.movement_type === 'entrada' ? 'text-green-700' : 'text-red-600'}>
+                      <span
+                        className={
+                          m.movement_type === 'entrada'
+                            ? 'text-green-700 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }
+                      >
                         {m.movement_type === 'entrada' ? '+' : '-'}
                         {m.quantity.toLocaleString('es-DO')}
                       </span>

@@ -29,8 +29,8 @@ export function Ask() {
   })
 
   return (
-    <div className="space-y-4 py-4">
-      <h1 className="text-xl font-semibold text-gray-900">Preguntar a la IA</h1>
+    <div className="space-y-4 py-4 md:max-w-2xl md:space-y-6 md:py-8">
+      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Preguntar a la IA</h1>
       <p className="text-sm text-gray-500">
         Elige un proyecto específico, o "Todos los proyectos" para una búsqueda semántica
         entre todo el historial, y pregunta en lenguaje natural.
@@ -39,7 +39,7 @@ export function Ask() {
       <Card className="space-y-3">
         <Field label="Proyecto">
           <select
-            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
           >
@@ -67,7 +67,7 @@ export function Ask() {
 
       {error && (
         <Card>
-          <p className="text-sm text-red-600">{error}</p>
+          <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
         </Card>
       )}
 
@@ -78,7 +78,7 @@ export function Ask() {
               Basado en: {ask.data.projects.join(', ')}
             </p>
           )}
-          <p className="whitespace-pre-line text-sm text-gray-800">{ask.data.answer}</p>
+          <p className="whitespace-pre-line text-sm text-gray-800 dark:text-gray-200">{ask.data.answer}</p>
         </Card>
       )}
     </div>

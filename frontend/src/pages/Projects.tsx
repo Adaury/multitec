@@ -39,14 +39,14 @@ export function Projects() {
   })
 
   return (
-    <div className="space-y-4 py-4">
+    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Proyectos</h1>
+        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Proyectos</h1>
         <div className="flex gap-2">
           {canExport && (
             <button
               onClick={() => downloadFile('/projects/export', 'proyectos.csv')}
-              className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700"
+              className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
               Exportar CSV
             </button>
@@ -61,7 +61,7 @@ export function Projects() {
       </div>
 
       {showForm && (
-        <Card>
+        <Card className="md:max-w-2xl">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -73,7 +73,7 @@ export function Projects() {
             <Field label="Cliente">
               <select
                 required
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base"
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                 value={clientId}
                 onChange={(e) => setClientId(e.target.value)}
               >
@@ -100,15 +100,17 @@ export function Projects() {
 
       {isLoading && <p className="text-sm text-gray-500">Cargando…</p>}
 
-      <div className="space-y-3">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {projects?.map((project) => (
           <Link key={project.id} to={`/proyectos/${project.id}`}>
             <Card className="active:scale-[0.98]">
               <div className="flex items-center justify-between">
-                <p className="font-medium text-gray-900">{project.code}</p>
+                <p className="font-medium text-gray-900 dark:text-gray-100">{project.code}</p>
                 <Badge>{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge>
               </div>
-              {project.description && <p className="mt-1 text-sm text-gray-500">{project.description}</p>}
+              {project.description && (
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{project.description}</p>
+              )}
               <p className="mt-1 text-xs text-gray-400">{project.date}</p>
             </Card>
           </Link>
