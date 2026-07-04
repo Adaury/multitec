@@ -2,11 +2,13 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from tests.conftest import auth_headers, make_project
+from tests.conftest import auth_headers, make_category, make_project
 
 
-def _create_product(client, headers, **overrides):
-    payload = {"category": "camara", "name": "Cámara domo IP 4MP", "unit": "unidad", "price": 150}
+def _create_product(client, headers, category_id=None, **overrides):
+    if category_id is None:
+        category_id = make_category(client, headers)["id"]
+    payload = {"category_id": category_id, "name": "Cámara domo IP 4MP", "unit": "unidad", "price": 150}
     payload.update(overrides)
     resp = client.post("/api/catalog", json=payload, headers=headers)
     assert resp.status_code == 201, resp.text
@@ -57,16 +59,27 @@ def test_generate_from_survey_creates_budget_and_pending_quote(client, admin_tok
     assert engineering["recommended_equipment"] == "8 cámaras domo IP"
 
 
-def test_generate_from_survey_expands_suggested_accessories(client, admin_token):
+def test_generate_from_survey_expands_rules_with_quantity(client, admin_token):
+    """§ catálogo inteligente v2: las reglas con cantidad (no solo presencia) agregan
+    accesorios en la proporción correcta — sin que la IA tenga que hacer esa aritmética."""
     headers = auth_headers(admin_token)
     project = make_project(client, headers)
-    camera = _create_product(client, headers, name="Cámara IP", suggests_tags=["nvr"])
-    nvr = _create_product(client, headers, category="nvr", name="NVR 8 canales", price=400, tags=["nvr"])
+    camera_category = make_category(client, headers, name="Cámaras IP", code_prefix="CAM")["id"]
+    nvr_category = make_category(client, headers, name="NVR", code_prefix="NVR")["id"]
+    camera = _create_product(client, headers, category_id=camera_category, name="Cámara IP")
+    nvr = _create_product(client, headers, category_id=nvr_category, name="NVR 8 canales", price=400, tags=["nvr"])
+
+    rule_resp = client.post(
+        f"/api/catalog/{camera['id']}/rules",
+        json={"target_tag": "nvr", "per_source_units": 8, "quantity": 1},
+        headers=headers,
+    )
+    assert rule_resp.status_code == 201, rule_resp.text
 
     with (
         patch(
             "app.api.routers.ai.suggest_budget_items",
-            return_value=[{"product_id": camera["id"], "description": camera["name"], "quantity": 4}],
+            return_value=[{"product_id": camera["id"], "description": camera["name"], "quantity": 9}],
         ),
         patch(
             "app.api.routers.ai.draft_engineering",
@@ -78,9 +91,10 @@ def test_generate_from_survey_expands_suggested_accessories(client, admin_token)
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    product_ids = {item["product_id"] for item in body["quote"]["items"]}
-    assert camera["id"] in product_ids
-    assert nvr["id"] in product_ids  # agregado por expand_with_suggested_accessories, sin IA
+    items_by_product = {item["product_id"]: item for item in body["quote"]["items"]}
+    assert items_by_product[camera["id"]]["quantity"] == 9
+    # 9 cámaras, 1 NVR cada 8 -> ceil(9/8) = 2 lotes, sin que la IA lo haya calculado.
+    assert items_by_product[nvr["id"]]["quantity"] == 2
     # draft_engineering falló (no HTTPException, un error genérico) — no debe tumbar la
     # respuesta ni la cotización ya generada.
     assert body["engineering_drafted"] is False

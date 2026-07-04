@@ -6,6 +6,7 @@ import { Dashboard } from './pages/Dashboard'
 import { Clients } from './pages/Clients'
 import { ClientDetail } from './pages/ClientDetail'
 import { Catalog } from './pages/Catalog'
+import { Categorias } from './pages/Categorias'
 import { Projects } from './pages/Projects'
 import { ProjectDetail } from './pages/ProjectDetail'
 import { Budgets } from './pages/Budgets'
@@ -29,6 +30,7 @@ function App() {
           <Route path="/proyectos" element={<Projects />} />
           <Route path="/proyectos/:id" element={<ProjectDetail />} />
           <Route path="/catalogo" element={<Catalog />} />
+          <Route path="/clasificaciones" element={<Categorias />} />
           <Route path="/presupuestos" element={<Budgets />} />
           <Route path="/cotizaciones" element={<Quotes />} />
           <Route path="/preguntar" element={<Ask />} />

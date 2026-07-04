@@ -84,6 +84,17 @@ def auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+def make_category(
+    client: TestClient, headers: dict, name: str = "Cámaras", code_prefix: str | None = "CAM"
+) -> dict:
+    """Crea una categoría de catálogo de prueba y devuelve su fila (id, slug, etc.) —
+    _clean_tables trunca todo entre tests, así que cada test que necesite un category_id
+    para crear productos debe pedir la suya."""
+    resp = client.post("/api/categories", json={"name": name, "code_prefix": code_prefix}, headers=headers)
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
 def make_project(client: TestClient, headers: dict, client_name: str = "Cliente de prueba") -> dict:
     """Crea un cliente + proyecto de prueba y devuelve el proyecto (con code, id, etc.)."""
     client_resp = client.post("/api/clients", json={"name": client_name}, headers=headers)

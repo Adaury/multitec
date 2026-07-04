@@ -7,6 +7,7 @@ from app.api.routers.budgets import build_budget, build_quote_from_budget
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.budget import Budget
+from app.models.catalog_rule import CatalogRule
 from app.models.engineering import Engineering
 from app.models.logbook import LogEntry
 from app.models.material import Material
@@ -22,7 +23,7 @@ from app.schemas.survey import SurveyOut
 from app.services.ai_client import answer_question, draft_engineering, suggest_budget_items, summarize_survey
 from app.services.embeddings import reindex_project, search_projects
 from app.services.notifications import notify_quote_pending
-from app.services.quote_rules import expand_with_suggested_accessories
+from app.services.quote_rules import expand_with_rules
 
 router = APIRouter(tags=["ai"])
 
@@ -108,18 +109,30 @@ def _build_project_context(db: Session, project: Project) -> str:
 def _build_catalog_dicts(products: list[Product]) -> list[dict]:
     """Catálogo enriquecido con los campos semánticos (§ catálogo inteligente) para que
     suggest_budget_items pueda hacer matching por tags/sinónimos y proponer accesorios
-    relacionados, en vez de depender solo del nombre exacto."""
+    relacionados, en vez de depender solo del nombre exacto. `products` debe venir ordenado
+    por código — expand_with_rules resuelve el primer match del catálogo en ese orden."""
     return [
         {
             "id": p.id,
             "name": p.name,
-            "category": p.category,
+            "category": p.category_name,
             "unit": p.unit,
             "tags": p.tags or [],
             "synonyms": p.synonyms or [],
-            "suggests_tags": p.suggests_tags or [],
         }
         for p in products
+    ]
+
+
+def _build_rule_dicts(rules: list[CatalogRule]) -> list[dict]:
+    return [
+        {
+            "source_product_id": r.source_product_id,
+            "target_tag": r.target_tag,
+            "per_source_units": float(r.per_source_units) if r.per_source_units is not None else None,
+            "quantity": float(r.quantity),
+        }
+        for r in rules
     ]
 
 
@@ -168,12 +181,13 @@ def ai_budget_suggestions(project_id: int, db: Session = Depends(get_db), _=Depe
     context = _build_project_context(db, project)
     _reindex_quietly(db, project, context)
 
-    products = db.query(Product).all()
+    products = db.query(Product).order_by(Product.code).all()
     catalog = _build_catalog_dicts(products)
+    rules = _build_rule_dicts(db.query(CatalogRule).all())
     product_prices = {p.id: float(p.price) for p in products}
 
     items = suggest_budget_items(context, catalog)
-    items = expand_with_suggested_accessories(items, catalog)
+    items = expand_with_rules(items, catalog, rules)
     for item in items:
         if item.get("product_id") is not None:
             item["unit_price"] = product_prices.get(item["product_id"], 0)
@@ -193,12 +207,13 @@ def generate_from_survey(
     context = _build_project_context(db, project)
     _reindex_quietly(db, project, context)
 
-    products = db.query(Product).all()
+    products = db.query(Product).order_by(Product.code).all()
     catalog = _build_catalog_dicts(products)
+    rules = _build_rule_dicts(db.query(CatalogRule).all())
     product_prices = {p.id: float(p.price) for p in products}
 
     items = suggest_budget_items(context, catalog)
-    items = expand_with_suggested_accessories(items, catalog)
+    items = expand_with_rules(items, catalog, rules)
     if not items:
         raise HTTPException(status_code=400, detail="La IA no pudo derivar materiales del levantamiento")
 

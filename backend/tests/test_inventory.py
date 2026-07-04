@@ -1,9 +1,13 @@
-from tests.conftest import auth_headers
+from tests.conftest import auth_headers, make_category
 
 
-def _create_product(client, headers, name="Cámara IP 4MP"):
+def _create_product(client, headers, name="Cámara IP 4MP", category_id=None):
+    if category_id is None:
+        category_id = make_category(client, headers)["id"]
     return client.post(
-        "/api/catalog", json={"category": "camara", "name": name, "unit": "unidad", "price": 100}, headers=headers
+        "/api/catalog",
+        json={"category_id": category_id, "name": name, "unit": "unidad", "price": 100},
+        headers=headers,
     ).json()
 
 
@@ -108,13 +112,14 @@ def test_tecnico_cannot_access_inventory(client, admin_token, tecnico_token):
 
 
 def test_catalog_smart_fields_round_trip(client, admin_token):
-    """§ catálogo inteligente: tags/sinónimos/sugiere y las descripciones/marca/modelo se
-    guardan y regresan completos — son la base del matching semántico en el levantamiento."""
+    """§ catálogo inteligente: tags/sinónimos y las descripciones/marca/modelo se guardan y
+    regresan completos — son la base del matching semántico en el levantamiento."""
     headers = auth_headers(admin_token)
+    category_id = make_category(client, headers)["id"]
     resp = client.post(
         "/api/catalog",
         json={
-            "category": "camara",
+            "category_id": category_id,
             "name": "Cámara domo IP 4MP",
             "unit": "unidad",
             "price": 150,
@@ -124,7 +129,6 @@ def test_catalog_smart_fields_round_trip(client, admin_token):
             "technical_description": "4MP, IR 30m, IP67",
             "tags": ["camara", "domo", "ip", "cctv"],
             "synonyms": ["camarita", "ojo"],
-            "suggests_tags": ["nvr", "poe-switch"],
         },
         headers=headers,
     )
@@ -132,12 +136,11 @@ def test_catalog_smart_fields_round_trip(client, admin_token):
     product = resp.json()
     assert product["brand"] == "Hikvision"
     assert product["model"] == "DS-2CD1343G0"
+    assert product["category_id"] == category_id
     assert set(product["tags"]) == {"camara", "domo", "ip", "cctv"}
     assert set(product["synonyms"]) == {"camarita", "ojo"}
-    assert set(product["suggests_tags"]) == {"nvr", "poe-switch"}
 
     # una fila vieja/sin etiquetar (sin tags) debe salir como [] y no como null
-    plain = _create_product(client, headers, name="Producto sin etiquetas")
+    plain = _create_product(client, headers, name="Producto sin etiquetas", category_id=category_id)
     assert plain["tags"] == []
     assert plain["synonyms"] == []
-    assert plain["suggests_tags"] == []

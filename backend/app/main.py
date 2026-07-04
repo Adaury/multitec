@@ -14,6 +14,7 @@ from app.api.routers import (
     auth,
     budgets,
     catalog,
+    categories,
     clients,
     engineering,
     execution,
@@ -83,6 +84,7 @@ app.include_router(projects.router)
 app.include_router(surveys.router)
 app.include_router(engineering.router)
 app.include_router(catalog.router)
+app.include_router(categories.router)
 app.include_router(inventory.router)
 app.include_router(budgets.router)
 app.include_router(quotes.router)

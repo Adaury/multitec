@@ -127,7 +127,9 @@ export interface Engineering {
 export interface Product {
   id: number
   code: string
-  category: string
+  category_id: number | null
+  category_name: string | null
+  category_path: string | null
   name: string
   unit: string
   price: number
@@ -139,7 +141,25 @@ export interface Product {
   technical_description: string | null
   tags: string[]
   synonyms: string[]
-  suggests_tags: string[]
+}
+
+export interface Category {
+  id: number
+  name: string
+  slug: string
+  code_prefix: string | null
+  parent_id: number | null
+  created_at: string
+}
+
+export interface CatalogRule {
+  id: number
+  source_product_id: number
+  target_tag: string
+  per_source_units: number | null
+  quantity: number
+  notes: string | null
+  created_at: string
 }
 
 export type StockMovementType = 'entrada' | 'salida'
@@ -511,14 +531,3 @@ export interface AskResponse {
   projects: string[]
 }
 
-export const PRODUCT_CATEGORY_LABELS: Record<string, string> = {
-  camara: 'Cámara',
-  nvr: 'NVR',
-  cableado: 'Cableado',
-  switch: 'Switch',
-  control_acceso: 'Control de acceso',
-  videoportero: 'Videoportero',
-  barrera: 'Barrera vehicular',
-  automatizacion: 'Automatización',
-  otro: 'Otro',
-}

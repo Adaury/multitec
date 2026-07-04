@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 class ProductCreate(BaseModel):
-    category: str = Field(max_length=100)
+    category_id: int
     name: str = Field(max_length=255)
     unit: str = Field(default="unidad", max_length=30)
     price: float = 0
@@ -15,10 +15,10 @@ class ProductCreate(BaseModel):
     technical_description: str | None = Field(default=None, max_length=2000)
     tags: list[str] = []
     synonyms: list[str] = []
-    suggests_tags: list[str] = []
 
 
 class ProductUpdate(BaseModel):
+    category_id: int | None = None
     name: str | None = Field(default=None, max_length=255)
     unit: str | None = Field(default=None, max_length=30)
     price: float | None = None
@@ -29,13 +29,14 @@ class ProductUpdate(BaseModel):
     technical_description: str | None = Field(default=None, max_length=2000)
     tags: list[str] | None = None
     synonyms: list[str] | None = None
-    suggests_tags: list[str] | None = None
 
 
 class ProductOut(BaseModel):
     id: int
     code: str
-    category: str
+    category_id: int | None
+    category_name: str | None = None
+    category_path: str | None = None
     name: str
     unit: str
     price: float
@@ -47,7 +48,6 @@ class ProductOut(BaseModel):
     technical_description: str | None = None
     tags: list[str] = []
     synonyms: list[str] = []
-    suggests_tags: list[str] = []
     created_by: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None
@@ -55,7 +55,7 @@ class ProductOut(BaseModel):
     class Config:
         from_attributes = True
 
-    @field_validator("tags", "synonyms", "suggests_tags", mode="before")
+    @field_validator("tags", "synonyms", mode="before")
     @classmethod
     def _null_list_to_empty(cls, v):
         """Las columnas son JSON nullable — filas viejas/sin etiquetar tienen NULL, no []."""

@@ -1,4 +1,6 @@
 from app.models.budget import Budget, BudgetItem
+from app.models.catalog_rule import CatalogRule
+from app.models.category import Category
 from app.models.client import Client
 from app.models.embedding import ProjectEmbedding
 from app.models.engineering import Engineering
@@ -23,6 +25,8 @@ from app.models.visit import Visit
 __all__ = [
     "Budget",
     "BudgetItem",
+    "CatalogRule",
+    "Category",
     "Client",
     "Engineering",
     "Extension",

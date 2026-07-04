@@ -35,6 +35,7 @@ const sidebarBaseItems: NavItem[] = [
 const adminSidebarItems: NavItem[] = [
   { to: '/usuarios', label: 'Usuarios', icon: '⚙️' },
   { to: '/ncf', label: 'NCF', icon: '🧾' },
+  { to: '/clasificaciones', label: 'Clasificaciones', icon: '🗂️' },
 ]
 
 export function Layout() {

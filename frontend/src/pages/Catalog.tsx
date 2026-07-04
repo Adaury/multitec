@@ -1,12 +1,34 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import type { Product, StockMovement, StockMovementType } from '../lib/types'
-import { PRODUCT_CATEGORY_LABELS } from '../lib/types'
+import type { CatalogRule, Category, Product, StockMovement, StockMovementType } from '../lib/types'
 import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
 
+interface CategoryOption {
+  category: Category
+  depth: number
+}
+
+function flattenCategories(categories: Category[]): CategoryOption[] {
+  const byParent = new Map<number | null, Category[]>()
+  for (const c of categories) {
+    const list = byParent.get(c.parent_id) ?? []
+    list.push(c)
+    byParent.set(c.parent_id, list)
+  }
+  const options: CategoryOption[] = []
+  const walk = (parentId: number | null, depth: number) => {
+    for (const c of byParent.get(parentId) ?? []) {
+      options.push({ category: c, depth })
+      walk(c.id, depth + 1)
+    }
+  }
+  walk(null, 0)
+  return options
+}
+
 interface ProductForm {
-  category: string
+  category_id: string
   name: string
   unit: string
   price: number
@@ -17,12 +39,11 @@ interface ProductForm {
   technical_description: string
   tags: string
   synonyms: string
-  suggests_tags: string
 }
 
 function emptyForm(): ProductForm {
   return {
-    category: 'camara',
+    category_id: '',
     name: '',
     unit: 'unidad',
     price: 0,
@@ -33,7 +54,6 @@ function emptyForm(): ProductForm {
     technical_description: '',
     tags: '',
     synonyms: '',
-    suggests_tags: '',
   }
 }
 
@@ -55,14 +75,20 @@ export function Catalog() {
     queryFn: async () => (await api.get<Product[]>('/catalog')).data,
   })
 
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => (await api.get<Category[]>('/categories')).data,
+  })
+  const categoryOptions = categories ? flattenCategories(categories) : []
+
   const createProduct = useMutation({
     mutationFn: async (payload: ProductForm) =>
       (
         await api.post('/catalog', {
           ...payload,
+          category_id: Number(payload.category_id),
           tags: splitTags(payload.tags),
           synonyms: splitTags(payload.synonyms),
-          suggests_tags: splitTags(payload.suggests_tags),
         })
       ).data,
     onSuccess: () => {
@@ -96,13 +122,19 @@ export function Catalog() {
             <div className="grid gap-3 md:grid-cols-2">
               <Field label="Categoría">
                 <select
+                  required
                   className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  value={form.category_id}
+                  onChange={(e) => setForm({ ...form, category_id: e.target.value })}
                 >
-                  {Object.entries(PRODUCT_CATEGORY_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
+                  <option value="" disabled>
+                    Selecciona una categoría…
+                  </option>
+                  {categoryOptions.map(({ category, depth }) => (
+                    <option key={category.id} value={category.id}>
+                      {'  '.repeat(depth)}
+                      {depth > 0 ? '– ' : ''}
+                      {category.name}
                     </option>
                   ))}
                 </select>
@@ -146,12 +178,6 @@ export function Catalog() {
             </Field>
             <Field label="Sinónimos (separados por coma) — ej: camarita, ojo">
               <Input value={form.synonyms} onChange={(e) => setForm({ ...form, synonyms: e.target.value })} />
-            </Field>
-            <Field label="Sugiere al usarse (separado por coma) — ej: nvr, poe-switch">
-              <Input
-                value={form.suggests_tags}
-                onChange={(e) => setForm({ ...form, suggests_tags: e.target.value })}
-              />
             </Field>
             <Field label="Notas">
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
@@ -227,7 +253,7 @@ function ProductCard({
           <div>
             <p className="font-medium text-gray-900 dark:text-gray-100">{product.name}</p>
             <p className="text-xs text-gray-400">
-              {product.code} · {PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}
+              {product.code} · {product.category_path ?? product.category_name ?? 'Sin categoría'}
               {product.brand && ` · ${product.brand}`}
               {product.model && ` ${product.model}`}
             </p>
@@ -256,7 +282,7 @@ function ProductCard({
       </button>
 
       {expanded && (
-        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+        <div className="mt-3 space-y-4 border-t border-gray-100 pt-3 dark:border-gray-800">
           <form
             className="space-y-2"
             onSubmit={(e) => {
@@ -335,8 +361,139 @@ function ProductCard({
           {movements && movements.length === 0 && (
             <p className="text-xs text-gray-400">Aún no hay movimientos de stock.</p>
           )}
+
+          <RulesEditor productId={product.id} />
         </div>
       )}
     </Card>
+  )
+}
+
+function RulesEditor({ productId }: { productId: number }) {
+  const queryClient = useQueryClient()
+  const [targetTag, setTargetTag] = useState('')
+  const [proportional, setProportional] = useState(false)
+  const [perSourceUnits, setPerSourceUnits] = useState('1')
+  const [ruleQuantity, setRuleQuantity] = useState('1')
+  const [error, setError] = useState<string | null>(null)
+
+  const { data: rules } = useQuery({
+    queryKey: ['catalog-rules', productId],
+    queryFn: async () => (await api.get<CatalogRule[]>(`/catalog/${productId}/rules`)).data,
+  })
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['catalog-rules', productId] })
+
+  const createRule = useMutation({
+    mutationFn: async () =>
+      (
+        await api.post(`/catalog/${productId}/rules`, {
+          target_tag: targetTag,
+          per_source_units: proportional ? Number(perSourceUnits) : null,
+          quantity: Number(ruleQuantity),
+        })
+      ).data,
+    onSuccess: () => {
+      invalidate()
+      setTargetTag('')
+      setProportional(false)
+      setPerSourceUnits('1')
+      setRuleQuantity('1')
+      setError(null)
+    },
+    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo crear la regla'),
+  })
+
+  const deleteRule = useMutation({
+    mutationFn: async (ruleId: number) => (await api.delete(`/catalog/rules/${ruleId}`)).data,
+    onSuccess: invalidate,
+  })
+
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+        Reglas — qué sugerir automáticamente cuando se usa este producto
+      </p>
+      {rules && rules.length > 0 && (
+        <ul className="mb-2 space-y-1 text-xs text-gray-600 dark:text-gray-400">
+          {rules.map((r) => (
+            <li key={r.id} className="flex items-center justify-between">
+              <span>
+                {r.per_source_units
+                  ? `${r.quantity} "${r.target_tag}" por cada ${r.per_source_units} de este`
+                  : `${r.quantity} "${r.target_tag}" fijo`}
+              </span>
+              <button
+                className="text-red-600 hover:underline dark:text-red-400"
+                onClick={() => deleteRule.mutate(r.id)}
+              >
+                Eliminar
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="space-y-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          createRule.mutate()
+        }}
+      >
+        <Field label='Tag del accesorio a sugerir — ej: "nvr", "poe-switch", "disco-duro"'>
+          <Input required value={targetTag} onChange={(e) => setTargetTag(e.target.value)} />
+        </Field>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setProportional(false)}
+            className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
+              !proportional
+                ? 'bg-brand-blue text-white'
+                : 'bg-brand-gray text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+            }`}
+          >
+            Fijo
+          </button>
+          <button
+            type="button"
+            onClick={() => setProportional(true)}
+            className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
+              proportional
+                ? 'bg-brand-blue text-white'
+                : 'bg-brand-gray text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+            }`}
+          >
+            Proporcional
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {proportional && (
+            <Field label="Por cada X de este producto">
+              <Input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={perSourceUnits}
+                onChange={(e) => setPerSourceUnits(e.target.value)}
+              />
+            </Field>
+          )}
+          <Field label="Cantidad a agregar">
+            <Input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={ruleQuantity}
+              onChange={(e) => setRuleQuantity(e.target.value)}
+            />
+          </Field>
+        </div>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        <Button type="submit" disabled={createRule.isPending || !targetTag}>
+          {createRule.isPending ? 'Guardando…' : '+ Agregar regla'}
+        </Button>
+      </form>
+    </div>
   )
 }
