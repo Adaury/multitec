@@ -20,6 +20,7 @@ from app.services.csv_export import build_csv
 from app.services.ncf import assign_ncf, default_ncf_type
 from app.services.notifications import notify_invoice_issued
 from app.services.pdf import build_invoice_pdf
+from app.services.pre_invoice import build_pre_invoice_from_quote
 from app.services.totals import LineInput, compute_totals
 
 router = APIRouter(tags=["invoices"])
@@ -101,29 +102,7 @@ def generate_pre_invoice(quote_id: int, db: Session = Depends(get_db), current_u
     if quote.status != "aprobada":
         raise HTTPException(status_code=400, detail="Solo se puede generar prefactura de una cotización aprobada")
 
-    code = next_code(db, "PFC")
-    pre_invoice = PreInvoice(
-        code=code,
-        project_id=quote.project_id,
-        source_quote_id=quote.id,
-        notes=quote.notes,
-        subtotal=quote.subtotal,
-        itbis=quote.itbis,
-        total=quote.total,
-        created_by=current_user.id,
-    )
-    for item in quote.items:
-        pre_invoice.items.append(
-            PreInvoiceItem(
-                product_id=item.product_id,
-                description=item.description,
-                quantity=item.quantity,
-                unit_price=item.unit_price,
-                subtotal=item.subtotal,
-            )
-        )
-
-    db.add(pre_invoice)
+    pre_invoice = build_pre_invoice_from_quote(db, quote, current_user.id)
     db.commit()
     db.refresh(pre_invoice)
     return pre_invoice

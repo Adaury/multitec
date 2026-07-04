@@ -60,18 +60,26 @@ def list_all_budgets(db: Session = Depends(get_db), _=Depends(allowed_roles)):
     return db.query(Budget).options(joinedload(Budget.items)).order_by(Budget.created_at.desc()).all()
 
 
-@router.post("/api/projects/{project_id}/budgets", response_model=BudgetOut, status_code=status.HTTP_201_CREATED)
-def create_budget(
-    project_id: int, payload: BudgetCreate, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)
-):
+def build_budget(db: Session, project_id: int, notes: str | None, items_in, created_by: int | None) -> Budget:
+    """Arma un Budget (+líneas +total) sin comitear — el caller decide cuándo. Compartida
+    entre la creación manual (create_budget) y la generación automática desde el
+    levantamiento (ver api/routers/ai.py)."""
     code = next_code(db, "PRE")
-    budget = Budget(code=code, project_id=project_id, notes=payload.notes, created_by=current_user.id)
-    _build_budget_items(db, budget, payload.items)
+    budget = Budget(code=code, project_id=project_id, notes=notes, created_by=created_by)
+    _build_budget_items(db, budget, items_in)
 
     lines = [LineInput(item.quantity, item.unit_price) for item in budget.items]
     budget.total = round(sum(line_subtotal(l.quantity, l.unit_price) for l in lines), 2)
 
     db.add(budget)
+    return budget
+
+
+@router.post("/api/projects/{project_id}/budgets", response_model=BudgetOut, status_code=status.HTTP_201_CREATED)
+def create_budget(
+    project_id: int, payload: BudgetCreate, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)
+):
+    budget = build_budget(db, project_id, payload.notes, payload.items, current_user.id)
     db.commit()
     db.refresh(budget)
     return budget
@@ -104,12 +112,12 @@ def update_budget(budget_id: int, payload: BudgetUpdate, db: Session = Depends(g
     return budget
 
 
-@router.post("/api/budgets/{budget_id}/convert-to-quote", response_model=QuoteOut, status_code=status.HTTP_201_CREATED)
-def convert_to_quote(budget_id: int, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
-    budget = db.query(Budget).options(joinedload(Budget.items)).filter(Budget.id == budget_id).one_or_none()
-    if budget is None:
-        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
-
+def build_quote_from_budget(db: Session, budget: Budget, created_by: int | None) -> Quote:
+    """Arma una Quote a partir de un Budget (copiando líneas, recalculando ITBIS) sin
+    comitear — el caller decide cuándo. Compartida entre convert_to_quote (manual) y la
+    generación automática desde el levantamiento (ver api/routers/ai.py). Requiere que
+    `budget.id` ya exista (flush previo si el Budget se acaba de crear en la misma
+    transacción)."""
     settings = get_settings()
     code = next_code(db, "COT")
     quote = Quote(
@@ -117,7 +125,7 @@ def convert_to_quote(budget_id: int, db: Session = Depends(get_db), current_user
         project_id=budget.project_id,
         source_budget_id=budget.id,
         notes=budget.notes,
-        created_by=current_user.id,
+        created_by=created_by,
     )
 
     for item in budget.items:
@@ -138,6 +146,16 @@ def convert_to_quote(budget_id: int, db: Session = Depends(get_db), current_user
     db.add(quote)
     db.flush()
     db.add(QuoteHistory(quote_id=quote.id, action="creada", note=f"Generada desde presupuesto {budget.code}"))
+    return quote
+
+
+@router.post("/api/budgets/{budget_id}/convert-to-quote", response_model=QuoteOut, status_code=status.HTTP_201_CREATED)
+def convert_to_quote(budget_id: int, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
+    budget = db.query(Budget).options(joinedload(Budget.items)).filter(Budget.id == budget_id).one_or_none()
+    if budget is None:
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+
+    quote = build_quote_from_budget(db, budget, current_user.id)
     db.commit()
     db.refresh(quote)
     notify_quote_pending(db, quote)

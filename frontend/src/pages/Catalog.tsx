@@ -11,10 +11,37 @@ interface ProductForm {
   unit: string
   price: number
   notes: string
+  brand: string
+  model: string
+  commercial_description: string
+  technical_description: string
+  tags: string
+  synonyms: string
+  suggests_tags: string
 }
 
 function emptyForm(): ProductForm {
-  return { category: 'camara', name: '', unit: 'unidad', price: 0, notes: '' }
+  return {
+    category: 'camara',
+    name: '',
+    unit: 'unidad',
+    price: 0,
+    notes: '',
+    brand: '',
+    model: '',
+    commercial_description: '',
+    technical_description: '',
+    tags: '',
+    synonyms: '',
+    suggests_tags: '',
+  }
+}
+
+function splitTags(value: string): string[] {
+  return value
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
 }
 
 export function Catalog() {
@@ -29,7 +56,15 @@ export function Catalog() {
   })
 
   const createProduct = useMutation({
-    mutationFn: async (payload: ProductForm) => (await api.post('/catalog', payload)).data,
+    mutationFn: async (payload: ProductForm) =>
+      (
+        await api.post('/catalog', {
+          ...payload,
+          tags: splitTags(payload.tags),
+          synonyms: splitTags(payload.synonyms),
+          suggests_tags: splitTags(payload.suggests_tags),
+        })
+      ).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['catalog'] })
       setShowForm(false)
@@ -87,7 +122,37 @@ export function Catalog() {
                   onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
                 />
               </Field>
+              <Field label="Marca">
+                <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+              </Field>
+              <Field label="Modelo">
+                <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+              </Field>
             </div>
+            <Field label="Descripción comercial">
+              <Textarea
+                value={form.commercial_description}
+                onChange={(e) => setForm({ ...form, commercial_description: e.target.value })}
+              />
+            </Field>
+            <Field label="Descripción técnica">
+              <Textarea
+                value={form.technical_description}
+                onChange={(e) => setForm({ ...form, technical_description: e.target.value })}
+              />
+            </Field>
+            <Field label="Etiquetas (separadas por coma) — ej: camara, domo, ip, cctv">
+              <Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
+            </Field>
+            <Field label="Sinónimos (separados por coma) — ej: camarita, ojo">
+              <Input value={form.synonyms} onChange={(e) => setForm({ ...form, synonyms: e.target.value })} />
+            </Field>
+            <Field label="Sugiere al usarse (separado por coma) — ej: nvr, poe-switch">
+              <Input
+                value={form.suggests_tags}
+                onChange={(e) => setForm({ ...form, suggests_tags: e.target.value })}
+              />
+            </Field>
             <Field label="Notas">
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </Field>
@@ -163,7 +228,21 @@ function ProductCard({
             <p className="font-medium text-gray-900 dark:text-gray-100">{product.name}</p>
             <p className="text-xs text-gray-400">
               {product.code} · {PRODUCT_CATEGORY_LABELS[product.category] ?? product.category}
+              {product.brand && ` · ${product.brand}`}
+              {product.model && ` ${product.model}`}
             </p>
+            {product.tags.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {product.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="rounded-full bg-brand-gray px-2 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
           <div className="text-right">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">

@@ -133,6 +133,13 @@ export interface Product {
   price: number
   stock_quantity: number
   notes: string | null
+  brand: string | null
+  model: string | null
+  commercial_description: string | null
+  technical_description: string | null
+  tags: string[]
+  synonyms: string[]
+  suggests_tags: string[]
 }
 
 export type StockMovementType = 'entrada' | 'salida'
@@ -195,6 +202,12 @@ export interface Quote {
   created_at: string
   decided_at: string | null
   items: QuoteItem[]
+}
+
+export interface GenerateFromSurveyOut {
+  budget: Budget
+  quote: Quote
+  engineering_drafted: boolean
 }
 
 export interface QuoteHistoryEntry {

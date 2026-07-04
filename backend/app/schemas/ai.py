@@ -1,5 +1,8 @@
 from pydantic import BaseModel
 
+from app.schemas.budget import BudgetOut
+from app.schemas.quote import QuoteOut
+
 
 class EngineeringDraftOut(BaseModel):
     recommended_equipment: str
@@ -29,3 +32,12 @@ class AskRequest(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     projects: list[str] = []
+
+
+class GenerateFromSurveyOut(BaseModel):
+    """Resultado de generar Presupuesto + Cotización (+ borrador de Ingeniería, best
+    effort) automáticamente a partir del levantamiento — § levantamiento inteligente."""
+
+    budget: BudgetOut
+    quote: QuoteOut
+    engineering_drafted: bool

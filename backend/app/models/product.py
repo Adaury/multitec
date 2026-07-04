@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, JSON, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -30,6 +30,18 @@ class Product(Base):
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     stock_quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    brand: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    model: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    commercial_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    technical_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Catálogo "inteligente" (§ levantamiento con IA): tags/synonyms alimentan el matching
+    # semántico en suggest_budget_items; suggests_tags dispara la sugerencia determinista
+    # de accesorios relacionados (ver services/quote_rules.py) — cámara IP sugiere
+    # nvr/poe-switch, cable sugiere conectores, etc. Todas nullable, JSON (no ARRAY) para
+    # funcionar igual en SQLite y Postgres, mismo patrón que ProjectEmbedding.embedding.
+    tags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    synonyms: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    suggests_tags: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)

@@ -215,17 +215,42 @@ BUDGET_SUGGESTION_SCHEMA = {
 }
 
 
+def _format_catalog_line(p: dict) -> str:
+    """Una línea de catálogo con todo el contexto semántico disponible — nombre, unidad,
+    tags/sinónimos para el matching, y qué accesorios relacionados sugiere este producto
+    (la IA los puede proponer también; el post-procesamiento determinista en
+    services/quote_rules.py se asegura de que no falten aunque el modelo los pase por alto)."""
+    parts = [f"- id={p['id']}: {p['name']} (categoría: {p['category']}, unidad: {p.get('unit', 'unidad')})"]
+    if p.get("tags"):
+        parts.append(f"  etiquetas: {', '.join(p['tags'])}")
+    if p.get("synonyms"):
+        parts.append(f"  sinónimos: {', '.join(p['synonyms'])}")
+    if p.get("suggests_tags"):
+        parts.append(f"  sugiere al usarse: {', '.join(p['suggests_tags'])}")
+    return "\n".join(parts)
+
+
 def suggest_budget_items(project_context: str, catalog: list[dict]) -> list[dict]:
     settings = get_settings()
     client = get_client()
 
-    catalog_text = "\n".join(f"- id={p['id']}: {p['name']} ({p['category']})" for p in catalog)
+    catalog_text = "\n".join(_format_catalog_line(p) for p in catalog)
     prompt = (
         "Eres un especialista en seguridad electrónica armando un presupuesto. A partir del "
         "expediente del proyecto, sugiere una lista de materiales necesarios con cantidades. "
         "SOLO puedes usar productos de este catálogo (usa su id exacto en product_id); si "
         "necesitas algo que no está en el catálogo (por ejemplo mano de obra o servicios), "
         "pon product_id en 0 y descríbelo en description.\n\n"
+        "Reglas para interpretar el texto del técnico:\n"
+        "1. Convierte cantidades escritas en palabras a números (\"ocho cámaras\" → 8, "
+        "\"doscientos metros\" → 200, \"diez\" → 10).\n"
+        "2. Para identificar el producto, compara contra su nombre, sus etiquetas y sus "
+        "sinónimos — no solo el nombre exacto (ej. \"domo\" o \"cctv\" pueden referirse a "
+        "una cámara aunque no diga \"cámara\" textualmente).\n"
+        "3. Si un producto que ya vas a incluir tiene \"sugiere al usarse\", trata de incluir "
+        "también algún producto del catálogo cuyas etiquetas coincidan con esa sugerencia "
+        "(ej. si incluyes una cámara IP que sugiere \"nvr\", busca un NVR en el catálogo), "
+        "con una cantidad razonable — no es obligatorio si no aplica.\n\n"
         f"Catálogo disponible:\n{catalog_text}\n\n"
         f"Expediente del proyecto:\n{project_context}"
     )

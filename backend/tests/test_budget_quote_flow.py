@@ -40,8 +40,22 @@ def test_budget_to_quote_to_material_flow(client, admin_token):
     assert materials[0]["quantity"] == 4
     assert materials[0]["status"] == "pendiente_compra"
 
+    # § levantamiento inteligente: aprobar ya genera la prefactura sola, sin que nadie la
+    # tenga que pedir a mano — copia los mismos totales/items que la cotización aprobada.
+    pre_invoices = client.get(f"/api/projects/{project['id']}/pre-invoices", headers=headers).json()
+    assert len(pre_invoices) == 1
+    assert pre_invoices[0]["source_quote_id"] == quote["id"]
+    assert pre_invoices[0]["total"] == quote["total"]
 
-def test_approving_quote_twice_does_not_duplicate_materials(client, admin_token):
+    # generate-pre-invoice manual, llamado después, debe devolver la misma prefactura en
+    # vez de crear una segunda (idempotencia compartida con la generación automática).
+    manual_resp = client.post(f"/api/quotes/{quote['id']}/generate-pre-invoice", headers=headers)
+    assert manual_resp.status_code == 201
+    assert manual_resp.json()["id"] == pre_invoices[0]["id"]
+    assert len(client.get(f"/api/projects/{project['id']}/pre-invoices", headers=headers).json()) == 1
+
+
+def test_approving_quote_twice_does_not_duplicate_materials_or_pre_invoice(client, admin_token):
     headers = auth_headers(admin_token)
     project = make_project(client, headers)
 
@@ -63,6 +77,9 @@ def test_approving_quote_twice_does_not_duplicate_materials(client, admin_token)
 
     materials = client.get(f"/api/projects/{project['id']}/materials", headers=headers).json()
     assert len(materials) == 1
+
+    pre_invoices = client.get(f"/api/projects/{project['id']}/pre-invoices", headers=headers).json()
+    assert len(pre_invoices) == 1
 
 
 def test_reject_quote(client, admin_token):

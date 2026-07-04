@@ -9,6 +9,7 @@ import type {
   Execution,
   Extension,
   ExtensionStatus,
+  GenerateFromSurveyOut,
   Invoice,
   InvoiceHistoryEntry,
   LineItemInput,
@@ -158,7 +159,9 @@ export function ProjectDetail() {
       </div>
 
       {tab === 'info' && <InfoTab project={project} />}
-      {tab === 'levantamiento' && <LevantamientoTab projectId={project.id} />}
+      {tab === 'levantamiento' && (
+        <LevantamientoTab projectId={project.id} onGenerated={() => setTab('cotizacion')} />
+      )}
       {tab === 'ingenieria' && <IngenieriaTab projectId={project.id} />}
       {tab === 'presupuesto' && <BudgetTab projectId={project.id} onConverted={() => setTab('cotizacion')} />}
       {tab === 'cotizacion' && <QuoteTab projectId={project.id} />}
@@ -264,7 +267,7 @@ function InfoTab({ project }: { project: ProjectDetailType }) {
   )
 }
 
-function LevantamientoTab({ projectId }: { projectId: number }) {
+function LevantamientoTab({ projectId, onGenerated }: { projectId: number; onGenerated: () => void }) {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [recording, setRecording] = useState(false)
@@ -320,6 +323,20 @@ function LevantamientoTab({ projectId }: { projectId: number }) {
     onError: (error: any) => setAiError(error?.response?.data?.detail ?? 'Error al organizar con IA'),
   })
 
+  const [generateError, setGenerateError] = useState<string | null>(null)
+  const generate = useMutation({
+    mutationFn: async () =>
+      (await api.post<GenerateFromSurveyOut>(`/projects/${projectId}/generate-from-survey`)).data,
+    onSuccess: () => {
+      setGenerateError(null)
+      queryClient.invalidateQueries({ queryKey: ['budgets', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['quotes', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['engineering', projectId] })
+      onGenerated()
+    },
+    onError: (error: any) => setGenerateError(error?.response?.data?.detail ?? 'Error al generar la cotización'),
+  })
+
   async function toggleRecording() {
     if (recording) {
       mediaRecorderRef.current?.stop()
@@ -354,6 +371,19 @@ function LevantamientoTab({ projectId }: { projectId: number }) {
         <DictationField label="Observaciones" value={observations} onChange={setObservations} />
         <Button onClick={() => saveNotes.mutate()} disabled={saveNotes.isPending}>
           {saveNotes.isPending ? 'Guardando…' : 'Guardar levantamiento'}
+        </Button>
+      </Card>
+
+      <Card className="space-y-2">
+        <p className="font-medium text-gray-800 dark:text-gray-200">Generar todo con IA</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Lee las notas, medidas y observaciones de arriba y crea de una vez el Presupuesto
+          y la Cotización (y un borrador de Ingeniería, si aún no tiene uno) — sin volver a
+          capturar nada. Puede tardar ~1 minuto.
+        </p>
+        {generateError && <p className="text-sm text-red-600 dark:text-red-400">{generateError}</p>}
+        <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
+          {generate.isPending ? 'Generando… (puede tardar ~1 min)' : '🤖 Generar cotización con IA'}
         </Button>
       </Card>
 

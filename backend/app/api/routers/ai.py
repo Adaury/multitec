@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
+from app.api.routers.budgets import build_budget, build_quote_from_budget
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.budget import Budget
@@ -14,10 +15,14 @@ from app.models.project import Project
 from app.models.quote import Quote
 from app.models.survey import Survey
 from app.models.ticket import Ticket
-from app.schemas.ai import AskRequest, AskResponse, BudgetSuggestionOut, EngineeringDraftOut
+from app.models.user import User
+from app.schemas.ai import AskRequest, AskResponse, BudgetSuggestionOut, EngineeringDraftOut, GenerateFromSurveyOut
+from app.schemas.budget import BudgetItemIn
 from app.schemas.survey import SurveyOut
 from app.services.ai_client import answer_question, draft_engineering, suggest_budget_items, summarize_survey
 from app.services.embeddings import reindex_project, search_projects
+from app.services.notifications import notify_quote_pending
+from app.services.quote_rules import expand_with_suggested_accessories
 
 router = APIRouter(tags=["ai"])
 
@@ -100,6 +105,24 @@ def _build_project_context(db: Session, project: Project) -> str:
     return "\n".join(lines)
 
 
+def _build_catalog_dicts(products: list[Product]) -> list[dict]:
+    """Catálogo enriquecido con los campos semánticos (§ catálogo inteligente) para que
+    suggest_budget_items pueda hacer matching por tags/sinónimos y proponer accesorios
+    relacionados, en vez de depender solo del nombre exacto."""
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "category": p.category,
+            "unit": p.unit,
+            "tags": p.tags or [],
+            "synonyms": p.synonyms or [],
+            "suggests_tags": p.suggests_tags or [],
+        }
+        for p in products
+    ]
+
+
 def _reindex_quietly(db: Session, project: Project, context: str) -> None:
     """Actualiza el embedding del proyecto para búsqueda semántica; si Ollama no está
     disponible, no debe romper el flujo principal (ingeniería, presupuesto, etc.)."""
@@ -146,15 +169,82 @@ def ai_budget_suggestions(project_id: int, db: Session = Depends(get_db), _=Depe
     _reindex_quietly(db, project, context)
 
     products = db.query(Product).all()
-    catalog = [{"id": p.id, "name": p.name, "category": p.category} for p in products]
+    catalog = _build_catalog_dicts(products)
     product_prices = {p.id: float(p.price) for p in products}
 
     items = suggest_budget_items(context, catalog)
+    items = expand_with_suggested_accessories(items, catalog)
     for item in items:
         if item.get("product_id") is not None:
             item["unit_price"] = product_prices.get(item["product_id"], 0)
 
     return BudgetSuggestionOut(items=items)
+
+
+@router.post("/api/projects/{project_id}/generate-from-survey", response_model=GenerateFromSurveyOut)
+def generate_from_survey(
+    project_id: int, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)
+):
+    """Genera Presupuesto + Cotización (y, si aplica, un borrador de Ingeniería) de una
+    sola vez a partir del levantamiento — § levantamiento inteligente. La cotización queda
+    'pendiente': aprobar sigue siendo una decisión humana (staff u oficina, o el cliente
+    desde el portal), no se auto-aprueba aquí."""
+    project = _get_project(db, project_id)
+    context = _build_project_context(db, project)
+    _reindex_quietly(db, project, context)
+
+    products = db.query(Product).all()
+    catalog = _build_catalog_dicts(products)
+    product_prices = {p.id: float(p.price) for p in products}
+
+    items = suggest_budget_items(context, catalog)
+    items = expand_with_suggested_accessories(items, catalog)
+    if not items:
+        raise HTTPException(status_code=400, detail="La IA no pudo derivar materiales del levantamiento")
+
+    for item in items:
+        if item.get("product_id") is not None:
+            item["unit_price"] = product_prices.get(item["product_id"], 0)
+
+    items_in = [BudgetItemIn(**item) for item in items]
+    budget = build_budget(
+        db, project_id, "Generado automáticamente desde el levantamiento", items_in, current_user.id
+    )
+    db.flush()  # build_quote_from_budget necesita budget.id
+    quote = build_quote_from_budget(db, budget, current_user.id)
+
+    # El borrador de ingeniería es "best effort": si esta segunda llamada a Ollama falla,
+    # la cotización ya generada no se pierde. Solo se rellena si el proyecto no tiene
+    # ingeniería propia todavía (no pisa lo que oficina ya haya editado a mano).
+    engineering_drafted = False
+    engineering = db.query(Engineering).filter(Engineering.project_id == project_id).one_or_none()
+    if engineering is not None and not any(
+        [
+            engineering.recommended_equipment,
+            engineering.distribution,
+            engineering.conduits,
+            engineering.wiring,
+            engineering.technical_design,
+            engineering.observations,
+        ]
+    ):
+        try:
+            draft = draft_engineering(context)
+            engineering.recommended_equipment = draft["recommended_equipment"]
+            engineering.distribution = draft["distribution"]
+            engineering.conduits = draft["conduits"]
+            engineering.wiring = draft["wiring"]
+            engineering.technical_design = draft["technical_design"]
+            engineering.observations = draft["observations"]
+            engineering_drafted = True
+        except HTTPException as e:
+            logger.warning("Borrador de ingeniería omitido para el proyecto %s: %s", project_id, e.detail)
+
+    db.commit()
+    db.refresh(budget)
+    db.refresh(quote)
+    notify_quote_pending(db, quote)
+    return GenerateFromSurveyOut(budget=budget, quote=quote, engineering_drafted=engineering_drafted)
 
 
 @router.post("/api/ai/ask", response_model=AskResponse)
