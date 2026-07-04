@@ -7,14 +7,21 @@ import { GlobalSearch } from './GlobalSearch'
 import { NotificationBell } from './NotificationBell'
 import { ThemeToggle } from './ThemeToggle'
 
-const mobileNavItems = [
+interface NavItem {
+  to: string
+  label: string
+  icon: string
+  end?: boolean
+}
+
+const mobileNavItems: NavItem[] = [
   { to: '/', label: 'Inicio', icon: '🏠', end: true },
   { to: '/proyectos', label: 'Proyectos', icon: '📁' },
   { to: '/clientes', label: 'Clientes', icon: '👤' },
   { to: '/catalogo', label: 'Catálogo', icon: '📦' },
 ]
 
-const sidebarBaseItems = [
+const sidebarBaseItems: NavItem[] = [
   { to: '/', label: 'Inicio', icon: '🏠', end: true },
   { to: '/clientes', label: 'Clientes', icon: '👤' },
   { to: '/proyectos', label: 'Proyectos', icon: '📁' },
@@ -25,7 +32,7 @@ const sidebarBaseItems = [
   { to: '/preguntar', label: 'Preguntar IA', icon: '🤖' },
 ]
 
-const adminSidebarItems = [
+const adminSidebarItems: NavItem[] = [
   { to: '/usuarios', label: 'Usuarios', icon: '⚙️' },
   { to: '/ncf', label: 'NCF', icon: '🧾' },
 ]

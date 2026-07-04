@@ -23,7 +23,9 @@ test('logout revokes the session and redirects to login', async ({ page }) => {
   const accessBefore = await page.evaluate(() => localStorage.getItem('multitec_token'))
   expect(accessBefore).toBeTruthy()
 
-  await page.click('button:has-text("Salir")')
+  // Hay dos botones "Salir" en el DOM (sidebar de escritorio + header móvil, oculto
+  // el que no aplica al viewport actual vía CSS) — getByRole solo expone el visible.
+  await page.getByRole('button', { name: 'Salir' }).click()
   await expect(page).toHaveURL(/login/, { timeout: 10000 })
 
   const accessAfter = await page.evaluate(() => localStorage.getItem('multitec_token'))
