@@ -78,6 +78,7 @@ def _legacy_slug_for(old_category: str | None, name: str) -> str:
 
 def upgrade() -> None:
     conn = op.get_bind()
+    is_sqlite = conn.dialect.name == "sqlite"
 
     categories_table = op.create_table(
         'categories',
@@ -106,7 +107,14 @@ def upgrade() -> None:
 
     slug_to_id = _insert_taxonomy(conn, categories_table)
 
-    op.add_column('products', sa.Column('category_id', sa.Integer(), sa.ForeignKey('categories.id'), nullable=True))
+    # SQLite no soporta ALTER de constraints (la FK inline en category_id cuenta) sin modo
+    # batch — mismo patrón que d6c464c4501d_project_public_token.py.
+    if is_sqlite:
+        with op.batch_alter_table('products', recreate='always') as batch_op:
+            batch_op.add_column(sa.Column('category_id', sa.Integer(), nullable=True))
+            batch_op.create_foreign_key('fk_products_category_id', 'categories', ['category_id'], ['id'])
+    else:
+        op.add_column('products', sa.Column('category_id', sa.Integer(), sa.ForeignKey('categories.id'), nullable=True))
 
     products_table = sa.table(
         'products',
@@ -148,15 +156,27 @@ def upgrade() -> None:
                 )
             )
 
-    op.drop_column('products', 'category')
-    op.drop_column('products', 'suggests_tags')
+    if is_sqlite:
+        with op.batch_alter_table('products', recreate='always') as batch_op:
+            batch_op.drop_column('category')
+            batch_op.drop_column('suggests_tags')
+    else:
+        op.drop_column('products', 'category')
+        op.drop_column('products', 'suggests_tags')
 
 
 def downgrade() -> None:
-    op.add_column('products', sa.Column('suggests_tags', sa.JSON(), nullable=True))
-    op.add_column('products', sa.Column('category', sa.String(length=30), nullable=True))
-
     conn = op.get_bind()
+    is_sqlite = conn.dialect.name == "sqlite"
+
+    if is_sqlite:
+        with op.batch_alter_table('products', recreate='always') as batch_op:
+            batch_op.add_column(sa.Column('suggests_tags', sa.JSON(), nullable=True))
+            batch_op.add_column(sa.Column('category', sa.String(length=30), nullable=True))
+    else:
+        op.add_column('products', sa.Column('suggests_tags', sa.JSON(), nullable=True))
+        op.add_column('products', sa.Column('category', sa.String(length=30), nullable=True))
+
     products_table = sa.table(
         'products',
         sa.column('id', sa.Integer),
@@ -175,7 +195,13 @@ def downgrade() -> None:
             products_table.update().where(products_table.c.id == product_id).values(category=old_category)
         )
 
-    op.alter_column('products', 'category', nullable=False)
-    op.drop_column('products', 'category_id')
+    if is_sqlite:
+        with op.batch_alter_table('products', recreate='always') as batch_op:
+            batch_op.alter_column('category', nullable=False)
+            batch_op.drop_column('category_id')
+    else:
+        op.alter_column('products', 'category', nullable=False)
+        op.drop_column('products', 'category_id')
+
     op.drop_table('catalog_rules')
     op.drop_table('categories')
