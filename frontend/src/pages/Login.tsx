@@ -1,3 +1,4 @@
+import { isAxiosError } from 'axios'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
@@ -31,8 +32,14 @@ export function Login() {
       })
       setSession(token, refreshToken, user)
       navigate('/')
-    } catch {
-      setError('Correo o contraseña incorrectos')
+    } catch (err) {
+      if (isAxiosError(err) && err.response?.status === 429) {
+        setError('Demasiados intentos. Espera un minuto e intenta de nuevo.')
+      } else if (isAxiosError(err) && err.response?.status === 401) {
+        setError('Correo o contraseña incorrectos')
+      } else {
+        setError('Ocurrió un error al iniciar sesión. Intenta de nuevo.')
+      }
     } finally {
       setLoading(false)
     }
