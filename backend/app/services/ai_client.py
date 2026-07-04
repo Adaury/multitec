@@ -12,6 +12,11 @@ MAX_IMAGES = 6
 
 logger = logging.getLogger("multitec.ai")
 
+# El GPU local de esta máquina produce texto corrupto en la inferencia (confirmado: mismo
+# prompt, mismo modelo, solo CPU da una respuesta coherente) — se fuerza CPU en todas las
+# llamadas hasta que se resuelva el driver/GPU. Más lento, pero confiable.
+OLLAMA_OPTIONS = {"num_gpu": 0}
+
 
 def get_client() -> ollama.Client:
     settings = get_settings()
@@ -110,7 +115,9 @@ def summarize_survey(notes: str, measurements: str, observations: str, image_pat
         )
 
         def run_text_only():
-            response = client.chat(model=settings.ai_model, messages=[{"role": "user", "content": text}])
+            response = client.chat(
+                model=settings.ai_model, messages=[{"role": "user", "content": text}], options=OLLAMA_OPTIONS
+            )
             return response.message.content or ""
 
         return _call(run_text_only)
@@ -126,7 +133,7 @@ def summarize_survey(notes: str, measurements: str, observations: str, image_pat
     message = {"role": "user", "content": vision_text, "images": photos}
 
     def run_vision():
-        response = client.chat(model=settings.ai_vision_model, messages=[message])
+        response = client.chat(model=settings.ai_vision_model, messages=[message], options=OLLAMA_OPTIONS)
         return response.message.content or ""
 
     result = _call(run_vision)
@@ -143,7 +150,9 @@ def summarize_survey(notes: str, measurements: str, observations: str, image_pat
         )
 
         def run_text_fallback():
-            response = client.chat(model=settings.ai_model, messages=[{"role": "user", "content": text}])
+            response = client.chat(
+                model=settings.ai_model, messages=[{"role": "user", "content": text}], options=OLLAMA_OPTIONS
+            )
             content = response.message.content or ""
             return content + "\n\n(No se pudo analizar la(s) foto(s) adjunta(s) con el modelo de visión local; solo se resumió el texto.)"
 
@@ -189,6 +198,7 @@ def draft_engineering(project_context: str) -> dict:
             model=settings.ai_model,
             format=ENGINEERING_SCHEMA,
             messages=[{"role": "user", "content": prompt}],
+            options=OLLAMA_OPTIONS,
         )
         return json.loads(response.message.content)
 
@@ -260,6 +270,7 @@ def suggest_budget_items(project_context: str, catalog: list[dict]) -> list[dict
             model=settings.ai_model,
             format=BUDGET_SUGGESTION_SCHEMA,
             messages=[{"role": "user", "content": prompt}],
+            options=OLLAMA_OPTIONS,
         )
         items = json.loads(response.message.content)["items"]
         for item in items:
@@ -292,6 +303,7 @@ def answer_question(project_context: str, question: str) -> str:
                 },
                 {"role": "user", "content": question},
             ],
+            options=OLLAMA_OPTIONS,
         )
         return response.message.content or ""
 
