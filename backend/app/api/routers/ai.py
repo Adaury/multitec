@@ -3,7 +3,15 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from app.ai_engine.calculation import CABLE_WASTE_MARGIN_KEY, apply_cable_waste_margin, get_calculation_parameter
+from app.ai_engine.calculation import (
+    CABLE_WASTE_MARGIN_KEY,
+    LABOR_HOURLY_RATE_KEY,
+    LABOR_MAX_HOURS_PER_TECHNICIAN_KEY,
+    apply_cable_waste_margin,
+    build_labor_budget_item,
+    calculate_labor,
+    get_calculation_parameter,
+)
 from app.ai_engine.catalog_matching import suggest_budget_items
 from app.ai_engine.documents import draft_engineering
 from app.ai_engine.nlu import summarize_survey
@@ -129,6 +137,14 @@ def _build_catalog_dicts(products: list[Product]) -> list[dict]:
     ]
 
 
+def _build_install_profiles(products: list[Product]) -> dict[int, tuple[float | None, str | None]]:
+    """product_id -> (install_minutes, labor_role) para `calculate_labor` (Motor 5) — se
+    arma directo de los `Product` ya cargados, sin volver a consultar la base de datos."""
+    return {
+        p.id: (float(p.install_minutes) if p.install_minutes is not None else None, p.labor_role) for p in products
+    }
+
+
 def _reindex_quietly(db: Session, project: Project, context: str) -> None:
     """Actualiza el embedding del proyecto para búsqueda semántica; si Ollama no está
     disponible, no debe romper el flujo principal (ingeniería, presupuesto, etc.)."""
@@ -182,6 +198,14 @@ def ai_budget_suggestions(project_id: int, db: Session = Depends(get_db), _=Depe
     items = suggest_budget_items(context, catalog)
     items = expand_with_rules(items, catalog, rules)
     items = apply_cable_waste_margin(items, catalog, get_calculation_parameter(db, CABLE_WASTE_MARGIN_KEY))
+    labor_estimate = calculate_labor(
+        items,
+        _build_install_profiles(products),
+        get_calculation_parameter(db, LABOR_HOURLY_RATE_KEY),
+        get_calculation_parameter(db, LABOR_MAX_HOURS_PER_TECHNICIAN_KEY),
+    )
+    if labor_estimate is not None:
+        items = items + [build_labor_budget_item(labor_estimate)]
     for item in items:
         if item.get("product_id") is not None:
             item["unit_price"] = product_prices.get(item["product_id"], 0)
@@ -212,6 +236,14 @@ def generate_from_survey(
         raise HTTPException(status_code=400, detail="La IA no pudo derivar materiales del levantamiento")
 
     items = apply_cable_waste_margin(items, catalog, get_calculation_parameter(db, CABLE_WASTE_MARGIN_KEY))
+    labor_estimate = calculate_labor(
+        items,
+        _build_install_profiles(products),
+        get_calculation_parameter(db, LABOR_HOURLY_RATE_KEY),
+        get_calculation_parameter(db, LABOR_MAX_HOURS_PER_TECHNICIAN_KEY),
+    )
+    if labor_estimate is not None:
+        items = items + [build_labor_budget_item(labor_estimate)]
     for item in items:
         if item.get("product_id") is not None:
             item["unit_price"] = product_prices.get(item["product_id"], 0)

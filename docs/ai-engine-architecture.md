@@ -250,24 +250,19 @@ seguridad (ejecutar reglas arbitrarias) que no hace falta.
 
 ## Motor 5 — Motor de cálculos
 
-> **Estado: parcialmente implementado (Fase 3).** Solo la primera calculadora
-> (`CableCalculator`) tiene código — la de mayor impacto/menor riesgo, como marcaba el
-> plan de evolución. Vive en `app/ai_engine/calculation.py::apply_cable_waste_margin` y ya
-> corre dentro de `ai_budget_suggestions` y `generate_from_survey`, después de
-> `expand_with_rules`. `calculation_parameters` (tabla clave/valor) también quedó
-> construida, con endpoint admin en `/api/calculation-parameters`; hoy solo tiene una
-> clave conocida (`cable_waste_margin_pct`, default 5%). Las demás calculadoras descritas
-> abajo (`StorageCalculator`, `CapacityCalculator`, `LaborCalculator`) siguen sin
-> implementar. `LaborCalculator` ya no está bloqueada por falta de datos —
-> `install_minutes` y `labor_role` existen en `Product` desde la extensión de Motor 2 —
-> pero construirla sigue pendiente. `StorageCalculator`/`CapacityCalculator` sí siguen
-> esperando datos que no existen (capacidad de canal, resolución de cámara).
+> **Estado: dos de cuatro calculadoras implementadas.** `CableCalculator`
+> (`apply_cable_waste_margin`, Fase 3) y `LaborCalculator` (`calculate_labor` +
+> `build_labor_budget_item`) corren dentro de `ai_budget_suggestions` y
+> `generate_from_survey`, después de `expand_with_rules`. `calculation_parameters` tiene
+> tres claves conocidas: `cable_waste_margin_pct` (default 5%), `labor_hourly_rate`
+> (default RD$200/hora) y `labor_max_hours_per_technician` (default 40h — una semana
+> laboral). `StorageCalculator` y `CapacityCalculator` siguen sin implementar — esperan
+> datos que todavía no existen (resolución de cámara, capacidad de canal de NVR/switch).
 
 **Responsabilidad:** toda la aritmética técnica y comercial que hoy falta. `totals.py` ya
 cubre lo financiero genérico (subtotal/ITBIS/total); `expand_with_rules` ya cubre
-cantidad-por-accesorio. Lo que no existe: canalización, conectores, capacidad de NVR/DVR,
-capacidad de disco, cantidad de switches, tiempo de instalación, cantidad de técnicos,
-costo de mano de obra.
+cantidad-por-accesorio. Lo que sigue sin existir: canalización, conectores, capacidad de
+NVR/DVR, capacidad de disco, cantidad de switches.
 
 **Diseño:** un `CalculationEngine` que despacha a **calculadoras** independientes por tipo
 de cálculo, cada una una función pura `(items_resueltos, parámetros) -> ajustes`:
@@ -276,13 +271,23 @@ de cálculo, cada una una función pura `(items_resueltos, parámetros) -> ajust
   resueltos cuyo producto tiene el tag `cable`, aplicando el margen de desperdicio
   configurado. Ajusta la cantidad de la misma línea (es más del mismo producto, no un
   producto nuevo) — a diferencia de `expand_with_rules`, que sí agrega líneas nuevas.
+- ✅ `LaborCalculator` (`calculate_labor` + `build_labor_budget_item`) — suma
+  `install_minutes × cantidad` de cada ítem resuelto (Motor 2) para estimar horas
+  totales, agrega una línea de "Mano de obra de instalación" al presupuesto
+  (`product_id=None`, igual que un servicio mencionado a mano) con `quantity=horas` y
+  `unit_price=labor_hourly_rate`, y calcula `cantidad de técnicos` como
+  `ceil(horas / labor_max_hours_per_technician)`. El costo de mano de obra es horas
+  totales × tarifa, sin dividir entre técnicos (se paga por hora-persona trabajada, no
+  por técnico en paralelo). `labor_role` se usa para desglosar las horas por tipo de
+  técnico en la descripción de la línea (transparencia), no para aplicar una tarifa
+  distinta por rol — eso requeriría una tarifa configurable por rol, que no existe
+  todavía y no se construyó por no tener un caso de uso real que la pidiera. Si nada en
+  el presupuesto tiene `install_minutes` cargado, no agrega ninguna línea (en vez de un
+  "RD$0 de mano de obra" que no aporta nada).
 - `StorageCalculator` — capacidad de disco requerida, a partir de cámaras × resolución ×
   días de retención (parámetros configurables, no hardcodeados). Pendiente.
 - `CapacityCalculator` — canales de NVR/puertos de switch necesarios vs. disponibles en el
   producto elegido; genera una `RuleEffect` de tipo advertencia si no alcanza. Pendiente.
-- `LaborCalculator` — usa `install_minutes` y `labor_role` de Motor 2 para estimar horas,
-  cantidad de técnicos y costo de mano de obra. Pendiente de construir — los campos de
-  `Product` que necesita ya existen.
 
 Cada calculadora es un módulo independiente y **agregable**: sumar una nueva área técnica
 (ej. detección de incendios) puede requerir una calculadora nueva (ej. cobertura de
@@ -475,12 +480,10 @@ en un estado roto:
    en dos llamadas al modelo en vez de una — esto ya destraba guardar entidades sin match.
 2. ✅ **Generalizar `CatalogRule` → `TechnicalRule`** sin migrar datos existentes (tabla
    nueva en paralelo; `expand_with_rules` sigue funcionando igual para lo ya configurado).
-3. ✅ **Motor 5 (parcial):** agregada `calculation_parameters` + la primera calculadora
-   (`CableCalculator`, la de mayor impacto/menor riesgo). `StorageCalculator` y
-   `CapacityCalculator` siguen esperando datos que no existen (capacidad de canal,
-   resolución de cámara); `LaborCalculator` ya tiene los campos que necesita
-   (`install_minutes`, `labor_role`, agregados a `Product` después de esta fase) pero
-   sigue sin construirse.
+3. ✅ **Motor 5 (parcial):** agregada `calculation_parameters` + `CableCalculator` (la de
+   mayor impacto/menor riesgo, primero) y después `LaborCalculator` (una vez que Motor 2
+   tuvo `install_minutes`/`labor_role`). `StorageCalculator` y `CapacityCalculator` siguen
+   esperando datos que no existen (capacidad de canal, resolución de cámara).
 4. ✅ **Motor 6:** cerrado el hueco de "lista de compras preliminar" y "cotización
    ejecutiva" como vista, sin nuevas tablas financieras.
 5. ✅ **Motor 7 (parcial):** instrumentada la captura pasiva de ediciones
@@ -497,9 +500,13 @@ trabajo dirigido por lo que el uso real revele: qué calculadoras de Motor 5 hac
 primero, cuándo hay volumen suficiente para el análisis de Motor 7, o si aparece una
 segunda área técnica que ponga a prueba la extensibilidad del diseño.
 
-**Extensiones posteriores — Motor 2 completo:** `Product` ganó `cost`, `install_minutes`,
-`labor_role` y `priority` (migración `bc52912f5a4c`), cerrando el gap que bloqueaba a
-`LaborCalculator`; después, `product_relations` (migración `21847344e44d`) cerró el último
-hueco de datos de Motor 2 — compatibilidades y productos relacionados, con CRUD en
-`/api/catalog/{product_id}/relations`. Con esto, todos los campos que el objetivo original
-pedía para el catálogo inteligente están implementados.
+**Extensiones posteriores:**
+- **Motor 2 completo:** `Product` ganó `cost`, `install_minutes`, `labor_role` y
+  `priority` (migración `bc52912f5a4c`); después, `product_relations` (migración
+  `21847344e44d`) cerró el último hueco de datos de Motor 2 — compatibilidades y
+  productos relacionados, con CRUD en `/api/catalog/{product_id}/relations`. Con esto,
+  todos los campos que el objetivo original pedía para el catálogo inteligente están
+  implementados.
+- **Motor 5 — `LaborCalculator`:** construido una vez que Motor 2 tuvo los datos que
+  necesitaba. `StorageCalculator`/`CapacityCalculator` siguen siendo los huecos abiertos
+  de Motor 5.
