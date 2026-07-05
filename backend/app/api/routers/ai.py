@@ -3,6 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
+from app.ai_engine.calculation import CABLE_WASTE_MARGIN_KEY, apply_cable_waste_margin, get_calculation_parameter
 from app.ai_engine.catalog_matching import suggest_budget_items
 from app.ai_engine.documents import draft_engineering
 from app.ai_engine.nlu import summarize_survey
@@ -180,6 +181,7 @@ def ai_budget_suggestions(project_id: int, db: Session = Depends(get_db), _=Depe
 
     items = suggest_budget_items(context, catalog)
     items = expand_with_rules(items, catalog, rules)
+    items = apply_cable_waste_margin(items, catalog, get_calculation_parameter(db, CABLE_WASTE_MARGIN_KEY))
     for item in items:
         if item.get("product_id") is not None:
             item["unit_price"] = product_prices.get(item["product_id"], 0)
@@ -209,6 +211,7 @@ def generate_from_survey(
     if not items:
         raise HTTPException(status_code=400, detail="La IA no pudo derivar materiales del levantamiento")
 
+    items = apply_cable_waste_margin(items, catalog, get_calculation_parameter(db, CABLE_WASTE_MARGIN_KEY))
     for item in items:
         if item.get("product_id") is not None:
             item["unit_price"] = product_prices.get(item["product_id"], 0)

@@ -13,6 +13,7 @@ from app.api.routers import (
     ai,
     auth,
     budgets,
+    calculation_parameters,
     catalog,
     categories,
     clients,
@@ -87,6 +88,7 @@ app.include_router(catalog.router)
 app.include_router(categories.router)
 app.include_router(inventory.router)
 app.include_router(budgets.router)
+app.include_router(calculation_parameters.router)
 app.include_router(quotes.router)
 app.include_router(materials.router)
 app.include_router(execution.router)

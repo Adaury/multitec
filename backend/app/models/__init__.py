@@ -1,4 +1,5 @@
 from app.models.budget import Budget, BudgetItem
+from app.models.calculation_parameter import CalculationParameter
 from app.models.catalog_rule import CatalogRule
 from app.models.category import Category
 from app.models.client import Client
@@ -26,6 +27,7 @@ from app.models.visit import Visit
 __all__ = [
     "Budget",
     "BudgetItem",
+    "CalculationParameter",
     "CatalogRule",
     "Category",
     "Client",

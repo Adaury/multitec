@@ -33,7 +33,7 @@ el diseño:
 | `ai_engine/nlu.py::interpret_survey_items` → `ai_engine/catalog_matching.py::match_entities_to_catalog` (dos llamadas al modelo, Fase 1) | Motor 1 y Motor 2 (separados) |
 | `Product.tags` / `Product.synonyms` (JSON) | Motor 3 (embrionario) |
 | `CatalogRule` + `TechnicalRule` + `expand_with_rules` (accesorio por cantidad, fijo o proporcional) | Motor 4 (implementado — Fase 2) |
-| `totals.py` (subtotal/ITBIS/total) | Motor 5 (solo financiero, no técnico) |
+| `totals.py` + `ai_engine/calculation.py::apply_cable_waste_margin` + `calculation_parameters` | Motor 5 (solo cable — Fase 3) |
 | `generate_from_survey`, `build_budget`, `build_quote_from_budget`, `build_pre_invoice_from_quote`, `mark_quote_approved` (auto-genera Materiales y Prefactura al aprobar) | Motor 6 (pipeline ya funcionando, sin "lista de compras" ni "cotización ejecutiva" como artefactos propios) |
 | `embeddings.py` (embedding por proyecto + búsqueda semántica) | Soporte transversal para `ai/ask` |
 | — | Motor 7 no existe todavía |
@@ -234,35 +234,53 @@ seguridad (ejecutar reglas arbitrarias) que no hace falta.
 
 ## Motor 5 — Motor de cálculos
 
+> **Estado: parcialmente implementado (Fase 3).** Solo la primera calculadora
+> (`CableCalculator`) tiene código — la de mayor impacto/menor riesgo, como marcaba el
+> plan de evolución. Vive en `app/ai_engine/calculation.py::apply_cable_waste_margin` y ya
+> corre dentro de `ai_budget_suggestions` y `generate_from_survey`, después de
+> `expand_with_rules`. `calculation_parameters` (tabla clave/valor) también quedó
+> construida, con endpoint admin en `/api/calculation-parameters`; hoy solo tiene una
+> clave conocida (`cable_waste_margin_pct`, default 5%). Las demás calculadoras descritas
+> abajo (`StorageCalculator`, `CapacityCalculator`, `LaborCalculator`) siguen sin
+> implementar — dependen de campos de Motor 2 (`install_minutes`, `labor_role`, capacidad
+> de canal) que tampoco existen todavía.
+
 **Responsabilidad:** toda la aritmética técnica y comercial que hoy falta. `totals.py` ya
 cubre lo financiero genérico (subtotal/ITBIS/total); `expand_with_rules` ya cubre
-cantidad-por-accesorio. Lo que no existe: metraje de cable con margen de desperdicio,
-canalización, conectores, capacidad de NVR/DVR, capacidad de disco, cantidad de switches,
-tiempo de instalación, cantidad de técnicos, costo de mano de obra.
+cantidad-por-accesorio. Lo que no existe: canalización, conectores, capacidad de NVR/DVR,
+capacidad de disco, cantidad de switches, tiempo de instalación, cantidad de técnicos,
+costo de mano de obra.
 
-**Diseño propuesto:** un `CalculationEngine` que despacha a **calculadoras** independientes
-por tipo de cálculo, cada una una función pura `(items_resueltos, parámetros) -> ajustes`:
+**Diseño:** un `CalculationEngine` que despacha a **calculadoras** independientes por tipo
+de cálculo, cada una una función pura `(items_resueltos, parámetros) -> ajustes`:
 
-- `CableCalculator` — metros de cable necesarios + margen de desperdicio configurable.
+- ✅ `CableCalculator` (`apply_cable_waste_margin`) — aumenta la cantidad de los ítems ya
+  resueltos cuyo producto tiene el tag `cable`, aplicando el margen de desperdicio
+  configurado. Ajusta la cantidad de la misma línea (es más del mismo producto, no un
+  producto nuevo) — a diferencia de `expand_with_rules`, que sí agrega líneas nuevas.
 - `StorageCalculator` — capacidad de disco requerida, a partir de cámaras × resolución ×
-  días de retención (parámetros configurables, no hardcodeados).
+  días de retención (parámetros configurables, no hardcodeados). Pendiente.
 - `CapacityCalculator` — canales de NVR/puertos de switch necesarios vs. disponibles en el
-  producto elegido; genera una `RuleEffect` de tipo advertencia si no alcanza.
+  producto elegido; genera una `RuleEffect` de tipo advertencia si no alcanza. Pendiente.
 - `LaborCalculator` — usa `install_minutes` y `labor_role` de Motor 2 para estimar horas,
-  cantidad de técnicos y costo de mano de obra.
+  cantidad de técnicos y costo de mano de obra. Pendiente — Motor 2 todavía no tiene esos
+  campos en `Product`.
 
 Cada calculadora es un módulo independiente y **agregable**: sumar una nueva área técnica
 (ej. detección de incendios) puede requerir una calculadora nueva (ej. cobertura de
 detectores por metro cuadrado) sin tocar las demás.
 
-**Modelo de datos nuevo:** `calculation_parameters` — tabla clave/valor administrable
-desde el ERP (`key`, `value`, `description`), para que "margen de desperdicio de cable",
-"días de retención por defecto", "horas de instalación por cámara" sean configurables sin
-desplegar código, igual que ya se pide para Motor 4.
+**Modelo de datos (implementado):** `calculation_parameters` (`key` único, `value`
+numérico, `description`). Sin fila para una clave conocida = se usa el default de código
+en `KNOWN_PARAMETERS`, así que el cálculo funciona desde el primer día sin que un admin
+tenga que configurar nada — solo lo hace si quiere cambiar el valor por defecto. Agregar
+una clave nueva (ej. para `StorageCalculator`) es: registrarla en `KNOWN_PARAMETERS` +
+que la calculadora correspondiente la lea con `get_calculation_parameter`.
 
-**Interfaz:**
+**Interfaz (implementada, para `CableCalculator`):**
 ```
-calcular(items_resueltos: list[CatalogMatch], contexto: ProjectContext, parametros: dict) -> list[RuleEffect]
+get_calculation_parameter(db, key) -> float                                    # ai_engine/calculation.py
+apply_cable_waste_margin(items, catalog, waste_margin_pct) -> list[dict]       # ai_engine/calculation.py
 ```
 
 ## Motor 6 — Motor de generación documental
@@ -413,8 +431,10 @@ en un estado roto:
    en dos llamadas al modelo en vez de una — esto ya destraba guardar entidades sin match.
 2. ✅ **Generalizar `CatalogRule` → `TechnicalRule`** sin migrar datos existentes (tabla
    nueva en paralelo; `expand_with_rules` sigue funcionando igual para lo ya configurado).
-3. **Motor 5:** agregar `calculation_parameters` + la primera calculadora (`CableCalculator`,
-   la de mayor impacto/menor riesgo) antes de las demás.
+3. ✅ **Motor 5 (parcial):** agregada `calculation_parameters` + la primera calculadora
+   (`CableCalculator`, la de mayor impacto/menor riesgo). `StorageCalculator`,
+   `CapacityCalculator` y `LaborCalculator` quedan para cuando Motor 2 tenga los campos
+   que necesitan (`install_minutes`, `labor_role`, capacidad de canal).
 4. **Motor 6:** cerrar el hueco de "lista de compras preliminar" y "cotización ejecutiva"
    como vista, sin nuevas tablas financieras.
 5. **Motor 7:** instrumentar la captura pasiva de ediciones; el análisis periódico puede
