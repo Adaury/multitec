@@ -126,14 +126,15 @@ detectó la IA antes de que Motor 2 la resuelva — útil para depuración y par
 
 ## Motor 2 — Catálogo inteligente
 
-> **Estado: campos de producto completados; matching sigue siendo el mismo de Fase 1.**
-> `Product` ya tiene `cost`, `install_minutes`, `labor_role` y `priority` (migración
+> **Estado: los dos huecos de datos quedaron cerrados; matching sigue siendo el mismo de
+> Fase 1.** `Product` tiene `cost`, `install_minutes`, `labor_role` y `priority` (migración
 > `bc52912f5a4c`) — el insumo que le faltaba a Motor 5 para poder construir
-> `LaborCalculator` más adelante. `product_relations` (compatibilidades/relacionados)
-> sigue sin construirse — es una tabla nueva, no un campo de producto, y quedó fuera de
-> este trabajo puntual. El matching en sí (`catalog_matching.match_entities_to_catalog`)
-> no cambió: sigue resolviendo por nombre/categoría/tags/sinónimos, ninguno de los campos
-> nuevos participa todavía en esa decisión.
+> `LaborCalculator` más adelante. `product_relations` también existe (migración
+> `21847344e44d`), con CRUD en `/api/catalog/{product_id}/relations` y
+> `/api/catalog/relations/{relation_id}`. El matching en sí
+> (`catalog_matching.match_entities_to_catalog`) no cambió: sigue resolviendo por
+> nombre/categoría/tags/sinónimos — ninguno de estos campos nuevos participa en esa
+> decisión, son datos informativos/de apoyo, no señales de matching.
 
 **Responsabilidad:** resolver cada `DetectedEntity` contra un producto real del catálogo,
 usando nombre, categoría, tags y sinónimos (Motor 3). Ya existe como concepto
@@ -146,7 +147,7 @@ modelo:
 | Código, clasificación/subclasificación, nombre comercial/técnico, descripción, unidad, marca, modelo, precio | Ya existían (`code`, `category` jerárquica, `name`, `commercial_description`/`technical_description`, `unit`, `brand`, `model`, `price`) |
 | Costo | ✅ Implementado — `cost`, distinto de `price` (venta) |
 | Etiquetas, sinónimos | Ya existían (`tags`, `synonyms`, JSON) |
-| Compatibilidades, productos relacionados | **Falta** — no hay tabla de relación producto↔producto |
+| Compatibilidades, productos relacionados | ✅ Implementado — `product_relations` |
 | Reglas técnicas | Ya existe como `CatalogRule`/`TechnicalRule` (ver Motor 4) |
 | Tiempo de instalación, mano de obra asociada | ✅ Implementado — `install_minutes`, `labor_role` |
 | Nivel de prioridad | ✅ Implementado — `priority` (entero, sin escala fija: nada la define todavía) |
@@ -161,10 +162,14 @@ perfil_instalacion(product_id) -> InstallationProfile  # tiempo, mano de obra, p
 - ✅ `Product` extendido con `cost: Numeric`, `install_minutes: Numeric | None`,
   `labor_role: str | None` (qué tipo de técnico lo instala), `priority: int | None`. Todos
   nullable o con default — ningún producto existente quedó sin valor válido.
-- `product_relations` (tabla nueva, **pendiente**): `product_id`, `related_product_id`,
-  `relation_type` (`compatible_con` | `alternativa_de` | `requiere`). Deliberadamente
-  separada de `CatalogRule`/`TechnicalRule`: una relación de compatibilidad es informativa
-  (para quien arma el presupuesto a mano), una regla técnica es prescriptiva (agrega algo
+- ✅ `product_relations`: `product_id`, `related_product_id`, `relation_type`
+  (`compatible_con` | `alternativa_de` | `requiere`), `notes`. Se guarda una sola fila
+  dirigida por relación (no una por cada sentido); `GET /api/catalog/{id}/relations`
+  consulta ambos lados y normaliza la dirección (`outgoing`/`incoming`) más el nombre del
+  otro producto, para que verla desde cualquiera de los dos productos involucrados
+  muestre lo mismo sin duplicar filas. Deliberadamente separada de
+  `CatalogRule`/`TechnicalRule`: una relación de compatibilidad es informativa (para quien
+  arma el presupuesto a mano), una regla técnica es prescriptiva (agrega algo
   automáticamente). Mezclarlas obligaría a que toda relación dispare una acción, lo cual
   no es cierto.
 
@@ -387,7 +392,7 @@ patrones — mejor esperar al volumen real de proyectos que ya está capturando 
 | Tabla | Estado | Motor |
 |---|---|---|
 | `products` | ✅ Extendido: `cost`, `install_minutes`, `labor_role`, `priority` (implementado) | 2 |
-| `product_relations` | Nueva — pendiente | 2 |
+| `product_relations` | ✅ Nueva (implementada) | 2 |
 | `catalog_rules` | Sin cambios (se mantiene) | 4 |
 | `technical_rules` | Nueva (generalización hacia adelante de `catalog_rules`) | 4 |
 | `calculation_parameters` | Nueva | 5 |
@@ -492,7 +497,9 @@ trabajo dirigido por lo que el uso real revele: qué calculadoras de Motor 5 hac
 primero, cuándo hay volumen suficiente para el análisis de Motor 7, o si aparece una
 segunda área técnica que ponga a prueba la extensibilidad del diseño.
 
-**Extensión posterior — Motor 2:** `Product` ganó `cost`, `install_minutes`, `labor_role`
-y `priority` (migración `bc52912f5a4c`), cerrando el gap que bloqueaba a `LaborCalculator`.
-`product_relations` (compatibilidades/relacionados) queda pendiente — es una tabla nueva,
-no un campo, y no se abordó en este trabajo puntual.
+**Extensiones posteriores — Motor 2 completo:** `Product` ganó `cost`, `install_minutes`,
+`labor_role` y `priority` (migración `bc52912f5a4c`), cerrando el gap que bloqueaba a
+`LaborCalculator`; después, `product_relations` (migración `21847344e44d`) cerró el último
+hueco de datos de Motor 2 — compatibilidades y productos relacionados, con CRUD en
+`/api/catalog/{product_id}/relations`. Con esto, todos los campos que el objetivo original
+pedía para el catálogo inteligente están implementados.

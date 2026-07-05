@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.core.security import require_role
@@ -6,10 +7,17 @@ from app.db.session import get_db
 from app.models.category import Category
 from app.models.catalog_rule import CatalogRule
 from app.models.product import Product, resolve_code_prefix
+from app.models.product_relation import ProductRelation
 from app.models.technical_rule import TechnicalRule
 from app.models.user import User
 from app.schemas.catalog_rule import CatalogRuleCreate, CatalogRuleOut, CatalogRuleUpdate
 from app.schemas.product import ProductCreate, ProductOut, ProductUpdate
+from app.schemas.product_relation import (
+    ProductRelationCreate,
+    ProductRelationOut,
+    ProductRelationUpdate,
+    ProductRelationView,
+)
 from app.schemas.technical_rule import TechnicalRuleCreate, TechnicalRuleOut, TechnicalRuleUpdate
 from app.services.code_generator import next_code
 
@@ -158,4 +166,88 @@ def delete_technical_rule(rule_id: int, db: Session = Depends(get_db), _=Depends
     if rule is None:
         raise HTTPException(status_code=404, detail="Regla no encontrada")
     db.delete(rule)
+    db.commit()
+
+
+@router.get("/{product_id}/relations", response_model=list[ProductRelationView])
+def list_product_relations(product_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    """Relaciones de este producto en cualquier dirección (§ Motor 2, catálogo
+    inteligente) — una fila guardada con `related_product_id`=este producto también
+    cuenta (marcada `incoming`), no solo las que este producto declaró (`outgoing`).
+    Informativa, no dispara nada automáticamente — a diferencia de CatalogRule/TechnicalRule."""
+    rows = (
+        db.query(ProductRelation)
+        .filter(or_(ProductRelation.product_id == product_id, ProductRelation.related_product_id == product_id))
+        .order_by(ProductRelation.id)
+        .all()
+    )
+
+    other_ids = {row.related_product_id if row.product_id == product_id else row.product_id for row in rows}
+    names_by_id = {}
+    if other_ids:
+        names_by_id = {p.id: p.name for p in db.query(Product).filter(Product.id.in_(other_ids)).all()}
+
+    views = []
+    for row in rows:
+        outgoing = row.product_id == product_id
+        related_id = row.related_product_id if outgoing else row.product_id
+        views.append(
+            ProductRelationView(
+                id=row.id,
+                relation_type=row.relation_type,
+                direction="outgoing" if outgoing else "incoming",
+                related_product_id=related_id,
+                related_product_name=names_by_id.get(related_id),
+                notes=row.notes,
+                created_at=row.created_at,
+            )
+        )
+    return views
+
+
+@router.post("/{product_id}/relations", response_model=ProductRelationOut, status_code=status.HTTP_201_CREATED)
+def create_product_relation(
+    product_id: int, payload: ProductRelationCreate, db: Session = Depends(get_db), _=Depends(admin_only)
+):
+    product = db.get(Product, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    if payload.related_product_id == product_id:
+        raise HTTPException(status_code=400, detail="Un producto no puede relacionarse consigo mismo")
+    related_product = db.get(Product, payload.related_product_id)
+    if related_product is None:
+        raise HTTPException(status_code=400, detail=f"Producto {payload.related_product_id} no encontrado")
+
+    relation = ProductRelation(
+        product_id=product_id,
+        related_product_id=payload.related_product_id,
+        relation_type=payload.relation_type,
+        notes=payload.notes,
+    )
+    db.add(relation)
+    db.commit()
+    db.refresh(relation)
+    return relation
+
+
+@router.put("/relations/{relation_id}", response_model=ProductRelationOut)
+def update_product_relation(
+    relation_id: int, payload: ProductRelationUpdate, db: Session = Depends(get_db), _=Depends(admin_only)
+):
+    relation = db.get(ProductRelation, relation_id)
+    if relation is None:
+        raise HTTPException(status_code=404, detail="Relación no encontrada")
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(relation, field, value)
+    db.commit()
+    db.refresh(relation)
+    return relation
+
+
+@router.delete("/relations/{relation_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_product_relation(relation_id: int, db: Session = Depends(get_db), _=Depends(admin_only)):
+    relation = db.get(ProductRelation, relation_id)
+    if relation is None:
+        raise HTTPException(status_code=404, detail="Relación no encontrada")
+    db.delete(relation)
     db.commit()
