@@ -30,9 +30,9 @@ el diseño:
 | Pieza ya construida | Motor al que corresponde |
 |---|---|
 | `Survey` (notas, medidas, observaciones, fotos/audio) + Web Speech API en el frontend | Entrada de Motor 1 |
-| `ai_client.summarize_survey`, `suggest_budget_items` (prompt con catálogo embebido) | Motor 1 + Motor 2 (mezclados) |
+| `ai_engine/nlu.py::interpret_survey_items` → `ai_engine/catalog_matching.py::match_entities_to_catalog` (dos llamadas al modelo, Fase 1) | Motor 1 y Motor 2 (separados) |
 | `Product.tags` / `Product.synonyms` (JSON) | Motor 3 (embrionario) |
-| `CatalogRule` + `expand_with_rules` (accesorio por cantidad, fijo o proporcional) | Motor 4 (un solo tipo de regla) |
+| `CatalogRule` + `TechnicalRule` + `expand_with_rules` (accesorio por cantidad, fijo o proporcional) | Motor 4 (implementado — Fase 2) |
 | `totals.py` (subtotal/ITBIS/total) | Motor 5 (solo financiero, no técnico) |
 | `generate_from_survey`, `build_budget`, `build_quote_from_budget`, `build_pre_invoice_from_quote`, `mark_quote_approved` (auto-genera Materiales y Prefactura al aprobar) | Motor 6 (pipeline ya funcionando, sin "lista de compras" ni "cotización ejecutiva" como artefactos propios) |
 | `embeddings.py` (embedding por proyecto + búsqueda semántica) | Soporte transversal para `ai/ask` |
@@ -183,33 +183,47 @@ construirlo por adelantado.
 
 ## Motor 4 — Motor de reglas técnicas
 
+> **Estado: implementado (Fase 2).** `TechnicalRule` ya existe (tabla `technical_rules`,
+> migración `99fe2962bc29`), con CRUD en `/api/catalog/{product_id}/technical-rules` y
+> `/api/catalog/technical-rules/{rule_id}`. `CatalogRule` no se tocó ni se migró — ambas
+> fuentes conviven y se combinan en `build_accessory_rule_dicts`
+> (`app/ai_engine/rules.py`) antes de llamar a `expand_with_rules`, así que una regla
+> creada por cualquiera de los dos mecanismos tiene el mismo efecto en la generación de
+> presupuesto. El resto de esta sección describe el diseño tal como quedó, para orientar
+> el siguiente tipo de acción que se agregue.
+
 **Responsabilidad:** codificar conocimiento técnico como reglas configurables desde el
-ERP, sin tocar código. Ya existe `CatalogRule`, pero modela **un solo tipo** de regla:
-"si el catálogo incluye N unidades de un producto fuente, agregar M unidades de un
-accesorio identificado por tag". El objetivo pide reglas más generales ("si existe fibra
-→ agregar pigtails", "si existe rack → agregar organizadores"), que de hecho ya caben en
-el modelo actual (fibra y rack son "productos fuente" como cualquier cámara). El gap real
-no es expresividad de condición — es que **la única acción posible hoy es "agregar
-accesorio con cantidad"**.
+ERP, sin tocar código. `CatalogRule` modela **un solo tipo** de regla: "si el catálogo
+incluye N unidades de un producto fuente, agregar M unidades de un accesorio identificado
+por tag". El objetivo pide reglas más generales ("si existe fibra → agregar pigtails",
+"si existe rack → agregar organizadores"), que de hecho ya caben en el modelo actual
+(fibra y rack son "productos fuente" como cualquier cámara). El gap real no era
+expresividad de condición — era que **la única acción posible era "agregar accesorio con
+cantidad"**.
 
-**Diseño propuesto:** generalizar `CatalogRule` a una entidad `TechnicalRule` con
-condición y acción tipadas, donde el tipo de acción actual (`add_accessory`) es una de
-varias:
+**Diseño:** `TechnicalRule` generaliza `CatalogRule` con condición y acción tipadas,
+donde el tipo de acción actual (`add_accessory`) es una de varias posibles a futuro:
 
-- `condition`: `{source_product_id}` (igual que hoy) — no hace falta un lenguaje de
-  condiciones más rico todavía; todas las reglas del objetivo son "si existe producto X".
-- `action_type`: `add_accessory` (comportamiento actual, sin cambios) | `set_calculation_parameter`
-  (ej. "si existe fibra, el margen de desperdicio de cable sube a 8%") | `flag_engineering_note`
-  (agrega una observación sugerida al borrador de ingeniería, ej. "verificar distancia
-  máxima de fibra monomodo").
-- La tabla `catalog_rules` existente se mantiene tal cual (no se migra, no se rompe);
-  `TechnicalRule` es la generalización hacia adelante, y `expand_with_rules` pasa a ser
-  el manejador del `action_type = add_accessory`, uno más entre varios que el orquestador
-  de Motor 4 despacha.
+- `condition`: `source_product_id` (igual que `CatalogRule`) — no hizo falta un lenguaje
+  de condiciones más rico; todas las reglas del objetivo son "si existe producto X".
+- `action_type`: hoy solo `add_accessory` tiene manejador implementado (mismo
+  comportamiento que `CatalogRule`, vía `expand_with_rules`). El diseño deja espacio para
+  `set_calculation_parameter` (ej. "si existe fibra, el margen de desperdicio de cable
+  sube a 8%", Motor 5) y `flag_engineering_note` (ej. "verificar distancia máxima de
+  fibra monomodo", Motor 6) — ninguno de los dos se implementó todavía porque los
+  sistemas que consumirían esa señal (`calculation_parameters`, borrador de ingeniería
+  guiado por reglas) tampoco existen aún; declarar esos tipos ahora sin un consumidor real
+  habría sido un action_type muerto.
+- `action_params` (JSON) guarda los parámetros propios de cada `action_type` en vez de
+  columnas por tipo — agregar una acción nueva no pide migración, solo un manejador nuevo
+  en `app/ai_engine/rules.py` (ver `_technical_rule_to_dict`) y una variante nueva en el
+  esquema de creación (`TechnicalRuleCreate`, hoy fijo a `Literal["add_accessory"]`).
+- La tabla `catalog_rules` existente se mantiene tal cual (no se migró, no se rompió).
 
-**Interfaz:**
+**Interfaz (implementada):**
 ```
-evaluar(items_resueltos: list[CatalogMatch], reglas: list[TechnicalRule]) -> list[RuleEffect]
+build_accessory_rule_dicts(catalog_rules, technical_rules) -> list[dict]   # ai_engine/rules.py
+expand_with_rules(items, catalog, rules) -> list[dict]                     # sin cambios
 ```
 
 **Por qué no un motor de reglas genérico (tipo Drools):** el objetivo pide "configurable
@@ -394,10 +408,10 @@ especialización como **datos**, no como código nuevo:
 No se propone una reescritura. Orden sugerido, cada fase entregable sin dejar el sistema
 en un estado roto:
 
-1. **Reorganizar sin cambiar comportamiento:** mover `ai_client.py`/`quote_rules.py` a la
-   estructura `ai_engine/`, separando NLU (Motor 1) de matching de catálogo (Motor 2) en
-   dos llamadas al modelo en vez de una — esto ya destraba guardar entidades sin match.
-2. **Generalizar `CatalogRule` → `TechnicalRule`** sin migrar datos existentes (tabla
+1. ✅ **Reorganizar sin cambiar comportamiento:** mover `ai_client.py`/`quote_rules.py` a
+   la estructura `ai_engine/`, separando NLU (Motor 1) de matching de catálogo (Motor 2)
+   en dos llamadas al modelo en vez de una — esto ya destraba guardar entidades sin match.
+2. ✅ **Generalizar `CatalogRule` → `TechnicalRule`** sin migrar datos existentes (tabla
    nueva en paralelo; `expand_with_rules` sigue funcionando igual para lo ya configurado).
 3. **Motor 5:** agregar `calculation_parameters` + la primera calculadora (`CableCalculator`,
    la de mayor impacto/menor riesgo) antes de las demás.

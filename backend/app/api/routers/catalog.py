@@ -6,9 +6,11 @@ from app.db.session import get_db
 from app.models.category import Category
 from app.models.catalog_rule import CatalogRule
 from app.models.product import Product, resolve_code_prefix
+from app.models.technical_rule import TechnicalRule
 from app.models.user import User
 from app.schemas.catalog_rule import CatalogRuleCreate, CatalogRuleOut, CatalogRuleUpdate
 from app.schemas.product import ProductCreate, ProductOut, ProductUpdate
+from app.schemas.technical_rule import TechnicalRuleCreate, TechnicalRuleOut, TechnicalRuleUpdate
 from app.services.code_generator import next_code
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
@@ -90,6 +92,69 @@ def update_rule(rule_id: int, payload: CatalogRuleUpdate, db: Session = Depends(
 @router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_rule(rule_id: int, db: Session = Depends(get_db), _=Depends(admin_only)):
     rule = db.get(CatalogRule, rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail="Regla no encontrada")
+    db.delete(rule)
+    db.commit()
+
+
+@router.get("/{product_id}/technical-rules", response_model=list[TechnicalRuleOut])
+def list_technical_rules(product_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    return (
+        db.query(TechnicalRule)
+        .filter(TechnicalRule.source_product_id == product_id)
+        .order_by(TechnicalRule.id)
+        .all()
+    )
+
+
+@router.post(
+    "/{product_id}/technical-rules", response_model=TechnicalRuleOut, status_code=status.HTTP_201_CREATED
+)
+def create_technical_rule(
+    product_id: int, payload: TechnicalRuleCreate, db: Session = Depends(get_db), _=Depends(admin_only)
+):
+    product = db.get(Product, product_id)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
+    rule = TechnicalRule(
+        source_product_id=product_id,
+        action_type=payload.action_type,
+        action_params={
+            "target_tag": payload.target_tag,
+            "per_source_units": payload.per_source_units,
+            "quantity": payload.quantity,
+        },
+        notes=payload.notes,
+    )
+    db.add(rule)
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.put("/technical-rules/{rule_id}", response_model=TechnicalRuleOut)
+def update_technical_rule(
+    rule_id: int, payload: TechnicalRuleUpdate, db: Session = Depends(get_db), _=Depends(admin_only)
+):
+    rule = db.get(TechnicalRule, rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail="Regla no encontrada")
+
+    data = payload.model_dump(exclude_unset=True)
+    if "notes" in data:
+        rule.notes = data.pop("notes")
+    if data:
+        rule.action_params = {**rule.action_params, **data}
+
+    db.commit()
+    db.refresh(rule)
+    return rule
+
+
+@router.delete("/technical-rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_technical_rule(rule_id: int, db: Session = Depends(get_db), _=Depends(admin_only)):
+    rule = db.get(TechnicalRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail="Regla no encontrada")
     db.delete(rule)

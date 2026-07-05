@@ -54,6 +54,9 @@ class Product(Base):
         order_by="StockMovement.created_at.desc(), StockMovement.id.desc()",
     )
     rules: Mapped[list["CatalogRule"]] = relationship(back_populates="source_product", cascade="all, delete-orphan")
+    technical_rules: Mapped[list["TechnicalRule"]] = relationship(
+        back_populates="source_product", cascade="all, delete-orphan"
+    )
 
     @property
     def category_name(self) -> str | None:

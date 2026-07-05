@@ -1,10 +1,17 @@
 """Motor 4 — Motor de reglas técnicas (§ docs/ai-engine-architecture.md).
 
-Hoy modela un solo tipo de regla (accesorio por cantidad, colgado de `CatalogRule`);
-generalizar a condición/acción arbitrarias queda para una fase posterior.
+Dos fuentes de reglas conviven aquí a propósito: `CatalogRule` (el modelo original, un
+solo tipo de acción, sin migrar) y `TechnicalRule` (la generalización hacia adelante,
+condición/acción tipada — hoy solo implementa el mismo tipo de acción,
+`add_accessory`). `build_accessory_rule_dicts` une ambas fuentes en el formato que
+`expand_with_rules` ya sabe consumir, para que una regla creada por cualquiera de los
+dos mecanismos tenga el mismo efecto en la generación de presupuesto.
 """
 
 import math
+
+from app.models.catalog_rule import CatalogRule
+from app.models.technical_rule import ACTION_TYPE_ADD_ACCESSORY, TechnicalRule
 
 
 def expand_with_rules(items: list[dict], catalog: list[dict], rules: list[dict]) -> list[dict]:
@@ -62,3 +69,35 @@ def expand_with_rules(items: list[dict], catalog: list[dict], rules: list[dict])
         for product_id, qty in added_quantity.items()
     ]
     return items + extra_items
+
+
+def _catalog_rule_to_dict(rule: CatalogRule) -> dict:
+    return {
+        "source_product_id": rule.source_product_id,
+        "target_tag": rule.target_tag,
+        "per_source_units": float(rule.per_source_units) if rule.per_source_units is not None else None,
+        "quantity": float(rule.quantity),
+    }
+
+
+def _technical_rule_to_dict(rule: TechnicalRule) -> dict | None:
+    """None si el action_type de la regla no tiene manejador todavía — hoy solo
+    add_accessory lo tiene. Cuando se registre un manejador nuevo (Motor 5/6), este es el
+    punto donde se agrega su propia conversión."""
+    if rule.action_type != ACTION_TYPE_ADD_ACCESSORY:
+        return None
+    return {
+        "source_product_id": rule.source_product_id,
+        "target_tag": rule.target_tag,
+        "per_source_units": rule.per_source_units,
+        "quantity": rule.quantity,
+    }
+
+
+def build_accessory_rule_dicts(catalog_rules: list[CatalogRule], technical_rules: list[TechnicalRule]) -> list[dict]:
+    """Combina `CatalogRule` (todas) y `TechnicalRule` (solo las de action_type
+    'add_accessory') en la lista de dicts que espera `expand_with_rules` — el punto de
+    unión entre el mecanismo de reglas original y su generalización."""
+    dicts = [_catalog_rule_to_dict(r) for r in catalog_rules]
+    dicts.extend(d for r in technical_rules if (d := _technical_rule_to_dict(r)) is not None)
+    return dicts

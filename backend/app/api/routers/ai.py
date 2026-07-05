@@ -7,7 +7,7 @@ from app.ai_engine.catalog_matching import suggest_budget_items
 from app.ai_engine.documents import draft_engineering
 from app.ai_engine.nlu import summarize_survey
 from app.ai_engine.qa import answer_question
-from app.ai_engine.rules import expand_with_rules
+from app.ai_engine.rules import build_accessory_rule_dicts, expand_with_rules
 from app.api.routers.budgets import build_budget, build_quote_from_budget
 from app.core.security import require_role
 from app.db.session import get_db
@@ -20,6 +20,7 @@ from app.models.product import Product
 from app.models.project import Project
 from app.models.quote import Quote
 from app.models.survey import Survey
+from app.models.technical_rule import TechnicalRule
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas.ai import AskRequest, AskResponse, BudgetSuggestionOut, EngineeringDraftOut, GenerateFromSurveyOut
@@ -127,18 +128,6 @@ def _build_catalog_dicts(products: list[Product]) -> list[dict]:
     ]
 
 
-def _build_rule_dicts(rules: list[CatalogRule]) -> list[dict]:
-    return [
-        {
-            "source_product_id": r.source_product_id,
-            "target_tag": r.target_tag,
-            "per_source_units": float(r.per_source_units) if r.per_source_units is not None else None,
-            "quantity": float(r.quantity),
-        }
-        for r in rules
-    ]
-
-
 def _reindex_quietly(db: Session, project: Project, context: str) -> None:
     """Actualiza el embedding del proyecto para búsqueda semántica; si Ollama no está
     disponible, no debe romper el flujo principal (ingeniería, presupuesto, etc.)."""
@@ -186,7 +175,7 @@ def ai_budget_suggestions(project_id: int, db: Session = Depends(get_db), _=Depe
 
     products = db.query(Product).order_by(Product.code).all()
     catalog = _build_catalog_dicts(products)
-    rules = _build_rule_dicts(db.query(CatalogRule).all())
+    rules = build_accessory_rule_dicts(db.query(CatalogRule).all(), db.query(TechnicalRule).all())
     product_prices = {p.id: float(p.price) for p in products}
 
     items = suggest_budget_items(context, catalog)
@@ -212,7 +201,7 @@ def generate_from_survey(
 
     products = db.query(Product).order_by(Product.code).all()
     catalog = _build_catalog_dicts(products)
-    rules = _build_rule_dicts(db.query(CatalogRule).all())
+    rules = build_accessory_rule_dicts(db.query(CatalogRule).all(), db.query(TechnicalRule).all())
     product_prices = {p.id: float(p.price) for p in products}
 
     items = suggest_budget_items(context, catalog)
