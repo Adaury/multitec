@@ -1,3 +1,4 @@
+from app.models.ai_feedback_event import AIFeedbackEvent
 from app.models.budget import Budget, BudgetItem
 from app.models.calculation_parameter import CalculationParameter
 from app.models.catalog_rule import CatalogRule
@@ -25,6 +26,7 @@ from app.models.user import User
 from app.models.visit import Visit
 
 __all__ = [
+    "AIFeedbackEvent",
     "Budget",
     "BudgetItem",
     "CalculationParameter",

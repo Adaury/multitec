@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 
+from app.ai_engine.learning import record_budget_edit_feedback
 from app.core.config import get_settings
 from app.core.security import require_role
 from app.db.session import get_db
@@ -60,12 +61,16 @@ def list_all_budgets(db: Session = Depends(get_db), _=Depends(allowed_roles)):
     return db.query(Budget).options(joinedload(Budget.items)).order_by(Budget.created_at.desc()).all()
 
 
-def build_budget(db: Session, project_id: int, notes: str | None, items_in, created_by: int | None) -> Budget:
+def build_budget(
+    db: Session, project_id: int, notes: str | None, items_in, created_by: int | None, ai_generated: bool = False
+) -> Budget:
     """Arma un Budget (+líneas +total) sin comitear — el caller decide cuándo. Compartida
     entre la creación manual (create_budget) y la generación automática desde el
-    levantamiento (ver api/routers/ai.py)."""
+    levantamiento (ver api/routers/ai.py). `ai_generated=True` solo lo pasa esta última —
+    es lo que activa la captura de feedback en la primera edición humana (§ Motor 7, ver
+    app.ai_engine.learning)."""
     code = next_code(db, "PRE")
-    budget = Budget(code=code, project_id=project_id, notes=notes, created_by=created_by)
+    budget = Budget(code=code, project_id=project_id, notes=notes, created_by=created_by, ai_generated=ai_generated)
     _build_budget_items(db, budget, items_in)
 
     lines = [LineInput(item.quantity, item.unit_price) for item in budget.items]
@@ -98,6 +103,9 @@ def update_budget(budget_id: int, payload: BudgetUpdate, db: Session = Depends(g
     budget = db.query(Budget).options(joinedload(Budget.items)).filter(Budget.id == budget_id).one_or_none()
     if budget is None:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+
+    new_items = [(item.product_id, item.description, item.quantity) for item in payload.items]
+    record_budget_edit_feedback(db, budget.project_id, budget, new_items)
 
     budget.notes = payload.notes
     budget.items.clear()

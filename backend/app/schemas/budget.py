@@ -37,6 +37,7 @@ class BudgetOut(BaseModel):
     project_id: int
     notes: str | None
     total: float
+    ai_generated: bool = False
     created_by: int | None = None
     created_at: datetime
     updated_at: datetime | None = None

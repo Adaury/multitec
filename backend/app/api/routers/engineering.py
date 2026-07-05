@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.ai_engine.learning import record_engineering_edit_feedback
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.engineering import Engineering
@@ -29,7 +30,10 @@ def update_engineering(
     engineering = db.query(Engineering).filter(Engineering.project_id == project_id).one_or_none()
     if engineering is None:
         raise HTTPException(status_code=404, detail="Ingeniería no encontrada")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+
+    new_values = payload.model_dump(exclude_unset=True)
+    record_engineering_edit_feedback(db, project_id, engineering, new_values)
+    for field, value in new_values.items():
         setattr(engineering, field, value)
     db.commit()
     db.refresh(engineering)

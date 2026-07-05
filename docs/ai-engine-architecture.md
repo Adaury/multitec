@@ -36,7 +36,7 @@ el diseño:
 | `totals.py` + `ai_engine/calculation.py::apply_cable_waste_margin` + `calculation_parameters` | Motor 5 (solo cable — Fase 3) |
 | `generate_from_survey`, `build_budget`, `build_quote_from_budget`, `build_pre_invoice_from_quote`, `mark_quote_approved`, `purchase-list-preview`, `pdf.py` variante `ejecutiva` | Motor 6 (implementado — Fase 4) |
 | `embeddings.py` (embedding por proyecto + búsqueda semántica) | Soporte transversal para `ai/ask` |
-| — | Motor 7 no existe todavía |
+| `ai_feedback_events` + `ai_engine/learning.py` (captura pasiva) | Motor 7 (solo captura — Fase 5; sin análisis periódico) |
 
 Esto importa porque el trabajo real no es "construir 7 motores nuevos": es **separar
 responsabilidades que hoy viven mezcladas en `ai_client.py`** y **rellenar los huecos**
@@ -329,29 +329,45 @@ generación de presupuesto/cotización que sí funcionó).
 
 ## Motor 7 — Aprendizaje
 
-**Responsabilidad:** que el sistema mejore sus sugerencias a partir de las correcciones
-que oficina/ingeniería hacen sobre lo que la IA propuso. Hoy no existe ningún registro de
-esto — cuando alguien edita un `Budget` generado por IA (cambia un producto, quita un
-accesorio sugerido, ajusta una cantidad), esa señal se pierde.
+> **Estado: captura pasiva implementada (Fase 5); el análisis periódico sigue sin
+> construirse, como marcaba el plan.** `ai_feedback_events` existe y se escribe sola en
+> `PUT /api/budgets/{id}` y `PUT /api/projects/{id}/engineering` cuando el registro
+> editado todavía tenía `ai_generated=True` (ver `app/ai_engine/learning.py`). Hay un
+> endpoint de solo lectura, `GET /api/ai-feedback-events`, para poder ver lo capturado —
+> pero nada agrega patrones ni propone reglas todavía; eso espera a tener volumen real de
+> proyectos, tal como se decidió al planear esta fase.
 
-**Diseño propuesto — captura pasiva, sin cambiar el flujo de trabajo del usuario:**
+**Responsabilidad:** que el sistema mejore sus sugerencias a partir de las correcciones
+que oficina/ingeniería hacen sobre lo que la IA propuso. Antes de esta fase no existía
+ningún registro de esto — cuando alguien editaba un `Budget` generado por IA (cambiaba un
+producto, quitaba un accesorio sugerido, ajustaba una cantidad), esa señal se perdía.
+
+**Diseño (implementado) — captura pasiva, sin cambiar el flujo de trabajo del usuario:**
 
 - Tabla `ai_feedback_events`: `project_id`, `entity_type` (`budget_item` | `engineering`),
-  `origin` (`ai_suggested` | `human_added` | `human_removed` | `human_modified`),
+  `origin` (`human_added` | `human_removed` | `human_modified` — `ai_suggested` queda
+  declarado en el dominio del campo pero nada lo escribe todavía, ver más abajo),
   `product_id | None`, `field_changed | None`, `old_value`, `new_value`, `created_at`.
+- `Budget` y `Engineering` ganaron `ai_generated: bool`. Se pone en `True` únicamente
+  cuando `generate_from_survey` los crea/rellena; una creación manual nunca lo activa.
 - Se registra automáticamente en los puntos donde ya existe edición humana sobre algo
-  generado por IA (`update_budget`, la edición de `Engineering`): diff entre lo que la IA
-  puso originalmente (se conserva en la creación del `Budget`/`Engineering` con un flag
-  `ai_generated`) y lo que quedó tras la edición humana.
+  generado por IA (`update_budget`, `update_engineering`): mientras `ai_generated` siga en
+  `True`, el contenido actual en la base de datos ES por definición lo que la IA sugirió
+  (nada lo tocó todavía) — así que no hizo falta una tabla de "snapshot" aparte, solo
+  comparar ese estado contra el payload entrante antes de aplicarlo. Tras registrar el
+  diff, `ai_generated` pasa a `False`, para que una segunda edición humana no se compare
+  contra la sugerencia original (ya no hay una "sugerencia de IA" con la cual contrastar).
 
 **Uso de la señal — deliberadamente no automático:** Motor 7 no reescribe `CatalogRule`
-ni `Product.tags` por su cuenta. Es un **análisis periódico** (job, no tiempo real) que
-agrega patrones ("en el 80% de los proyectos con fibra, se agregó manualmente
-`Organizador de rack` aunque no está sugerido") y los presenta como **propuesta de nueva
-regla** a un administrador, igual que una cotización pendiente espera aprobación. Esto
-respeta el principio de aprobación humana ya establecido en el resto del sistema y evita
-que un patrón espurio (ej. un solo proyecto atípico) contamine el catálogo de reglas para
-todos.
+ni `Product.tags` por su cuenta, y esta fase no construyó el job que sí lo haría. Cuando
+exista, sería un **análisis periódico** (job, no tiempo real) que agrega patrones ("en el
+80% de los proyectos con fibra, se agregó manualmente `Organizador de rack` aunque no está
+sugerido") y los presenta como **propuesta de nueva regla** a un administrador, igual que
+una cotización pendiente espera aprobación. Esto respeta el principio de aprobación
+humana ya establecido en el resto del sistema y evita que un patrón espurio (ej. un solo
+proyecto atípico) contamine el catálogo de reglas para todos. Construirlo ahora, sin
+datos reales que analizar, habría sido especular sobre qué forma deben tener los
+patrones — mejor esperar al volumen real de proyectos que ya está capturando esta fase.
 
 ## Modelo de datos consolidado
 
@@ -362,8 +378,8 @@ todos.
 | `catalog_rules` | Sin cambios (se mantiene) | 4 |
 | `technical_rules` | Nueva (generalización hacia adelante de `catalog_rules`) | 4 |
 | `calculation_parameters` | Nueva | 5 |
-| `ai_feedback_events` | Nueva | 7 |
-| `budgets` / `engineering` | Extender: `ai_generated: bool` (para poder diffear en Motor 7) | 6, 7 |
+| `ai_feedback_events` | ✅ Nueva (implementada — Fase 5) | 7 |
+| `budgets` / `engineering` | ✅ Extendidas: `ai_generated: bool` (implementado — Fase 5) | 6, 7 |
 
 Todas las tablas nuevas siguen el patrón ya usado en el proyecto (SQLAlchemy 2 + Alembic,
 columnas JSON para listas en vez de arrays nativos, para compatibilidad SQLite/Postgres
@@ -447,8 +463,16 @@ en un estado roto:
    que necesitan (`install_minutes`, `labor_role`, capacidad de canal).
 4. ✅ **Motor 6:** cerrado el hueco de "lista de compras preliminar" y "cotización
    ejecutiva" como vista, sin nuevas tablas financieras.
-5. **Motor 7:** instrumentar la captura pasiva de ediciones; el análisis periódico puede
-   esperar a tener volumen suficiente de proyectos para que los patrones sean confiables.
+5. ✅ **Motor 7 (parcial):** instrumentada la captura pasiva de ediciones
+   (`ai_feedback_events`). El análisis periódico que convierte esos eventos en propuestas
+   de reglas queda pendiente — espera a tener volumen suficiente de proyectos para que los
+   patrones sean confiables.
 
 Cada fase es útil por sí sola y ninguna depende de que las siguientes existan — se puede
 pausar el plan en cualquier punto sin dejar deuda a medias.
+
+Con las 5 fases del plan original completas (algunas parciales por diseño, esperando
+datos reales o campos de otro motor), lo que sigue no es una fase numerada más sino
+trabajo dirigido por lo que el uso real revele: qué calculadoras de Motor 5 hacen falta
+primero, cuándo hay volumen suficiente para el análisis de Motor 7, o si aparece una
+segunda área técnica que ponga a prueba la extensibilidad del diseño.

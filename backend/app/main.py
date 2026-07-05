@@ -11,6 +11,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from app.api.routers import (
     ai,
+    ai_feedback_events,
     auth,
     budgets,
     calculation_parameters,
@@ -97,6 +98,7 @@ app.include_router(invoices.router)
 app.include_router(extensions.router)
 app.include_router(tickets.router)
 app.include_router(ai.router)
+app.include_router(ai_feedback_events.router)
 app.include_router(users.router)
 app.include_router(ncf.router)
 app.include_router(reports.router)

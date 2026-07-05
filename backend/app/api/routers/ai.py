@@ -218,7 +218,8 @@ def generate_from_survey(
 
     items_in = [BudgetItemIn(**item) for item in items]
     budget = build_budget(
-        db, project_id, "Generado automáticamente desde el levantamiento", items_in, current_user.id
+        db, project_id, "Generado automáticamente desde el levantamiento", items_in, current_user.id,
+        ai_generated=True,
     )
     db.flush()  # build_quote_from_budget necesita budget.id
     quote = build_quote_from_budget(db, budget, current_user.id)
@@ -246,6 +247,7 @@ def generate_from_survey(
             engineering.wiring = draft["wiring"]
             engineering.technical_design = draft["technical_design"]
             engineering.observations = draft["observations"]
+            engineering.ai_generated = True
             engineering_drafted = True
         except HTTPException as e:
             logger.warning("Borrador de ingeniería omitido para el proyecto %s: %s", project_id, e.detail)

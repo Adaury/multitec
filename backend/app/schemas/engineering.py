@@ -15,6 +15,7 @@ class EngineeringUpdate(BaseModel):
 class EngineeringOut(EngineeringUpdate):
     id: int
     project_id: int
+    ai_generated: bool = False
     created_by: int | None = None
     created_at: datetime | None = None
     updated_at: datetime | None = None

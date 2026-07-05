@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -16,6 +16,11 @@ class Budget(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    # True mientras las líneas sean exactamente las que sugirió la IA (§ Motor 7,
+    # docs/ai-engine-architecture.md) — se pone en False en la primera edición humana tras
+    # generate_from_survey, momento en el que se registra qué cambió como AIFeedbackEvent
+    # (ver app.ai_engine.learning). Un Budget creado a mano nunca lo activa.
+    ai_generated: Mapped[bool] = mapped_column(Boolean, default=False)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
