@@ -1,9 +1,9 @@
 """Motor 5 — Motor de cálculos (§ docs/ai-engine-architecture.md).
 
-Calculadoras implementadas: margen de desperdicio de cable (`apply_cable_waste_margin`) y
-mano de obra (`calculate_labor` + `build_labor_budget_item`). `StorageCalculator` y
-`CapacityCalculator` quedan para cuando existan los datos que necesitan (resolución de
-cámara, capacidad de canal) — ver el plan de evolución del documento de arquitectura.
+Calculadoras implementadas: margen de desperdicio de cable (`apply_cable_waste_margin`),
+mano de obra (`calculate_labor` + `build_labor_budget_item`) y almacenamiento
+(`calculate_storage`). `CapacityCalculator` queda para cuando exista el dato que necesita
+(capacidad de canal de NVR/switch) — ver el plan de evolución del documento de arquitectura.
 """
 
 import math
@@ -17,6 +17,8 @@ CABLE_TAG = "cable"
 CABLE_WASTE_MARGIN_KEY = "cable_waste_margin_pct"
 LABOR_HOURLY_RATE_KEY = "labor_hourly_rate"
 LABOR_MAX_HOURS_PER_TECHNICIAN_KEY = "labor_max_hours_per_technician"
+STORAGE_GB_PER_MP_PER_DAY_KEY = "storage_gb_per_megapixel_per_day"
+STORAGE_RETENTION_DAYS_KEY = "storage_retention_days"
 
 LABOR_LINE_DESCRIPTION_PREFIX = "Mano de obra de instalación"
 
@@ -38,6 +40,18 @@ KNOWN_PARAMETERS: dict[str, dict] = {
             "Horas de instalación que se le asignan a un solo técnico antes de sumar otro "
             "(ej. 40 = una semana laboral)."
         ),
+    },
+    STORAGE_GB_PER_MP_PER_DAY_KEY: {
+        "default": 15.0,
+        "description": (
+            "Estimación de espacio en disco por megapixel de resolución de cámara, por día "
+            "de grabación continua (GB/MP/día) — aproximación de planeación, no un cálculo "
+            "exacto de bitrate/codec."
+        ),
+    },
+    STORAGE_RETENTION_DAYS_KEY: {
+        "default": 30.0,
+        "description": "Días de retención de grabación que debe soportar el almacenamiento.",
     },
 }
 
@@ -141,3 +155,44 @@ def build_labor_budget_item(estimate: dict) -> dict:
         "quantity": estimate["total_hours"],
         "unit_price": estimate["hourly_rate"],
     }
+
+
+def calculate_storage(
+    items: list[dict],
+    resolution_by_product_id: dict[int, float | None],
+    storage_capacity_by_product_id: dict[int, float | None],
+    gb_per_mp_per_day: float,
+    retention_days: float,
+) -> list[dict]:
+    """Corrige la cantidad de los ítems de almacenamiento ya presentes en el presupuesto
+    (disco duro, NVR con disco interno — cualquier producto con `storage_capacity_gb`) a
+    partir del espacio real que va a hacer falta: Σ(resolución_mp × cantidad) de las
+    cámaras del presupuesto, × `gb_per_mp_per_day` × `retention_days`.
+
+    No agrega un producto de almacenamiento si no hay ninguno en el presupuesto todavía —
+    qué disco/marca comprar es una decisión de `CatalogRule`/`TechnicalRule` (Motor 4) o
+    del técnico, no de esta calculadora; esta solo se asegura de que la cantidad de lo que
+    ya se decidió comprar alcance. Nunca reduce una cantidad ya presente por debajo de lo
+    que el técnico o una regla ya pusieron — sólo la sube si hace falta, porque
+    sub-aprovisionar almacenamiento es un peor fallo que un poco de margen de más.
+    """
+    total_gb_needed = 0.0
+    for item in items:
+        product_id = item.get("product_id")
+        resolution_mp = resolution_by_product_id.get(product_id) if product_id is not None else None
+        if not resolution_mp:
+            continue
+        total_gb_needed += resolution_mp * gb_per_mp_per_day * retention_days * (item.get("quantity") or 0)
+
+    if total_gb_needed <= 0:
+        return items
+
+    updated = []
+    for item in items:
+        product_id = item.get("product_id")
+        capacity_gb = storage_capacity_by_product_id.get(product_id) if product_id is not None else None
+        if capacity_gb:
+            required_units = math.ceil(total_gb_needed / capacity_gb)
+            item = {**item, "quantity": max(required_units, item.get("quantity") or 0)}
+        updated.append(item)
+    return updated

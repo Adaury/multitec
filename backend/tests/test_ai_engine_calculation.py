@@ -1,4 +1,9 @@
-from app.ai_engine.calculation import apply_cable_waste_margin, build_labor_budget_item, calculate_labor
+from app.ai_engine.calculation import (
+    apply_cable_waste_margin,
+    build_labor_budget_item,
+    calculate_labor,
+    calculate_storage,
+)
 
 CATALOG = [
     {"id": 1, "name": "Cable UTP Cat6", "tags": ["cable", "utp"]},
@@ -117,3 +122,49 @@ def test_build_labor_budget_item_shape():
     assert item["unit_price"] == 200
     assert "Mano de obra de instalación" in item["description"]
     assert "técnico CCTV" in item["description"]
+
+
+def test_calculate_storage_bumps_disk_quantity_to_meet_real_capacity():
+    items = [
+        {"product_id": 1, "description": "Cámara IP 4MP", "quantity": 8},
+        {"product_id": 2, "description": "Disco duro 2TB", "quantity": 1},  # regla ingenua: 1 disco fijo
+    ]
+    resolution_by_product_id = {1: 4.0}
+    storage_capacity_by_product_id = {2: 2000.0}  # 2TB en GB
+
+    # 8 cámaras * 4MP * 15 GB/MP/día * 30 días = 14400 GB -> ceil(14400/2000) = 8 discos
+    result = calculate_storage(items, resolution_by_product_id, storage_capacity_by_product_id, 15.0, 30.0)
+
+    disk_item = next(i for i in result if i["product_id"] == 2)
+    assert disk_item["quantity"] == 8
+
+
+def test_calculate_storage_never_reduces_existing_quantity():
+    items = [
+        {"product_id": 1, "description": "Cámara IP 4MP", "quantity": 1},
+        {"product_id": 2, "description": "Disco duro 2TB", "quantity": 10},  # el técnico ya pidió de más
+    ]
+    resolution_by_product_id = {1: 4.0}
+    storage_capacity_by_product_id = {2: 2000.0}
+
+    result = calculate_storage(items, resolution_by_product_id, storage_capacity_by_product_id, 15.0, 30.0)
+
+    disk_item = next(i for i in result if i["product_id"] == 2)
+    assert disk_item["quantity"] == 10  # no se le baja, aunque la matemática pida menos
+
+
+def test_calculate_storage_does_nothing_without_cameras():
+    items = [{"product_id": 2, "description": "Disco duro 2TB", "quantity": 1}]
+
+    result = calculate_storage(items, {}, {2: 2000.0}, 15.0, 30.0)
+
+    assert result == items
+
+
+def test_calculate_storage_does_not_add_a_disk_line_when_none_exists():
+    items = [{"product_id": 1, "description": "Cámara IP 4MP", "quantity": 8}]
+    resolution_by_product_id = {1: 4.0}
+
+    result = calculate_storage(items, resolution_by_product_id, {}, 15.0, 30.0)
+
+    assert result == items  # ningún producto de almacenamiento en el presupuesto -> nada que ajustar

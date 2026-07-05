@@ -126,15 +126,16 @@ detectó la IA antes de que Motor 2 la resuelva — útil para depuración y par
 
 ## Motor 2 — Catálogo inteligente
 
-> **Estado: los dos huecos de datos quedaron cerrados; matching sigue siendo el mismo de
-> Fase 1.** `Product` tiene `cost`, `install_minutes`, `labor_role` y `priority` (migración
-> `bc52912f5a4c`) — el insumo que le faltaba a Motor 5 para poder construir
-> `LaborCalculator` más adelante. `product_relations` también existe (migración
-> `21847344e44d`), con CRUD en `/api/catalog/{product_id}/relations` y
-> `/api/catalog/relations/{relation_id}`. El matching en sí
-> (`catalog_matching.match_entities_to_catalog`) no cambió: sigue resolviendo por
-> nombre/categoría/tags/sinónimos — ninguno de estos campos nuevos participa en esa
-> decisión, son datos informativos/de apoyo, no señales de matching.
+> **Estado: los huecos de datos del objetivo original quedaron cerrados; matching sigue
+> siendo el mismo de Fase 1.** `Product` tiene `cost`, `install_minutes`, `labor_role` y
+> `priority` (migración `bc52912f5a4c`) y `product_relations` (migración `21847344e44d`,
+> CRUD en `/api/catalog/{product_id}/relations`). Después, para Motor 5, se sumaron dos
+> campos más que el objetivo original no pedía explícitamente pero que
+> `StorageCalculator` necesitaba: `resolution_mp` y `storage_capacity_gb` (migración
+> `71cc131c407a`). El matching en sí (`catalog_matching.match_entities_to_catalog`) no
+> cambió: sigue resolviendo por nombre/categoría/tags/sinónimos — ninguno de estos campos
+> nuevos participa en esa decisión, son datos informativos/de cálculo, no señales de
+> matching.
 
 **Responsabilidad:** resolver cada `DetectedEntity` contra un producto real del catálogo,
 usando nombre, categoría, tags y sinónimos (Motor 3). Ya existe como concepto
@@ -250,19 +251,21 @@ seguridad (ejecutar reglas arbitrarias) que no hace falta.
 
 ## Motor 5 — Motor de cálculos
 
-> **Estado: dos de cuatro calculadoras implementadas.** `CableCalculator`
-> (`apply_cable_waste_margin`, Fase 3) y `LaborCalculator` (`calculate_labor` +
-> `build_labor_budget_item`) corren dentro de `ai_budget_suggestions` y
-> `generate_from_survey`, después de `expand_with_rules`. `calculation_parameters` tiene
-> tres claves conocidas: `cable_waste_margin_pct` (default 5%), `labor_hourly_rate`
-> (default RD$200/hora) y `labor_max_hours_per_technician` (default 40h — una semana
-> laboral). `StorageCalculator` y `CapacityCalculator` siguen sin implementar — esperan
-> datos que todavía no existen (resolución de cámara, capacidad de canal de NVR/switch).
+> **Estado: tres de cuatro calculadoras implementadas.** `CableCalculator`
+> (`apply_cable_waste_margin`), `LaborCalculator` (`calculate_labor` +
+> `build_labor_budget_item`) y `StorageCalculator` (`calculate_storage`) corren dentro de
+> `ai_budget_suggestions` y `generate_from_survey`, en ese orden, después de
+> `expand_with_rules`. `calculation_parameters` tiene cinco claves conocidas:
+> `cable_waste_margin_pct` (default 5%), `labor_hourly_rate` (default RD$200/hora),
+> `labor_max_hours_per_technician` (default 40h), `storage_gb_per_megapixel_per_day`
+> (default 15) y `storage_retention_days` (default 30). Solo `CapacityCalculator` sigue
+> sin implementar — espera un dato que todavía no existe (capacidad de canal de
+> NVR/switch).
 
 **Responsabilidad:** toda la aritmética técnica y comercial que hoy falta. `totals.py` ya
 cubre lo financiero genérico (subtotal/ITBIS/total); `expand_with_rules` ya cubre
 cantidad-por-accesorio. Lo que sigue sin existir: canalización, conectores, capacidad de
-NVR/DVR, capacidad de disco, cantidad de switches.
+NVR/DVR, cantidad de switches.
 
 **Diseño:** un `CalculationEngine` que despacha a **calculadoras** independientes por tipo
 de cálculo, cada una una función pura `(items_resueltos, parámetros) -> ajustes`:
@@ -284,10 +287,19 @@ de cálculo, cada una una función pura `(items_resueltos, parámetros) -> ajust
   todavía y no se construyó por no tener un caso de uso real que la pidiera. Si nada en
   el presupuesto tiene `install_minutes` cargado, no agrega ninguna línea (en vez de un
   "RD$0 de mano de obra" que no aporta nada).
-- `StorageCalculator` — capacidad de disco requerida, a partir de cámaras × resolución ×
-  días de retención (parámetros configurables, no hardcodeados). Pendiente.
+- ✅ `StorageCalculator` (`calculate_storage`) — a partir de `resolution_mp` (Motor 2) de
+  las cámaras del presupuesto, `storage_gb_per_megapixel_per_day` y
+  `storage_retention_days`, calcula el espacio total requerido y **corrige la cantidad**
+  del/los ítem(s) de almacenamiento (`storage_capacity_gb`) ya presentes en el
+  presupuesto para que alcancen. Deliberadamente no agrega un producto de almacenamiento
+  si no hay ninguno todavía — qué disco/marca comprar lo decide `CatalogRule`/
+  `TechnicalRule` (Motor 4) o el técnico; esta calculadora solo asegura que la cantidad de
+  lo ya elegido sea suficiente, y nunca la reduce por debajo de lo que ya había (mejor de
+  más que sub-aprovisionar). El "GB por megapixel por día" es una aproximación de
+  planeación configurable, no un cálculo exacto de bitrate/codec.
 - `CapacityCalculator` — canales de NVR/puertos de switch necesarios vs. disponibles en el
-  producto elegido; genera una `RuleEffect` de tipo advertencia si no alcanza. Pendiente.
+  producto elegido; genera una `RuleEffect` de tipo advertencia si no alcanza. Pendiente
+  — espera un dato de capacidad de canal que `Product` todavía no tiene.
 
 Cada calculadora es un módulo independiente y **agregable**: sumar una nueva área técnica
 (ej. detección de incendios) puede requerir una calculadora nueva (ej. cobertura de
@@ -481,9 +493,10 @@ en un estado roto:
 2. ✅ **Generalizar `CatalogRule` → `TechnicalRule`** sin migrar datos existentes (tabla
    nueva en paralelo; `expand_with_rules` sigue funcionando igual para lo ya configurado).
 3. ✅ **Motor 5 (parcial):** agregada `calculation_parameters` + `CableCalculator` (la de
-   mayor impacto/menor riesgo, primero) y después `LaborCalculator` (una vez que Motor 2
-   tuvo `install_minutes`/`labor_role`). `StorageCalculator` y `CapacityCalculator` siguen
-   esperando datos que no existen (capacidad de canal, resolución de cámara).
+   mayor impacto/menor riesgo, primero), después `LaborCalculator` y `StorageCalculator`
+   (una vez que Motor 2 tuvo los campos que cada una necesitaba). Solo
+   `CapacityCalculator` sigue pendiente — espera un dato que no existe (capacidad de
+   canal de NVR/switch).
 4. ✅ **Motor 6:** cerrado el hueco de "lista de compras preliminar" y "cotización
    ejecutiva" como vista, sin nuevas tablas financieras.
 5. ✅ **Motor 7 (parcial):** instrumentada la captura pasiva de ediciones
@@ -501,12 +514,13 @@ primero, cuándo hay volumen suficiente para el análisis de Motor 7, o si apare
 segunda área técnica que ponga a prueba la extensibilidad del diseño.
 
 **Extensiones posteriores:**
-- **Motor 2 completo:** `Product` ganó `cost`, `install_minutes`, `labor_role` y
-  `priority` (migración `bc52912f5a4c`); después, `product_relations` (migración
-  `21847344e44d`) cerró el último hueco de datos de Motor 2 — compatibilidades y
-  productos relacionados, con CRUD en `/api/catalog/{product_id}/relations`. Con esto,
-  todos los campos que el objetivo original pedía para el catálogo inteligente están
-  implementados.
-- **Motor 5 — `LaborCalculator`:** construido una vez que Motor 2 tuvo los datos que
-  necesitaba. `StorageCalculator`/`CapacityCalculator` siguen siendo los huecos abiertos
-  de Motor 5.
+- **Motor 2 completo (campos del objetivo original):** `Product` ganó `cost`,
+  `install_minutes`, `labor_role` y `priority` (migración `bc52912f5a4c`); después,
+  `product_relations` (migración `21847344e44d`) cerró el último hueco de datos que el
+  objetivo original pedía — compatibilidades y productos relacionados, con CRUD en
+  `/api/catalog/{product_id}/relations`.
+- **Motor 5 — `LaborCalculator` y `StorageCalculator`:** construidos una vez que Motor 2
+  tuvo los datos que cada uno necesitaba (`install_minutes`/`labor_role` para el primero;
+  `resolution_mp`/`storage_capacity_gb`, migración `71cc131c407a`, para el segundo — estos
+  dos no estaban en la lista original de campos del objetivo, se agregaron
+  específicamente para esta calculadora). Solo `CapacityCalculator` sigue pendiente.

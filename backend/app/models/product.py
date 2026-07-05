@@ -48,6 +48,12 @@ class Product(Base):
     # Nivel de prioridad del producto (sin escala fija todavía — ningún consumidor la
     # define; queda como dato crudo hasta que algo la use, ej. para ordenar sugerencias).
     priority: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Insumos para Motor 5/StorageCalculator — resolución (megapixeles) para productos de
+    # cámara, capacidad (GB) para productos de almacenamiento (disco, NVR con disco
+    # interno). Ambos nulos por defecto: un producto que no es cámara ni almacenamiento
+    # simplemente no aporta a ese cálculo, no es un dato faltante por corregir.
+    resolution_mp: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
+    storage_capacity_gb: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     # Catálogo "inteligente" (§ levantamiento con IA): tags/synonyms alimentan el matching
     # semántico en suggest_budget_items. Las reglas de accesorios con cantidad viven en
     # CatalogRule (source_product_id → este producto), no aquí. JSON (no ARRAY) para

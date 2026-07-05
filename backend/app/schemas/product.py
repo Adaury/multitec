@@ -17,6 +17,8 @@ class ProductCreate(BaseModel):
     install_minutes: float | None = None
     labor_role: str | None = Field(default=None, max_length=80)
     priority: int | None = None
+    resolution_mp: float | None = None
+    storage_capacity_gb: float | None = None
     tags: list[str] = []
     synonyms: list[str] = []
 
@@ -35,6 +37,8 @@ class ProductUpdate(BaseModel):
     install_minutes: float | None = None
     labor_role: str | None = Field(default=None, max_length=80)
     priority: int | None = None
+    resolution_mp: float | None = None
+    storage_capacity_gb: float | None = None
     tags: list[str] | None = None
     synonyms: list[str] | None = None
 
@@ -58,6 +62,8 @@ class ProductOut(BaseModel):
     install_minutes: float | None = None
     labor_role: str | None = None
     priority: int | None = None
+    resolution_mp: float | None = None
+    storage_capacity_gb: float | None = None
     tags: list[str] = []
     synonyms: list[str] = []
     created_by: int | None = None

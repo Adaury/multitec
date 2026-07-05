@@ -141,3 +141,49 @@ def test_generate_from_survey_has_no_labor_line_without_install_minutes(client, 
     assert resp.status_code == 200, resp.text
     labor_items = [item for item in resp.json()["quote"]["items"] if item["product_id"] is None]
     assert labor_items == []
+
+
+def test_generate_from_survey_bumps_disk_quantity_to_meet_storage_needs(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    camera_category = make_category(client, headers, name="Cámaras IP", code_prefix="CAM")["id"]
+    disk_category = make_category(client, headers, name="Almacenamiento", code_prefix="DIS")["id"]
+    camera = _create_product(
+        client, headers, category_id=camera_category, name="Cámara IP 2MP", unit="unidad", tags=[],
+        resolution_mp=2,
+    )
+    disk = _create_product(
+        client, headers, category_id=disk_category, name="Disco duro 10GB", unit="unidad", tags=[],
+        storage_capacity_gb=10,
+    )
+
+    client.put(
+        "/api/calculation-parameters/storage_gb_per_megapixel_per_day", json={"value": 1}, headers=headers
+    )
+    client.put("/api/calculation-parameters/storage_retention_days", json={"value": 10}, headers=headers)
+
+    engineering_draft = {
+        "recommended_equipment": "-",
+        "distribution": "-",
+        "conduits": "-",
+        "wiring": "-",
+        "technical_design": "-",
+        "observations": "-",
+    }
+    with (
+        patch(
+            "app.api.routers.ai.suggest_budget_items",
+            return_value=[
+                {"product_id": camera["id"], "description": camera["name"], "quantity": 5},
+                {"product_id": disk["id"], "description": disk["name"], "quantity": 1},
+            ],
+        ),
+        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.api.routers.ai.reindex_project"),
+    ):
+        resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
+
+    assert resp.status_code == 200, resp.text
+    items_by_product = {item["product_id"]: item for item in resp.json()["quote"]["items"]}
+    # 5 cámaras * 2MP * 1 GB/MP/día * 10 días = 100 GB -> ceil(100/10) = 10 discos
+    assert items_by_product[disk["id"]]["quantity"] == 10
