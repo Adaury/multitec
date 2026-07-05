@@ -63,3 +63,19 @@ class QuoteHistoryOut(BaseModel):
 
 class RejectIn(BaseModel):
     reason: str = Field(max_length=2000)
+
+
+class PurchaseListPreviewItem(BaseModel):
+    product_id: int | None
+    description: str
+    quantity: float
+
+
+class PurchaseListPreviewOut(BaseModel):
+    """§ Motor 6 — lo que `build_material_rows_from_quote` generaría como `Material` si
+    esta cotización se aprobara ahora. Solo lectura: no crea nada, para poder revisar la
+    lista de compras antes de la aprobación."""
+
+    quote_id: int
+    already_generated: bool
+    items: list[PurchaseListPreviewItem]

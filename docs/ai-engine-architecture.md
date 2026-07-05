@@ -34,7 +34,7 @@ el diseño:
 | `Product.tags` / `Product.synonyms` (JSON) | Motor 3 (embrionario) |
 | `CatalogRule` + `TechnicalRule` + `expand_with_rules` (accesorio por cantidad, fijo o proporcional) | Motor 4 (implementado — Fase 2) |
 | `totals.py` + `ai_engine/calculation.py::apply_cable_waste_margin` + `calculation_parameters` | Motor 5 (solo cable — Fase 3) |
-| `generate_from_survey`, `build_budget`, `build_quote_from_budget`, `build_pre_invoice_from_quote`, `mark_quote_approved` (auto-genera Materiales y Prefactura al aprobar) | Motor 6 (pipeline ya funcionando, sin "lista de compras" ni "cotización ejecutiva" como artefactos propios) |
+| `generate_from_survey`, `build_budget`, `build_quote_from_budget`, `build_pre_invoice_from_quote`, `mark_quote_approved`, `purchase-list-preview`, `pdf.py` variante `ejecutiva` | Motor 6 (implementado — Fase 4) |
 | `embeddings.py` (embedding por proyecto + búsqueda semántica) | Soporte transversal para `ai/ask` |
 | — | Motor 7 no existe todavía |
 
@@ -285,33 +285,43 @@ apply_cable_waste_margin(items, catalog, waste_margin_pct) -> list[dict]       #
 
 ## Motor 6 — Motor de generación documental
 
+> **Estado: los dos huecos de la Fase 4 quedaron cerrados.** `GET
+> /api/quotes/{id}/purchase-list-preview` expone la lista de compras preliminar (solo
+> lectura) y `GET /api/quotes/{id}/pdf?variant=ejecutiva` genera la cotización ejecutiva
+> como una plantilla distinta sobre el mismo `Quote`. El orquestador general
+> (`generar_desde_levantamiento` → `DocumentSet`) descrito más abajo sigue sin
+> construirse — `generate_from_survey` sigue siendo la función concreta que hace ese
+> trabajo, no una interfaz genérica; generalizarla queda para cuando haga falta un
+> segundo flujo de generación que la necesite.
+
 **Responsabilidad:** producir todos los documentos del proyecto sin recapturar
-información. Este es el motor más maduro hoy: `generate_from_survey` ya encadena
-`suggest_budget_items` → `expand_with_rules` → `build_budget` → `build_quote_from_budget`
-→ borrador de ingeniería (best-effort), y `mark_quote_approved` ya genera Materiales
-(lista de compras) y Prefactura automáticamente al aprobar la cotización. Lo que falta
-frente al objetivo:
+información. Este es el motor más maduro: `generate_from_survey` ya encadena
+`suggest_budget_items` → `expand_with_rules` → `apply_cable_waste_margin` →
+`build_budget` → `build_quote_from_budget` → borrador de ingeniería (best-effort), y
+`mark_quote_approved` ya genera Materiales (lista de compras) y Prefactura
+automáticamente al aprobar la cotización.
 
-- **Lista de Compras como artefacto explícito antes de la aprobación.** Hoy los
-  `Material` se generan recién cuando se aprueba la cotización — correcto como
-  comportamiento de negocio (no tiene sentido comprar algo no aprobado), pero el objetivo
-  pide que "Lista de Compras" exista como documento generable. Diseño: exponer una vista
-  de "lista de compras preliminar" derivada directamente de las líneas del `Budget`/
-  `Quote` en estado `pendiente` (solo lectura, sin crear filas de `Material` todavía) —
-  así el técnico/oficina puede revisarla antes de la aprobación sin adelantar el efecto de
-  negocio de generar `Material`.
-- **Cotización Ejecutiva vs. Detallada.** Hoy solo existe un tipo de `Quote` (itemizado).
-  Diseño: no duplicar el registro financiero — "Ejecutiva" es una **plantilla de
-  renderizado** distinta (PDF resumen: totales por categoría, sin desglose línea por
-  línea) sobre el mismo `Quote`, igual que ya existe un servicio `pdf.py` para el
-  documento actual. Evita el riesgo de que ambas versiones diverjan en cifras.
+- **Lista de Compras preliminar (implementado).** `Material` se sigue generando recién al
+  aprobar la cotización — correcto como comportamiento de negocio (no tiene sentido
+  comprar algo no aprobado). Lo nuevo es una vista de solo lectura,
+  `GET /api/quotes/{quote_id}/purchase-list-preview`, que muestra exactamente lo que
+  `mark_quote_approved` generaría como `Material` si esa cotización se aprobara ahora,
+  sin crear ninguna fila. Ambos caminos leen de la misma función
+  (`quote_approval.build_material_rows_from_quote`) para que la vista previa no pueda
+  divergir de lo que realmente se crea al aprobar.
+- **Cotización Ejecutiva vs. Detallada (implementado).** No se duplicó el registro
+  financiero: `ejecutiva` es una plantilla de renderizado distinta
+  (`GET /api/quotes/{quote_id}/pdf?variant=ejecutiva`) sobre el mismo `Quote` — agrupa las
+  líneas por categoría de catálogo (o "Mano de obra y servicios" para líneas sin
+  producto) y muestra subtotal/ITBIS/total, sin desglose línea por línea. Mismo `pdf.py`
+  que ya generaba la cotización detallada y la factura (con su propia variante `global`).
 
-**Interfaz (orquestador, generaliza `generate_from_survey`):**
+**Interfaz (orquestador, generaliza `generate_from_survey` — no construida todavía):**
 ```
 generar_desde_levantamiento(survey) -> DocumentSet
 ```
-donde `DocumentSet` reporta qué se creó, qué ya existía (idempotencia — patrón ya usado
-en `build_pre_invoice_from_quote`), y qué queda pendiente de aprobación humana.
+donde `DocumentSet` reportaría qué se creó, qué ya existía (idempotencia — patrón ya
+usado en `build_pre_invoice_from_quote`), y qué queda pendiente de aprobación humana.
 
 **No cambia:** la frontera de aprobación humana antes de Prefactura→Factura, ni el
 patrón "best-effort" para el borrador de ingeniería (si falla, no debe tumbar la
@@ -435,8 +445,8 @@ en un estado roto:
    (`CableCalculator`, la de mayor impacto/menor riesgo). `StorageCalculator`,
    `CapacityCalculator` y `LaborCalculator` quedan para cuando Motor 2 tenga los campos
    que necesitan (`install_minutes`, `labor_role`, capacidad de canal).
-4. **Motor 6:** cerrar el hueco de "lista de compras preliminar" y "cotización ejecutiva"
-   como vista, sin nuevas tablas financieras.
+4. ✅ **Motor 6:** cerrado el hueco de "lista de compras preliminar" y "cotización
+   ejecutiva" como vista, sin nuevas tablas financieras.
 5. **Motor 7:** instrumentar la captura pasiva de ediciones; el análisis periódico puede
    esperar a tener volumen suficiente de proyectos para que los patrones sean confiables.
 

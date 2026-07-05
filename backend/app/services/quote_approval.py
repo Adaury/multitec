@@ -7,6 +7,17 @@ from app.models.quote import Quote, QuoteHistory
 from app.services.pre_invoice import build_pre_invoice_from_quote
 
 
+def build_material_rows_from_quote(quote: Quote) -> list[dict]:
+    """Las líneas que `mark_quote_approved` convertirá en `Material` si esta cotización se
+    aprueba. Factorizado aparte (en vez de inline en `mark_quote_approved`) para que la
+    vista previa de lista de compras (§ Motor 6, `GET /api/quotes/{id}/purchase-list-preview`)
+    nunca pueda divergir de lo que realmente se crea al aprobar — ambas leen de aquí."""
+    return [
+        {"product_id": item.product_id, "description": item.description, "quantity": float(item.quantity)}
+        for item in quote.items
+    ]
+
+
 def mark_quote_approved(db: Session, quote: Quote, created_by: int | None, note: str | None = None) -> None:
     """Aprueba la cotización, genera la lista de materiales (§18) y la prefactura a partir
     de sus líneas — ambas idempotentes (una sola vez por cotización aunque se re-apruebe
@@ -22,16 +33,14 @@ def mark_quote_approved(db: Session, quote: Quote, created_by: int | None, note:
 
     already_generated = db.query(Material).filter(Material.source_quote_id == quote.id).first() is not None
     if not already_generated:
-        for item in quote.items:
+        for row in build_material_rows_from_quote(quote):
             db.add(
                 Material(
                     project_id=quote.project_id,
-                    product_id=item.product_id,
                     source_quote_id=quote.id,
-                    description=item.description,
-                    quantity=item.quantity,
                     status="pendiente_compra",
                     created_by=created_by,
+                    **row,
                 )
             )
 

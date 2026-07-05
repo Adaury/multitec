@@ -39,6 +39,7 @@ def _build_pdf(
     notes: str | None = None,
     show_line_prices: bool = True,
     show_breakdown: bool = True,
+    category_totals: list[tuple[str, float]] | None = None,
 ) -> bytes:
     settings = get_settings()
     buf = BytesIO()
@@ -84,7 +85,14 @@ def _build_pdf(
     story.append(header_table)
     story.append(Spacer(1, 8 * mm))
 
-    if show_line_prices:
+    if category_totals is not None:
+        # Resumen ejecutivo (§ Motor 6): totales por categoría, sin línea por línea — no
+        # es un registro financiero aparte, solo otra vista del mismo Quote.
+        rows = [["Categoría", "Subtotal"]]
+        for category_name, amount in category_totals:
+            rows.append([category_name, _money(amount)])
+        col_widths = [130 * mm, 40 * mm]
+    elif show_line_prices:
         rows = [["Descripción", "Cant.", "Precio unit.", "Subtotal"]]
         for item in items:
             rows.append(
@@ -118,14 +126,14 @@ def _build_pdf(
     story.append(Spacer(1, 6 * mm))
 
     if show_breakdown:
-        if show_line_prices:
+        if show_line_prices or category_totals is not None:
             totals_rows = [
                 ["Subtotal", _money(subtotal)],
                 [f"ITBIS ({settings.itbis_rate * 100:.0f}%)", _money(itbis)],
                 ["Total", _money(total)],
             ]
         else:
-            # Sin desglose por línea: solo el precio global del servicio completo.
+            # Sin desglose por línea ni por categoría: solo el precio global del servicio.
             totals_rows = [["Total del servicio", _money(total)]]
         bold_row = len(totals_rows) - 1
         totals_table = Table(totals_rows, colWidths=[140 * mm, 30 * mm])
@@ -152,9 +160,30 @@ def _build_pdf(
     return buf.getvalue()
 
 
-def build_quote_pdf(quote: Quote) -> bytes:
+FALLBACK_CATEGORY_LABEL = "Mano de obra y servicios"
+
+
+def _category_totals(items: list, category_by_product_id: dict[int, str | None]) -> list[tuple[str, float]]:
+    """Agrupa las líneas de una cotización por categoría de catálogo (o el fallback, para
+    líneas sin producto — ej. mano de obra) para el resumen ejecutivo. `category_by_product_id`
+    lo arma el caller (no se consulta la base de datos aquí — este módulo solo renderiza)."""
+    totals: dict[str, float] = {}
+    order: list[str] = []
+    for item in items:
+        category_name = category_by_product_id.get(item.product_id) or FALLBACK_CATEGORY_LABEL
+        if category_name not in totals:
+            totals[category_name] = 0.0
+            order.append(category_name)
+        totals[category_name] += float(item.subtotal)
+    return [(name, totals[name]) for name in order]
+
+
+def build_quote_pdf(
+    quote: Quote, variant: str = "detallada", category_by_product_id: dict[int, str | None] | None = None
+) -> bytes:
+    is_executive = variant == "ejecutiva"
     return _build_pdf(
-        doc_title="Cotización",
+        doc_title="Cotización — Resumen ejecutivo" if is_executive else "Cotización",
         code=quote.code,
         created_at=quote.created_at,
         client=quote.project.client,
@@ -165,6 +194,7 @@ def build_quote_pdf(quote: Quote) -> bytes:
         total=float(quote.total),
         status_label=quote.status.replace("_", " ").capitalize(),
         notes=quote.notes,
+        category_totals=_category_totals(quote.items, category_by_product_id or {}) if is_executive else None,
     )
 
 

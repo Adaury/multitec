@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
@@ -7,14 +8,22 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.config import get_settings
 from app.core.security import require_role
 from app.db.session import get_db
+from app.models.material import Material
 from app.models.product import Product
 from app.models.quote import Quote, QuoteHistory, QuoteItem
 from app.models.user import User
-from app.schemas.quote import QuoteCreate, QuoteHistoryOut, QuoteOut, QuoteUpdate, RejectIn
+from app.schemas.quote import (
+    PurchaseListPreviewOut,
+    QuoteCreate,
+    QuoteHistoryOut,
+    QuoteOut,
+    QuoteUpdate,
+    RejectIn,
+)
 from app.services.code_generator import next_code
 from app.services.notifications import notify_quote_pending
 from app.services.pdf import build_quote_pdf
-from app.services.quote_approval import mark_quote_approved
+from app.services.quote_approval import build_material_rows_from_quote, mark_quote_approved
 from app.services.quote_archiver import archive_stale_quotes
 from app.services.totals import LineInput, compute_totals
 
@@ -103,13 +112,41 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_ro
 
 
 @router.get("/api/quotes/{quote_id}/pdf")
-def get_quote_pdf(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def get_quote_pdf(
+    quote_id: int,
+    variant: Literal["detallada", "ejecutiva"] = "detallada",
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
     quote = _get_quote(db, quote_id)
-    pdf_bytes = build_quote_pdf(quote)
+    category_by_product_id = {}
+    if variant == "ejecutiva":
+        product_ids = [item.product_id for item in quote.items if item.product_id is not None]
+        if product_ids:
+            products = db.query(Product).options(joinedload(Product.category)).filter(Product.id.in_(product_ids)).all()
+            category_by_product_id = {p.id: p.category_name for p in products}
+
+    pdf_bytes = build_quote_pdf(quote, variant=variant, category_by_product_id=category_by_product_id)
+    suffix = "-ejecutiva" if variant == "ejecutiva" else ""
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{quote.code}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{quote.code}{suffix}.pdf"'},
+    )
+
+
+@router.get("/api/quotes/{quote_id}/purchase-list-preview", response_model=PurchaseListPreviewOut)
+def get_purchase_list_preview(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    """§ Motor 6 — lista de compras preliminar: lo que se generaría como `Material` si
+    esta cotización se aprobara ahora, sin crear nada todavía (ver
+    `build_material_rows_from_quote`, compartida con la aprobación real para que ambas
+    nunca puedan divergir)."""
+    quote = _get_quote(db, quote_id)
+    already_generated = db.query(Material).filter(Material.source_quote_id == quote.id).first() is not None
+    return PurchaseListPreviewOut(
+        quote_id=quote.id,
+        already_generated=already_generated,
+        items=build_material_rows_from_quote(quote),
     )
 
 
