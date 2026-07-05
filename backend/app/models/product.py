@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, JSON, Numeric, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -31,12 +31,23 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(150))
     unit: Mapped[str] = mapped_column(String(20), default="unidad")
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    # Costo de adquisición, distinto de `price` (precio de venta) — § catálogo inteligente,
+    # Motor 2. Ningún cálculo lo usa todavía; existe para cuando Motor 5 estime márgenes.
+    cost: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     stock_quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     brand: Mapped[str | None] = mapped_column(String(80), nullable=True)
     model: Mapped[str | None] = mapped_column(String(80), nullable=True)
     commercial_description: Mapped[str | None] = mapped_column(Text, nullable=True)
     technical_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Insumos para Motor 5/LaborCalculator (§ docs/ai-engine-architecture.md) — tiempo de
+    # instalación por unidad y el tipo de técnico que la instala. Nulos por defecto: nada
+    # los calcula todavía, así que no hay un valor razonable que inventar.
+    install_minutes: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    labor_role: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # Nivel de prioridad del producto (sin escala fija todavía — ningún consumidor la
+    # define; queda como dato crudo hasta que algo la use, ej. para ordenar sugerencias).
+    priority: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Catálogo "inteligente" (§ levantamiento con IA): tags/synonyms alimentan el matching
     # semántico en suggest_budget_items. Las reglas de accesorios con cantidad viven en
     # CatalogRule (source_product_id → este producto), no aquí. JSON (no ARRAY) para

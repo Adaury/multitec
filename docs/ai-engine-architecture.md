@@ -126,21 +126,30 @@ detectó la IA antes de que Motor 2 la resuelva — útil para depuración y par
 
 ## Motor 2 — Catálogo inteligente
 
+> **Estado: campos de producto completados; matching sigue siendo el mismo de Fase 1.**
+> `Product` ya tiene `cost`, `install_minutes`, `labor_role` y `priority` (migración
+> `bc52912f5a4c`) — el insumo que le faltaba a Motor 5 para poder construir
+> `LaborCalculator` más adelante. `product_relations` (compatibilidades/relacionados)
+> sigue sin construirse — es una tabla nueva, no un campo de producto, y quedó fuera de
+> este trabajo puntual. El matching en sí (`catalog_matching.match_entities_to_catalog`)
+> no cambió: sigue resolviendo por nombre/categoría/tags/sinónimos, ninguno de los campos
+> nuevos participa todavía en esa decisión.
+
 **Responsabilidad:** resolver cada `DetectedEntity` contra un producto real del catálogo,
 usando nombre, categoría, tags y sinónimos (Motor 3). Ya existe como concepto
 (`_build_catalog_dicts`, matching embebido en el prompt); el diseño lo separa en su propio
 motor y completa los campos de producto que pide el objetivo pero que hoy no están en el
 modelo:
 
-| Campo pedido | Estado en `Product` hoy |
+| Campo pedido | Estado en `Product` |
 |---|---|
-| Código, clasificación/subclasificación, nombre comercial/técnico, descripción, unidad, marca, modelo, precio | Ya existen (`code`, `category` jerárquica, `name`, `commercial_description`/`technical_description`, `unit`, `brand`, `model`, `price`) |
-| Costo | **Falta** — hoy solo hay `price` (venta), no `cost` |
-| Etiquetas, sinónimos | Ya existen (`tags`, `synonyms`, JSON) |
+| Código, clasificación/subclasificación, nombre comercial/técnico, descripción, unidad, marca, modelo, precio | Ya existían (`code`, `category` jerárquica, `name`, `commercial_description`/`technical_description`, `unit`, `brand`, `model`, `price`) |
+| Costo | ✅ Implementado — `cost`, distinto de `price` (venta) |
+| Etiquetas, sinónimos | Ya existían (`tags`, `synonyms`, JSON) |
 | Compatibilidades, productos relacionados | **Falta** — no hay tabla de relación producto↔producto |
-| Reglas técnicas | Ya existe como `CatalogRule`, pero acoplada a un solo tipo de regla (ver Motor 4) |
-| Tiempo de instalación, mano de obra asociada | **Falta** |
-| Nivel de prioridad | **Falta** |
+| Reglas técnicas | Ya existe como `CatalogRule`/`TechnicalRule` (ver Motor 4) |
+| Tiempo de instalación, mano de obra asociada | ✅ Implementado — `install_minutes`, `labor_role` |
+| Nivel de prioridad | ✅ Implementado — `priority` (entero, sin escala fija: nada la define todavía) |
 
 **Interfaz:**
 ```
@@ -148,14 +157,16 @@ resolver(entidades: list[DetectedEntity], catalogo: list[Product]) -> list[Catal
 perfil_instalacion(product_id) -> InstallationProfile  # tiempo, mano de obra, prioridad
 ```
 
-**Modelo de datos nuevo:**
-- Extender `Product` con `cost: Numeric`, `install_minutes: Numeric | None`,
-  `labor_role: str | None` (qué tipo de técnico lo instala), `priority: int | None`.
-- `product_relations` (tabla nueva): `product_id`, `related_product_id`, `relation_type`
-  (`compatible_con` | `alternativa_de` | `requiere`). Deliberadamente separada de
-  `CatalogRule`: una relación de compatibilidad es informativa (para quien arma el
-  presupuesto a mano), una `CatalogRule` es prescriptiva (agrega algo automáticamente).
-  Mezclarlas obligaría a que toda relación dispare una acción, lo cual no es cierto.
+**Modelo de datos:**
+- ✅ `Product` extendido con `cost: Numeric`, `install_minutes: Numeric | None`,
+  `labor_role: str | None` (qué tipo de técnico lo instala), `priority: int | None`. Todos
+  nullable o con default — ningún producto existente quedó sin valor válido.
+- `product_relations` (tabla nueva, **pendiente**): `product_id`, `related_product_id`,
+  `relation_type` (`compatible_con` | `alternativa_de` | `requiere`). Deliberadamente
+  separada de `CatalogRule`/`TechnicalRule`: una relación de compatibilidad es informativa
+  (para quien arma el presupuesto a mano), una regla técnica es prescriptiva (agrega algo
+  automáticamente). Mezclarlas obligaría a que toda relación dispare una acción, lo cual
+  no es cierto.
 
 ## Motor 3 — Sistema de etiquetas
 
@@ -242,8 +253,10 @@ seguridad (ejecutar reglas arbitrarias) que no hace falta.
 > construida, con endpoint admin en `/api/calculation-parameters`; hoy solo tiene una
 > clave conocida (`cable_waste_margin_pct`, default 5%). Las demás calculadoras descritas
 > abajo (`StorageCalculator`, `CapacityCalculator`, `LaborCalculator`) siguen sin
-> implementar — dependen de campos de Motor 2 (`install_minutes`, `labor_role`, capacidad
-> de canal) que tampoco existen todavía.
+> implementar. `LaborCalculator` ya no está bloqueada por falta de datos —
+> `install_minutes` y `labor_role` existen en `Product` desde la extensión de Motor 2 —
+> pero construirla sigue pendiente. `StorageCalculator`/`CapacityCalculator` sí siguen
+> esperando datos que no existen (capacidad de canal, resolución de cámara).
 
 **Responsabilidad:** toda la aritmética técnica y comercial que hoy falta. `totals.py` ya
 cubre lo financiero genérico (subtotal/ITBIS/total); `expand_with_rules` ya cubre
@@ -263,8 +276,8 @@ de cálculo, cada una una función pura `(items_resueltos, parámetros) -> ajust
 - `CapacityCalculator` — canales de NVR/puertos de switch necesarios vs. disponibles en el
   producto elegido; genera una `RuleEffect` de tipo advertencia si no alcanza. Pendiente.
 - `LaborCalculator` — usa `install_minutes` y `labor_role` de Motor 2 para estimar horas,
-  cantidad de técnicos y costo de mano de obra. Pendiente — Motor 2 todavía no tiene esos
-  campos en `Product`.
+  cantidad de técnicos y costo de mano de obra. Pendiente de construir — los campos de
+  `Product` que necesita ya existen.
 
 Cada calculadora es un módulo independiente y **agregable**: sumar una nueva área técnica
 (ej. detección de incendios) puede requerir una calculadora nueva (ej. cobertura de
@@ -373,8 +386,8 @@ patrones — mejor esperar al volumen real de proyectos que ya está capturando 
 
 | Tabla | Estado | Motor |
 |---|---|---|
-| `products` | Extender: `cost`, `install_minutes`, `labor_role`, `priority` | 2 |
-| `product_relations` | Nueva | 2 |
+| `products` | ✅ Extendido: `cost`, `install_minutes`, `labor_role`, `priority` (implementado) | 2 |
+| `product_relations` | Nueva — pendiente | 2 |
 | `catalog_rules` | Sin cambios (se mantiene) | 4 |
 | `technical_rules` | Nueva (generalización hacia adelante de `catalog_rules`) | 4 |
 | `calculation_parameters` | Nueva | 5 |
@@ -458,9 +471,11 @@ en un estado roto:
 2. ✅ **Generalizar `CatalogRule` → `TechnicalRule`** sin migrar datos existentes (tabla
    nueva en paralelo; `expand_with_rules` sigue funcionando igual para lo ya configurado).
 3. ✅ **Motor 5 (parcial):** agregada `calculation_parameters` + la primera calculadora
-   (`CableCalculator`, la de mayor impacto/menor riesgo). `StorageCalculator`,
-   `CapacityCalculator` y `LaborCalculator` quedan para cuando Motor 2 tenga los campos
-   que necesitan (`install_minutes`, `labor_role`, capacidad de canal).
+   (`CableCalculator`, la de mayor impacto/menor riesgo). `StorageCalculator` y
+   `CapacityCalculator` siguen esperando datos que no existen (capacidad de canal,
+   resolución de cámara); `LaborCalculator` ya tiene los campos que necesita
+   (`install_minutes`, `labor_role`, agregados a `Product` después de esta fase) pero
+   sigue sin construirse.
 4. ✅ **Motor 6:** cerrado el hueco de "lista de compras preliminar" y "cotización
    ejecutiva" como vista, sin nuevas tablas financieras.
 5. ✅ **Motor 7 (parcial):** instrumentada la captura pasiva de ediciones
@@ -476,3 +491,8 @@ datos reales o campos de otro motor), lo que sigue no es una fase numerada más 
 trabajo dirigido por lo que el uso real revele: qué calculadoras de Motor 5 hacen falta
 primero, cuándo hay volumen suficiente para el análisis de Motor 7, o si aparece una
 segunda área técnica que ponga a prueba la extensibilidad del diseño.
+
+**Extensión posterior — Motor 2:** `Product` ganó `cost`, `install_minutes`, `labor_role`
+y `priority` (migración `bc52912f5a4c`), cerrando el gap que bloqueaba a `LaborCalculator`.
+`product_relations` (compatibilidades/relacionados) queda pendiente — es una tabla nueva,
+no un campo, y no se abordó en este trabajo puntual.

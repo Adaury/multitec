@@ -8,11 +8,15 @@ class ProductCreate(BaseModel):
     name: str = Field(max_length=255)
     unit: str = Field(default="unidad", max_length=30)
     price: float = 0
+    cost: float = 0
     notes: str | None = Field(default=None, max_length=2000)
     brand: str | None = Field(default=None, max_length=80)
     model: str | None = Field(default=None, max_length=80)
     commercial_description: str | None = Field(default=None, max_length=2000)
     technical_description: str | None = Field(default=None, max_length=2000)
+    install_minutes: float | None = None
+    labor_role: str | None = Field(default=None, max_length=80)
+    priority: int | None = None
     tags: list[str] = []
     synonyms: list[str] = []
 
@@ -22,11 +26,15 @@ class ProductUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=255)
     unit: str | None = Field(default=None, max_length=30)
     price: float | None = None
+    cost: float | None = None
     notes: str | None = Field(default=None, max_length=2000)
     brand: str | None = Field(default=None, max_length=80)
     model: str | None = Field(default=None, max_length=80)
     commercial_description: str | None = Field(default=None, max_length=2000)
     technical_description: str | None = Field(default=None, max_length=2000)
+    install_minutes: float | None = None
+    labor_role: str | None = Field(default=None, max_length=80)
+    priority: int | None = None
     tags: list[str] | None = None
     synonyms: list[str] | None = None
 
@@ -40,12 +48,16 @@ class ProductOut(BaseModel):
     name: str
     unit: str
     price: float
+    cost: float
     stock_quantity: float
     notes: str | None
     brand: str | None = None
     model: str | None = None
     commercial_description: str | None = None
     technical_description: str | None = None
+    install_minutes: float | None = None
+    labor_role: str | None = None
+    priority: int | None = None
     tags: list[str] = []
     synonyms: list[str] = []
     created_by: int | None = None
