@@ -3,6 +3,11 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
+from app.ai_engine.catalog_matching import suggest_budget_items
+from app.ai_engine.documents import draft_engineering
+from app.ai_engine.nlu import summarize_survey
+from app.ai_engine.qa import answer_question
+from app.ai_engine.rules import expand_with_rules
 from app.api.routers.budgets import build_budget, build_quote_from_budget
 from app.core.security import require_role
 from app.db.session import get_db
@@ -20,10 +25,8 @@ from app.models.user import User
 from app.schemas.ai import AskRequest, AskResponse, BudgetSuggestionOut, EngineeringDraftOut, GenerateFromSurveyOut
 from app.schemas.budget import BudgetItemIn
 from app.schemas.survey import SurveyOut
-from app.services.ai_client import answer_question, draft_engineering, suggest_budget_items, summarize_survey
 from app.services.embeddings import reindex_project, search_projects
 from app.services.notifications import notify_quote_pending
-from app.services.quote_rules import expand_with_rules
 
 router = APIRouter(tags=["ai"])
 

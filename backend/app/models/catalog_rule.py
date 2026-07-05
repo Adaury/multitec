@@ -14,7 +14,7 @@ class CatalogRule(Base):
     `per_source_units` nulo = modo fijo (agrega `quantity` una sola vez, ej. "1 NVR" sin
     importar cuántas cámaras haya). Con valor = modo proporcional: por cada
     `per_source_units` unidades del producto fuente se agregan `quantity` unidades del
-    accesorio, redondeando lotes hacia arriba (ver services/quote_rules.py).
+    accesorio, redondeando lotes hacia arriba (ver ai_engine/rules.py).
     """
 
     __tablename__ = "catalog_rules"

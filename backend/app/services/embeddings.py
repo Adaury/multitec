@@ -2,10 +2,10 @@ import math
 
 from sqlalchemy.orm import Session
 
+from app.ai_engine.ollama_client import get_client
 from app.core.config import get_settings
 from app.models.embedding import ProjectEmbedding
 from app.models.project import Project
-from app.services.ai_client import get_client
 
 
 def embed_text(text: str) -> list[float]:

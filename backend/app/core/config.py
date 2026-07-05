@@ -46,7 +46,7 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str = ""
 
-    # IA local (Ollama) — ver services/ai_client.py
+    # IA local (Ollama) — ver app/ai_engine/
     ollama_host: str = "http://localhost:11434"
     ai_model: str = "llama3.2"
     ai_vision_model: str = "llava"

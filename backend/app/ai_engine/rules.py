@@ -1,3 +1,9 @@
+"""Motor 4 — Motor de reglas técnicas (§ docs/ai-engine-architecture.md).
+
+Hoy modela un solo tipo de regla (accesorio por cantidad, colgado de `CatalogRule`);
+generalizar a condición/acción arbitrarias queda para una fase posterior.
+"""
+
 import math
 
 

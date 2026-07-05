@@ -198,8 +198,9 @@ TAXONOMY = [
 
 # Backfill: mapea el `Product.category` (string libre) del sistema anterior a un slug de
 # hoja de este árbol. "camara" y "cableado" no alcanzan para elegir subcategoría solos —
-# la migración además revisa el nombre del producto (ver ai_client._format_catalog_line
-# para el mismo tipo de heurística por texto) antes de caer en el default de esta tabla.
+# la migración además revisa el nombre del producto (ver
+# ai_engine.catalog_matching._format_catalog_line para el mismo tipo de heurística por
+# texto) antes de caer en el default de esta tabla.
 LEGACY_SLUG_MAP = {
     "camara": "camaras-ip",
     "nvr": "nvr",

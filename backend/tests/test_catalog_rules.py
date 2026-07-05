@@ -1,4 +1,4 @@
-from app.services.quote_rules import expand_with_rules
+from app.ai_engine.rules import expand_with_rules
 
 CATALOG = [
     {"id": 1, "name": "Cámara IP", "tags": ["camara", "ip"]},
