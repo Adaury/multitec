@@ -31,7 +31,7 @@ el diseño:
 |---|---|
 | `Survey` (notas, medidas, observaciones, fotos/audio) + Web Speech API en el frontend | Entrada de Motor 1 |
 | `ai_engine/nlu.py::interpret_survey_items` → `ai_engine/catalog_matching.py::match_entities_to_catalog` (dos llamadas al modelo, Fase 1) | Motor 1 y Motor 2 (separados) |
-| `Product.tags` / `Product.synonyms` (JSON) | Motor 3 (embrionario) |
+| `Product.tags`/`Product.synonyms` (JSON) + `ai_engine/tagging.py` (`normalize_text`, `find_product_by_text`) | Motor 3 (implementado como filtro de respaldo) |
 | `CatalogRule` + `TechnicalRule` + `expand_with_rules` (accesorio por cantidad, fijo o proporcional) | Motor 4 (implementado — Fase 2) |
 | `totals.py` + `ai_engine/calculation.py::apply_cable_waste_margin` + `calculation_parameters` | Motor 5 (solo cable — Fase 3) |
 | `generate_from_survey`, `build_budget`, `build_quote_from_budget`, `build_pre_invoice_from_quote`, `mark_quote_approved`, `purchase-list-preview`, `pdf.py` variante `ejecutiva` | Motor 6 (implementado — Fase 4) |
@@ -177,27 +177,41 @@ perfil_instalacion(product_id) -> InstallationProfile  # tiempo, mano de obra, p
 
 ## Motor 3 — Sistema de etiquetas
 
-**Responsabilidad:** que "cable de red", "utp", "cat6" y "ethernet" resuelvan al mismo
-producto. Ya existe como columna JSON en `Product` (`tags`, `synonyms`); el gap no es el
-almacenamiento sino que **el matching de tags está hoy hardcodeado dentro del texto del
-prompt** de `suggest_budget_items` (`_format_catalog_line`), en vez de ser un servicio
-reusable.
+> **Estado: implementado como filtro de respaldo, no como reemplazo del matching
+> semántico.** `app/ai_engine/tagging.py` centraliza la normalización de texto en español
+> (`normalize_text`) y el matching por nombre/tags/sinónimos (`find_product_by_text`).
+> `catalog_matching._apply_tag_fallback` lo usa después de la llamada al modelo: si una
+> entidad quedó sin `product_id`, intenta un último match determinista antes de darla por
+> sin catálogo — nunca pisa un match que el modelo ya encontró. Sigue sin existir una
+> tabla de taxonomía propia (ver más abajo, no hizo falta) ni el uso en un "buscador de
+> catálogo" (no existe ese endpoint todavía; `find_product_by_text` queda listo para
+> cuando se construya).
 
-**Diseño propuesto:** un servicio `TagIndex` (no una tabla nueva, para no romper lo que ya
-funciona) que centraliza:
-- Normalización de texto en español (minúsculas, sin tildes) para comparar de forma
-  consistente en todos los puntos que hoy hacen matching de tags (Motor 2, buscador de
-  catálogo, futuro Motor 1 cuando valide si una entidad detectada tiene análogo en
-  catálogo).
-- Expansión de sinónimos antes de pasarle el catálogo al LLM, y también como filtro
-  determinista de respaldo si el modelo local falla en matchear (búsqueda por substring
-  sobre tags normalizados).
+**Responsabilidad:** que "cable de red", "utp", "cat6" y "ethernet" resuelvan al mismo
+producto. Ya existía como columna JSON en `Product` (`tags`, `synonyms`); el gap no era el
+almacenamiento sino que el matching de tags vivía hardcodeado dentro del texto del prompt
+de `suggest_budget_items` (`_format_catalog_line`), sin ningún filtro determinista para
+cuando el modelo local (modesto, corriendo en CPU) no lograba resolver una entidad obvia.
+
+**Diseño (implementado):**
+- `normalize_text` — minúsculas, sin tildes/diacríticos, espacios colapsados. Reusable en
+  cualquier punto que compare texto contra tags/sinónimos/nombres de producto.
+- `find_product_by_text(description, catalog)` — busca por palabra completa (con plural
+  simple -s/-es tolerado, ej. tag "camara" matchea "cámaras" en la descripción) si el
+  texto menciona el nombre/tag/sinónimo de algún producto. Coincidencia de palabra
+  completa para evitar falsos positivos obvios (que "cable" matchee dentro de
+  "cableado eléctrico" — dos cosas distintas que comparten una raíz de texto).
+- `catalog_matching._apply_tag_fallback` — el único consumidor real hoy: se ejecuta sobre
+  las entidades que el modelo dejó sin `product_id`, después de la llamada a Ollama. Es
+  un respaldo determinista, no un reemplazo — el modelo sigue siendo quien resuelve
+  sinónimos no declarados en el catálogo (ej. "domo" → cámara, si esa palabra no está en
+  ningún tag/sinónimo cargado).
 
 **Cuándo pasar a una tabla de taxonomía propia:** si en el futuro los tags empiezan a
 duplicarse o a escribirse de forma inconsistente entre productos (ej. "cat6" en uno,
 "categoría 6" en otro, sin relación declarada), ahí se justifica una tabla `tags` con
-alias canónicos. Hoy, con JSON libre por producto, no hay evidencia de ese problema — no
-construirlo por adelantado.
+alias canónicos. Con JSON libre por producto, no hay evidencia de ese problema — no se
+construyó por adelantado.
 
 ## Motor 4 — Motor de reglas técnicas
 
@@ -540,3 +554,9 @@ falta poder corregir capacidad automáticamente en vez de solo advertir.
   los necesitaba. `CapacityCalculator` es la única de las cuatro que no corrige nada por
   su cuenta: solo advierte (`warnings` en la respuesta), porque qué hacer ante una
   capacidad insuficiente es una decisión de diseño, no aritmética determinista.
+- **Motor 3 implementado (`ai_engine/tagging.py`):** el gap más antiguo del documento —
+  el matching de tags llevaba desde la Fase 1 hardcodeado dentro del prompt de Motor 2,
+  sin ningún filtro determinista propio. `find_product_by_text` + `_apply_tag_fallback`
+  cierran eso como respaldo (no como reemplazo) del matching semántico del modelo. Con
+  esto, de los 7 motores solo quedan huecos deliberados: los dos `action_type` de Motor 4
+  sin consumidor, el orquestador genérico de Motor 6, y el análisis periódico de Motor 7.

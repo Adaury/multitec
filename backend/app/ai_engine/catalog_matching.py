@@ -2,13 +2,17 @@
 
 Resuelve las entidades detectadas por Motor 1 (`app.ai_engine.nlu`) contra productos
 reales del catálogo, comparando nombre/categoría/tags/sinónimos. No interpreta lenguaje
-natural — recibe entidades ya extraídas, nunca el texto crudo del levantamiento.
+natural — recibe entidades ya extraídas, nunca el texto crudo del levantamiento. Cuando el
+modelo no logra resolver una entidad, `_apply_tag_fallback` recurre al matching
+determinista de Motor 3 (`app.ai_engine.tagging.find_product_by_text`) antes de darla por
+sin catálogo.
 """
 
 import json
 
 from app.ai_engine.nlu import interpret_survey_items
 from app.ai_engine.ollama_client import OLLAMA_OPTIONS, _call, get_client
+from app.ai_engine.tagging import find_product_by_text
 from app.core.config import get_settings
 
 
@@ -64,6 +68,21 @@ def _merge_entities_with_matches(entities: list[dict], matches: list[dict]) -> l
     return items
 
 
+def _apply_tag_fallback(items: list[dict], catalog: list[dict]) -> list[dict]:
+    """Motor 3, filtro determinista de respaldo: para las entidades que el modelo no
+    logró resolver (`product_id=None`), intenta un último match por texto/tags/sinónimos
+    (`app.ai_engine.tagging.find_product_by_text`) antes de darlas por perdidas. Nunca
+    pisa un match que el modelo sí encontró — es un respaldo, no una segunda opinión."""
+    result = []
+    for item in items:
+        if item.get("product_id") is None:
+            fallback_id = find_product_by_text(item["description"], catalog)
+            if fallback_id is not None:
+                item = {**item, "product_id": fallback_id}
+        result.append(item)
+    return result
+
+
 def match_entities_to_catalog(entities: list[dict], catalog: list[dict]) -> list[dict]:
     """Por cada entidad detectada por Motor 1, decide a qué producto del catálogo
     corresponde (o ninguno, ej. mano de obra o servicios). El modelo solo devuelve el
@@ -102,7 +121,8 @@ def match_entities_to_catalog(entities: list[dict], catalog: list[dict]) -> list
         return json.loads(response.message.content)["matches"]
 
     matches = _call(run)
-    return _merge_entities_with_matches(entities, matches)
+    items = _merge_entities_with_matches(entities, matches)
+    return _apply_tag_fallback(items, catalog)
 
 
 def suggest_budget_items(project_context: str, catalog: list[dict]) -> list[dict]:

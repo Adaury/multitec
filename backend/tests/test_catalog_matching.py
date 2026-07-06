@@ -1,4 +1,4 @@
-from app.ai_engine.catalog_matching import _merge_entities_with_matches
+from app.ai_engine.catalog_matching import _apply_tag_fallback, _merge_entities_with_matches
 
 
 def test_matched_entity_gets_product_id_from_match():
@@ -44,3 +44,30 @@ def test_description_and_quantity_come_from_entities_not_matches():
 
     assert result[0]["description"] == "doscientos metros de cable"
     assert result[0]["quantity"] == 200
+
+
+CATALOG = [{"id": 1, "name": "Cámara IP", "tags": ["camara"], "synonyms": ["domo"]}]
+
+
+def test_tag_fallback_resolves_an_item_the_model_could_not():
+    items = [{"product_id": None, "description": "8 domo para el perímetro", "quantity": 8}]
+
+    result = _apply_tag_fallback(items, CATALOG)
+
+    assert result[0]["product_id"] == 1
+
+
+def test_tag_fallback_never_overrides_a_match_the_model_already_found():
+    items = [{"product_id": 2, "description": "domo", "quantity": 1}]
+
+    result = _apply_tag_fallback(items, CATALOG)
+
+    assert result[0]["product_id"] == 2  # no se pisa aunque "domo" matchee otro producto
+
+
+def test_tag_fallback_leaves_truly_unmatched_items_alone():
+    items = [{"product_id": None, "description": "mano de obra de instalación", "quantity": 1}]
+
+    result = _apply_tag_fallback(items, CATALOG)
+
+    assert result[0]["product_id"] is None
