@@ -6,6 +6,8 @@ import type {
   CatalogRule,
   Category,
   Product,
+  ProductRelationType,
+  ProductRelationView,
   StockMovement,
   StockMovementType,
   TechnicalRule,
@@ -372,6 +374,7 @@ function ProductCard({
           )}
 
           <RulesEditor productId={product.id} />
+          <RelationsEditor productId={product.id} />
         </div>
       )}
     </Card>
@@ -640,6 +643,140 @@ function RulesEditor({ productId }: { productId: number }) {
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
         <Button type="submit" disabled={createRule.isPending || !canSubmit}>
           {createRule.isPending ? 'Guardando…' : '+ Agregar regla'}
+        </Button>
+      </form>
+    </div>
+  )
+}
+
+const RELATION_TYPE_LABELS: Record<ProductRelationType, string> = {
+  compatible_con: 'Compatible con',
+  alternativa_de: 'Alternativa de',
+  requiere: 'Requiere',
+}
+
+function describeRelation(r: ProductRelationView): string {
+  const name = r.related_product_name ?? `producto #${r.related_product_id}`
+  if (r.relation_type === 'requiere') {
+    return r.direction === 'outgoing' ? `Requiere: ${name}` : `Requerido por: ${name}`
+  }
+  return `${RELATION_TYPE_LABELS[r.relation_type]}: ${name}`
+}
+
+function RelationsEditor({ productId }: { productId: number }) {
+  const queryClient = useQueryClient()
+  const [relatedProductId, setRelatedProductId] = useState('')
+  const [relationType, setRelationType] = useState<ProductRelationType>('compatible_con')
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const { data: relations } = useQuery({
+    queryKey: ['product-relations', productId],
+    queryFn: async () => (await api.get<ProductRelationView[]>(`/catalog/${productId}/relations`)).data,
+  })
+
+  // Mismo queryKey que usa el catálogo principal — reutiliza esa caché en vez de pedirla
+  // de nuevo, solo para armar el selector de "producto relacionado".
+  const { data: allProducts } = useQuery({
+    queryKey: ['catalog'],
+    queryFn: async () => (await api.get<Product[]>('/catalog')).data,
+  })
+  const otherProducts = allProducts?.filter((p) => p.id !== productId) ?? []
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['product-relations', productId] })
+
+  const createRelation = useMutation({
+    mutationFn: async () =>
+      (
+        await api.post(`/catalog/${productId}/relations`, {
+          related_product_id: Number(relatedProductId),
+          relation_type: relationType,
+          notes: notes || null,
+        })
+      ).data,
+    onSuccess: () => {
+      invalidate()
+      setRelatedProductId('')
+      setNotes('')
+      setError(null)
+    },
+    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo crear la relación'),
+  })
+
+  const deleteRelation = useMutation({
+    mutationFn: async (relationId: number) => (await api.delete(`/catalog/relations/${relationId}`)).data,
+    onSuccess: invalidate,
+  })
+
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">
+        Relaciones con otros productos — compatibilidades, alternativas, requisitos
+      </p>
+      {relations && relations.length > 0 && (
+        <ul className="mb-2 space-y-1 text-xs text-gray-600 dark:text-gray-400">
+          {relations.map((r) => (
+            <li key={r.id} className="flex items-center justify-between">
+              <span>
+                {describeRelation(r)}
+                {r.notes ? ` — ${r.notes}` : ''}
+              </span>
+              <button
+                className="text-red-600 hover:underline dark:text-red-400"
+                onClick={() => deleteRelation.mutate(r.id)}
+              >
+                Eliminar
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="space-y-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          createRelation.mutate()
+        }}
+      >
+        <Field label="Producto relacionado">
+          <select
+            required
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            value={relatedProductId}
+            onChange={(e) => setRelatedProductId(e.target.value)}
+          >
+            <option value="" disabled>
+              Selecciona un producto…
+            </option>
+            {otherProducts.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} ({p.code})
+              </option>
+            ))}
+          </select>
+        </Field>
+        <div className="grid grid-cols-3 gap-2">
+          {(Object.keys(RELATION_TYPE_LABELS) as ProductRelationType[]).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setRelationType(type)}
+              className={`rounded-xl px-2 py-2 text-xs font-medium ${
+                relationType === type
+                  ? 'bg-brand-blue text-white'
+                  : 'bg-brand-gray text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+              }`}
+            >
+              {RELATION_TYPE_LABELS[type]}
+            </button>
+          ))}
+        </div>
+        <Field label="Notas (opcional)">
+          <Input value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </Field>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        <Button type="submit" disabled={createRelation.isPending || !relatedProductId}>
+          {createRelation.isPending ? 'Guardando…' : '+ Agregar relación'}
         </Button>
       </form>
     </div>

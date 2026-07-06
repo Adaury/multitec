@@ -186,6 +186,18 @@ export interface CalculationParameter {
   updated_at: string | null
 }
 
+export type ProductRelationType = 'compatible_con' | 'alternativa_de' | 'requiere'
+
+export interface ProductRelationView {
+  id: number
+  relation_type: ProductRelationType
+  direction: 'outgoing' | 'incoming'
+  related_product_id: number
+  related_product_name: string | null
+  notes: string | null
+  created_at: string
+}
+
 export type StockMovementType = 'entrada' | 'salida'
 
 export interface StockMovement {
