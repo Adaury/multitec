@@ -20,6 +20,7 @@ import type {
   PreInvoice,
   Product,
   ProjectDetail as ProjectDetailType,
+  PurchaseListPreviewOut,
   Quote,
   QuoteHistoryEntry,
   StageName,
@@ -806,11 +807,19 @@ function QuoteCard({
   const queryClient = useQueryClient()
   const [reason, setReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
+  const [showPurchaseList, setShowPurchaseList] = useState(false)
 
   const { data: history } = useQuery({
     queryKey: ['quote-history', quote.id],
     queryFn: async () => (await api.get<QuoteHistoryEntry[]>(`/quotes/${quote.id}/history`)).data,
     enabled: expanded,
+  })
+
+  const { data: purchaseListPreview, isLoading: purchaseListLoading } = useQuery({
+    queryKey: ['purchase-list-preview', quote.id],
+    queryFn: async () =>
+      (await api.get<PurchaseListPreviewOut>(`/quotes/${quote.id}/purchase-list-preview`)).data,
+    enabled: showPurchaseList,
   })
 
   function invalidate() {
@@ -919,6 +928,38 @@ function QuoteCard({
                 </Button>
               </div>
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={() => setShowPurchaseList((v) => !v)}
+              className="text-xs font-medium text-brand-blue hover:underline"
+            >
+              {showPurchaseList ? 'Ocultar lista de compras' : 'Ver lista de compras'}
+            </button>
+            {showPurchaseList && (
+              <div className="space-y-1 rounded-xl bg-brand-gray p-3 text-sm dark:bg-gray-800">
+                {purchaseListLoading && <p className="text-xs text-gray-400">Cargando…</p>}
+                {purchaseListPreview?.already_generated && (
+                  <p className="text-xs text-amber-600 dark:text-amber-400">
+                    Ya se generó como lista de compras real al aprobar — esto es lo mismo.
+                  </p>
+                )}
+                {purchaseListPreview && purchaseListPreview.items.length === 0 && (
+                  <p className="text-xs text-gray-400">Sin materiales.</p>
+                )}
+                {purchaseListPreview && purchaseListPreview.items.length > 0 && (
+                  <ul className="space-y-1 text-gray-600 dark:text-gray-400">
+                    {purchaseListPreview.items.map((item, index) => (
+                      <li key={index}>
+                        {item.quantity} × {item.description}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
           </div>
 
           {quote.status === 'pendiente' && (

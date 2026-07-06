@@ -289,6 +289,18 @@ export interface QuoteHistoryEntry {
   created_at: string
 }
 
+export interface PurchaseListPreviewItem {
+  product_id: number | null
+  description: string
+  quantity: number
+}
+
+export interface PurchaseListPreviewOut {
+  quote_id: number
+  already_generated: boolean
+  items: PurchaseListPreviewItem[]
+}
+
 export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
   pendiente: 'Pendiente',
   aprobada: 'Aprobada',
