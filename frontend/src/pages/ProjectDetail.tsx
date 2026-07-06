@@ -120,6 +120,7 @@ export function ProjectDetail() {
   const tabParam = searchParams.get('tab')
   const initialTab = TABS.some((t) => t.key === tabParam) ? (tabParam as Tab) : 'info'
   const [tab, setTab] = useState<Tab>(initialTab)
+  const [generateWarnings, setGenerateWarnings] = useState<string[]>([])
 
   const { data: project } = useQuery({
     queryKey: ['projects', id],
@@ -158,9 +159,37 @@ export function ProjectDetail() {
         ))}
       </div>
 
+      {generateWarnings.length > 0 && (
+        <div className="rounded-3xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium text-amber-700 dark:text-amber-300">
+              La cotización se generó, pero revisa esto:
+            </p>
+            <button
+              onClick={() => setGenerateWarnings([])}
+              className="text-sm text-amber-700 dark:text-amber-300"
+              aria-label="Descartar avisos"
+            >
+              ×
+            </button>
+          </div>
+          <ul className="mt-1 list-inside list-disc text-sm text-amber-700 dark:text-amber-300">
+            {generateWarnings.map((warning, index) => (
+              <li key={index}>{warning}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {tab === 'info' && <InfoTab project={project} />}
       {tab === 'levantamiento' && (
-        <LevantamientoTab projectId={project.id} onGenerated={() => setTab('cotizacion')} />
+        <LevantamientoTab
+          projectId={project.id}
+          onGenerated={(warnings) => {
+            setGenerateWarnings(warnings)
+            setTab('cotizacion')
+          }}
+        />
       )}
       {tab === 'ingenieria' && <IngenieriaTab projectId={project.id} />}
       {tab === 'presupuesto' && <BudgetTab projectId={project.id} onConverted={() => setTab('cotizacion')} />}
@@ -267,7 +296,13 @@ function InfoTab({ project }: { project: ProjectDetailType }) {
   )
 }
 
-function LevantamientoTab({ projectId, onGenerated }: { projectId: number; onGenerated: () => void }) {
+function LevantamientoTab({
+  projectId,
+  onGenerated,
+}: {
+  projectId: number
+  onGenerated: (warnings: string[]) => void
+}) {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [recording, setRecording] = useState(false)
@@ -327,12 +362,12 @@ function LevantamientoTab({ projectId, onGenerated }: { projectId: number; onGen
   const generate = useMutation({
     mutationFn: async () =>
       (await api.post<GenerateFromSurveyOut>(`/projects/${projectId}/generate-from-survey`)).data,
-    onSuccess: () => {
+    onSuccess: (data) => {
       setGenerateError(null)
       queryClient.invalidateQueries({ queryKey: ['budgets', projectId] })
       queryClient.invalidateQueries({ queryKey: ['quotes', projectId] })
       queryClient.invalidateQueries({ queryKey: ['engineering', projectId] })
-      onGenerated()
+      onGenerated(data.warnings)
     },
     onError: (error: any) => setGenerateError(error?.response?.data?.detail ?? 'Error al generar la cotización'),
   })
@@ -602,13 +637,18 @@ function BudgetTab({ projectId, onConverted }: { projectId: number; onConverted:
   })
 
   const [aiError, setAiError] = useState<string | null>(null)
+  const [aiWarnings, setAiWarnings] = useState<string[]>([])
   const aiSuggest = useMutation({
     mutationFn: async () => (await api.post<BudgetSuggestionOut>(`/projects/${projectId}/budget-suggestions`)).data,
     onSuccess: (data) => {
       setAiError(null)
+      setAiWarnings(data.warnings)
       setItems(data.items.map((item) => ({ ...item })))
     },
-    onError: (error: any) => setAiError(error?.response?.data?.detail ?? 'Error al sugerir materiales'),
+    onError: (error: any) => {
+      setAiWarnings([])
+      setAiError(error?.response?.data?.detail ?? 'Error al sugerir materiales')
+    },
   })
 
   return (
@@ -637,6 +677,13 @@ function BudgetTab({ projectId, onConverted }: { projectId: number; onConverted:
             {aiSuggest.isPending ? 'Sugiriendo…' : '🤖 Sugerir materiales'}
           </Button>
           {aiError && <p className="text-sm text-red-600 dark:text-red-400">{aiError}</p>}
+          {aiWarnings.length > 0 && (
+            <ul className="list-inside list-disc text-sm text-amber-600 dark:text-amber-400">
+              {aiWarnings.map((warning, index) => (
+                <li key={index}>{warning}</li>
+              ))}
+            </ul>
+          )}
           <LineItemsEditor items={items} onChange={setItems} products={products ?? []} mode="budget" />
           <Button onClick={() => createBudget.mutate()} disabled={createBudget.isPending || items.length === 0}>
             {createBudget.isPending ? 'Guardando…' : 'Guardar presupuesto'}

@@ -228,6 +228,7 @@ export interface GenerateFromSurveyOut {
   budget: Budget
   quote: Quote
   engineering_drafted: boolean
+  warnings: string[]
 }
 
 export interface QuoteHistoryEntry {
@@ -524,6 +525,7 @@ export interface BudgetSuggestionItem {
 
 export interface BudgetSuggestionOut {
   items: BudgetSuggestionItem[]
+  warnings: string[]
 }
 
 export interface AskResponse {
