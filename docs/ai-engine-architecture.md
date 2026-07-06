@@ -453,6 +453,90 @@ proyecto atípico) contamine el catálogo de reglas para todos. Construirlo ahor
 datos reales que analizar, habría sido especular sobre qué forma deben tener los
 patrones — mejor esperar al volumen real de proyectos que ya está capturando esta fase.
 
+### Scoping del análisis periódico (diseño, aún sin construir)
+
+> **Estado: solo diseño — cero filas en `ai_feedback_events` en el ambiente real hoy.**
+> Esta sección fija el alcance para cuando haya volumen suficiente; no se implementa en
+> esta fase por la misma razón que el resto del documento ya defendía: construir el
+> análisis sin datos reales sería adivinar la forma de los patrones. Lo que sí se puede
+> fijar ahora, sin datos, es el contrato (qué pregunta responde, qué no) y un prerrequisito
+> de esquema que es gratis hoy y costoso después.
+
+**Prerrequisito — `ai_feedback_events.budget_id`.** Hoy la tabla solo guarda `project_id`,
+no `budget_id`. Un proyecto puede tener más de un `Budget` (recotizaciones), así que para
+reconstruir "qué otros productos había en el presupuesto cuando se agregó/quitó esta
+línea a mano" hace falta saber de cuál `Budget` viene cada evento — con solo `project_id`
+esa reconstrucción es ambigua si hubo más de una generación. Agregar `budget_id` (FK
+nullable a `budgets`, sin backfill porque hoy no hay filas que migrar) es un cambio de una
+columna que cuesta cero ahora mismo y se vuelve una migración con filas huérfanas (NULL)
+en cuanto exista tráfico real — por eso este es el único cambio de esquema que tiene
+sentido hacer *antes* de tener volumen, no después.
+
+**Qué pregunta responde v1 — solo dos patrones, ambos con espejo 1:1 en algo que el
+admin ya sabe crear/borrar hoy:**
+
+1. **Accesorio agregado a mano de forma consistente → candidato a `add_accessory`.**
+   Agrupar eventos `human_added` (`entity_type=budget_item`) por el par (producto fuente
+   S presente en ese mismo `Budget`, producto agregado a mano P). Si el par (S, P) aparece
+   en ≥ N proyectos distintos (umbral a definir con datos reales, no antes) y ninguna regla
+   `add_accessory`/`CatalogRule` ya cubre esa combinación, es candidato.
+2. **Accesorio sugerido por una regla existente pero quitado a mano de forma consistente
+   → candidato a revisar/borrar esa regla.** Para cada `TechnicalRule` `add_accessory`
+   activa (S → tag T), contar en cuántos proyectos donde S estaba presente el producto
+   agregado (con tag T) aparece luego como `human_removed`. Una proporción alta sugiere
+   que la regla ya no aplica o el tag es demasiado amplio.
+
+**Deliberadamente fuera de v1:**
+- **Ajustes de `calculation_parameters` a partir de `human_modified`** (ej. inferir que
+  `cable_waste_margin_pct` debería subir porque humanos repetidamente aumentan la
+  cantidad de cable). Requiere re-derivar cuánto había calculado la IA antes del ajuste
+  humano, no solo diferenciar valores — más aritmética, menos certeza sin datos reales
+  para validar el heurístico.
+- **Patrones sobre los campos de texto de `Engineering`.** Son texto libre; agruparlos
+  en patrones pediría resumir/clusterizar con el modelo (otro prompt, otra capa de
+  incertidumbre) en vez de una comparación estructurada como en `budget_item`. Se
+  captura la señal cruda (ya implementado); analizarla queda para una fase posterior si
+  el volumen de correcciones de ingeniería lo justifica.
+- **Aplicar la propuesta automáticamente.** Ver siguiente punto — la propuesta no crea
+  ni borra nada por sí sola.
+
+**Cómo se presenta la propuesta — sin tabla nueva, sin endpoint de "aplicar".** La
+propuesta es el resultado de un cálculo de solo lectura, no un registro persistente: se
+muestra en `AIFeedbackEvents.tsx` como una lista de sugerencias con su evidencia (qué
+productos, en cuántos proyectos, ejemplo de cantidades), y cada una enlaza a la acción que
+un admin ya sabe hacer manualmente hoy:
+- Patrón 1 → abre el formulario de "Agregar regla" (`RulesEditor`) ya existente,
+  pre-rellenado con el producto fuente y una etiqueta sugerida (la primera de
+  `Product.tags` del producto agregado) que el admin puede corregir antes de enviar —
+  nunca se envía sin que el admin lo confirme, porque solo el admin sabe si esa etiqueta
+  es demasiado amplia o exacta.
+- Patrón 2 → resalta la regla existente en la lista de reglas del producto con la
+  evidencia al lado; borrar sigue siendo el botón "Eliminar" que ya existe.
+
+Esto evita construir una tabla `rule_proposals` + un endpoint de aprobación/rechazo +
+un flujo de estados nuevo, cuando la acción real (crear o borrar una `TechnicalRule`) ya
+tiene su propio endpoint aprobado por diseño. La limitación conocida de este enfoque: si
+un admin decide activamente "no quiero esta regla" pero el patrón se sigue repitiendo, la
+misma sugerencia reaparecerá en la próxima corrida (no hay dónde recordar "ya la descarté").
+Aceptable para v1 dado el volumen esperado inicial; si en la práctica resulta molesto, la
+extensión natural es una tabla pequeña `dismissed_rule_proposals` (huella de
+`(proposal_type, source_product_id, target_product_id)` + fecha) consultada antes de
+incluir una sugerencia — no hace falta construirla por adelantado sin evidencia de que el
+problema ocurre.
+
+**Disparo — sin scheduler.** Igual que `quote_archiver.archive_stale_quotes` evita un
+scheduler ejecutándose de forma perezosa, el análisis de Motor 7 se dispara con un botón
+"Analizar ahora" en `AIFeedbackEvents.tsx` (`POST /api/ai-feedback-events/analyze`),
+no con un cron. Es una operación de lectura pesada (recorre todos los eventos) que un
+admin dispara cuando quiere revisar propuestas, no algo que deba correr en cada carga de
+página. Si con el tiempo se vuelve una tarea de rutina periódica, ahí se justifica mover
+el disparo a un scheduler — no antes.
+
+**Umbrales (N proyectos, proporción mínima):** deliberadamente sin fijar todavía. Son los
+únicos números de este diseño que dependen de ver datos reales para calibrarse sin
+adivinar — se definen cuando exista volumen para probarlos, tal como ya advertía la
+sección anterior.
+
 ## Modelo de datos consolidado
 
 | Tabla | Estado | Motor |
@@ -596,3 +680,7 @@ falta poder corregir capacidad automáticamente en vez de solo advertir.
 
 Con esto, de los 7 motores solo queda un hueco deliberado: el análisis periódico de
 Motor 7, esperando volumen real de proyectos, como estaba planeado desde el principio.
+Su alcance ya quedó fijado (§ "Scoping del análisis periódico" arriba: dos patrones v1,
+sin tabla ni endpoint de propuestas, disparo manual sin scheduler) — lo único pendiente
+de ese diseño son los umbrales numéricos, que dependen de datos reales para calibrarse
+sin adivinar.
