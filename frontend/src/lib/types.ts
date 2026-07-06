@@ -162,6 +162,30 @@ export interface CatalogRule {
   created_at: string
 }
 
+export type TechnicalRuleActionType = 'add_accessory' | 'set_calculation_parameter' | 'flag_engineering_note'
+
+export interface TechnicalRule {
+  id: number
+  source_product_id: number
+  action_type: TechnicalRuleActionType
+  target_tag: string | null
+  per_source_units: number | null
+  quantity: number
+  parameter_key: string | null
+  value: number | null
+  engineering_note: string | null
+  notes: string | null
+  created_at: string
+}
+
+export interface CalculationParameter {
+  key: string
+  value: number
+  description: string | null
+  is_default: boolean
+  updated_at: string | null
+}
+
 export type StockMovementType = 'entrada' | 'salida'
 
 export interface StockMovement {

@@ -1,7 +1,16 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import type { CatalogRule, Category, Product, StockMovement, StockMovementType } from '../lib/types'
+import type {
+  CalculationParameter,
+  CatalogRule,
+  Category,
+  Product,
+  StockMovement,
+  StockMovementType,
+  TechnicalRule,
+  TechnicalRuleActionType,
+} from '../lib/types'
 import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
 
 interface CategoryOption {
@@ -369,63 +378,143 @@ function ProductCard({
   )
 }
 
+const ACTION_TYPE_LABELS: Record<TechnicalRuleActionType, string> = {
+  add_accessory: 'Agregar accesorio',
+  set_calculation_parameter: 'Ajustar cálculo',
+  flag_engineering_note: 'Nota de ingeniería',
+}
+
+function describeAccessoryRule(quantity: number, tag: string, perSourceUnits: number | null): string {
+  return perSourceUnits
+    ? `Agregar ${quantity} "${tag}" por cada ${perSourceUnits} de este`
+    : `Agregar ${quantity} "${tag}" fijo`
+}
+
 function RulesEditor({ productId }: { productId: number }) {
   const queryClient = useQueryClient()
+  const [actionType, setActionType] = useState<TechnicalRuleActionType>('add_accessory')
+
+  // Campos de "Agregar accesorio"
   const [targetTag, setTargetTag] = useState('')
   const [proportional, setProportional] = useState(false)
   const [perSourceUnits, setPerSourceUnits] = useState('1')
   const [ruleQuantity, setRuleQuantity] = useState('1')
+
+  // Campos de "Ajustar cálculo"
+  const [parameterKey, setParameterKey] = useState('')
+  const [parameterValue, setParameterValue] = useState('')
+
+  // Campos de "Nota de ingeniería"
+  const [engineeringNote, setEngineeringNote] = useState('')
+
   const [error, setError] = useState<string | null>(null)
 
-  const { data: rules } = useQuery({
+  // Mecanismo original — se mantiene intacto, sin migrar (§ ai-engine-architecture.md,
+  // Motor 4). Las reglas nuevas se crean todas vía /technical-rules; estas solo se
+  // siguen listando/borrando para no perder de vista reglas ya existentes.
+  const { data: legacyRules } = useQuery({
     queryKey: ['catalog-rules', productId],
     queryFn: async () => (await api.get<CatalogRule[]>(`/catalog/${productId}/rules`)).data,
   })
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['catalog-rules', productId] })
+  const { data: technicalRules } = useQuery({
+    queryKey: ['technical-rules', productId],
+    queryFn: async () => (await api.get<TechnicalRule[]>(`/catalog/${productId}/technical-rules`)).data,
+  })
+
+  const { data: calculationParameters } = useQuery({
+    queryKey: ['calculation-parameters'],
+    queryFn: async () => (await api.get<CalculationParameter[]>('/calculation-parameters')).data,
+  })
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: ['catalog-rules', productId] })
+    queryClient.invalidateQueries({ queryKey: ['technical-rules', productId] })
+  }
 
   const createRule = useMutation({
-    mutationFn: async () =>
-      (
-        await api.post(`/catalog/${productId}/rules`, {
-          target_tag: targetTag,
-          per_source_units: proportional ? Number(perSourceUnits) : null,
-          quantity: Number(ruleQuantity),
-        })
-      ).data,
+    mutationFn: async () => {
+      const payload =
+        actionType === 'add_accessory'
+          ? {
+              action_type: 'add_accessory' as const,
+              target_tag: targetTag,
+              per_source_units: proportional ? Number(perSourceUnits) : null,
+              quantity: Number(ruleQuantity),
+            }
+          : actionType === 'set_calculation_parameter'
+            ? {
+                action_type: 'set_calculation_parameter' as const,
+                parameter_key: parameterKey,
+                value: Number(parameterValue),
+              }
+            : { action_type: 'flag_engineering_note' as const, engineering_note: engineeringNote }
+      return (await api.post(`/catalog/${productId}/technical-rules`, payload)).data
+    },
     onSuccess: () => {
       invalidate()
       setTargetTag('')
       setProportional(false)
       setPerSourceUnits('1')
       setRuleQuantity('1')
+      setParameterKey('')
+      setParameterValue('')
+      setEngineeringNote('')
       setError(null)
     },
     onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo crear la regla'),
   })
 
-  const deleteRule = useMutation({
+  const deleteLegacyRule = useMutation({
     mutationFn: async (ruleId: number) => (await api.delete(`/catalog/rules/${ruleId}`)).data,
     onSuccess: invalidate,
   })
 
+  const deleteTechnicalRule = useMutation({
+    mutationFn: async (ruleId: number) => (await api.delete(`/catalog/technical-rules/${ruleId}`)).data,
+    onSuccess: invalidate,
+  })
+
+  function describeTechnicalRule(r: TechnicalRule): string {
+    if (r.action_type === 'add_accessory') {
+      return describeAccessoryRule(r.quantity, r.target_tag ?? '', r.per_source_units)
+    }
+    if (r.action_type === 'set_calculation_parameter') {
+      const param = calculationParameters?.find((p) => p.key === r.parameter_key)
+      return `Ajustar "${param?.description ?? r.parameter_key}" a ${r.value}`
+    }
+    return `Nota de ingeniería: "${r.engineering_note}"`
+  }
+
+  const canSubmit =
+    (actionType === 'add_accessory' && !!targetTag) ||
+    (actionType === 'set_calculation_parameter' && !!parameterKey && parameterValue !== '') ||
+    (actionType === 'flag_engineering_note' && !!engineeringNote)
+
   return (
     <div>
       <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">
-        Reglas — qué sugerir automáticamente cuando se usa este producto
+        Reglas — qué hacer automáticamente cuando se usa este producto
       </p>
-      {rules && rules.length > 0 && (
+      {((legacyRules && legacyRules.length > 0) || (technicalRules && technicalRules.length > 0)) && (
         <ul className="mb-2 space-y-1 text-xs text-gray-600 dark:text-gray-400">
-          {rules.map((r) => (
-            <li key={r.id} className="flex items-center justify-between">
-              <span>
-                {r.per_source_units
-                  ? `${r.quantity} "${r.target_tag}" por cada ${r.per_source_units} de este`
-                  : `${r.quantity} "${r.target_tag}" fijo`}
-              </span>
+          {legacyRules?.map((r) => (
+            <li key={`legacy-${r.id}`} className="flex items-center justify-between">
+              <span>{describeAccessoryRule(r.quantity, r.target_tag, r.per_source_units)}</span>
               <button
                 className="text-red-600 hover:underline dark:text-red-400"
-                onClick={() => deleteRule.mutate(r.id)}
+                onClick={() => deleteLegacyRule.mutate(r.id)}
+              >
+                Eliminar
+              </button>
+            </li>
+          ))}
+          {technicalRules?.map((r) => (
+            <li key={`technical-${r.id}`} className="flex items-center justify-between">
+              <span>{describeTechnicalRule(r)}</span>
+              <button
+                className="text-red-600 hover:underline dark:text-red-400"
+                onClick={() => deleteTechnicalRule.mutate(r.id)}
               >
                 Eliminar
               </button>
@@ -440,57 +529,116 @@ function RulesEditor({ productId }: { productId: number }) {
           createRule.mutate()
         }}
       >
-        <Field label='Tag del accesorio a sugerir — ej: "nvr", "poe-switch", "disco-duro"'>
-          <Input required value={targetTag} onChange={(e) => setTargetTag(e.target.value)} />
-        </Field>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setProportional(false)}
-            className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
-              !proportional
-                ? 'bg-brand-blue text-white'
-                : 'bg-brand-gray text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-            }`}
-          >
-            Fijo
-          </button>
-          <button
-            type="button"
-            onClick={() => setProportional(true)}
-            className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
-              proportional
-                ? 'bg-brand-blue text-white'
-                : 'bg-brand-gray text-gray-500 dark:bg-gray-800 dark:text-gray-400'
-            }`}
-          >
-            Proporcional
-          </button>
+        <div className="grid grid-cols-3 gap-2">
+          {(Object.keys(ACTION_TYPE_LABELS) as TechnicalRuleActionType[]).map((type) => (
+            <button
+              key={type}
+              type="button"
+              onClick={() => setActionType(type)}
+              className={`rounded-xl px-2 py-2 text-xs font-medium ${
+                actionType === type
+                  ? 'bg-brand-blue text-white'
+                  : 'bg-brand-gray text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+              }`}
+            >
+              {ACTION_TYPE_LABELS[type]}
+            </button>
+          ))}
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {proportional && (
-            <Field label="Por cada X de este producto">
+
+        {actionType === 'add_accessory' && (
+          <>
+            <Field label='Tag del accesorio a sugerir — ej: "nvr", "poe-switch", "disco-duro"'>
+              <Input required value={targetTag} onChange={(e) => setTargetTag(e.target.value)} />
+            </Field>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setProportional(false)}
+                className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
+                  !proportional
+                    ? 'bg-brand-blue text-white'
+                    : 'bg-brand-gray text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                }`}
+              >
+                Fijo
+              </button>
+              <button
+                type="button"
+                onClick={() => setProportional(true)}
+                className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
+                  proportional
+                    ? 'bg-brand-blue text-white'
+                    : 'bg-brand-gray text-gray-500 dark:bg-gray-800 dark:text-gray-400'
+                }`}
+              >
+                Proporcional
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {proportional && (
+                <Field label="Por cada X de este producto">
+                  <Input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={perSourceUnits}
+                    onChange={(e) => setPerSourceUnits(e.target.value)}
+                  />
+                </Field>
+              )}
+              <Field label="Cantidad a agregar">
+                <Input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={ruleQuantity}
+                  onChange={(e) => setRuleQuantity(e.target.value)}
+                />
+              </Field>
+            </div>
+          </>
+        )}
+
+        {actionType === 'set_calculation_parameter' && (
+          <>
+            <Field label="Parámetro a ajustar mientras este producto esté presente">
+              <select
+                required
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                value={parameterKey}
+                onChange={(e) => setParameterKey(e.target.value)}
+              >
+                <option value="" disabled>
+                  Selecciona un parámetro…
+                </option>
+                {calculationParameters?.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.description ?? p.key}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Nuevo valor">
               <Input
                 type="number"
-                min="0.01"
-                step="0.01"
-                value={perSourceUnits}
-                onChange={(e) => setPerSourceUnits(e.target.value)}
+                step="0.0001"
+                required
+                value={parameterValue}
+                onChange={(e) => setParameterValue(e.target.value)}
               />
             </Field>
-          )}
-          <Field label="Cantidad a agregar">
-            <Input
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={ruleQuantity}
-              onChange={(e) => setRuleQuantity(e.target.value)}
-            />
+          </>
+        )}
+
+        {actionType === 'flag_engineering_note' && (
+          <Field label="Nota a agregar al borrador de ingeniería">
+            <Textarea required rows={2} value={engineeringNote} onChange={(e) => setEngineeringNote(e.target.value)} />
           </Field>
-        </div>
+        )}
+
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-        <Button type="submit" disabled={createRule.isPending || !targetTag}>
+        <Button type="submit" disabled={createRule.isPending || !canSubmit}>
           {createRule.isPending ? 'Guardando…' : '+ Agregar regla'}
         </Button>
       </form>
