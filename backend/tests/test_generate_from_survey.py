@@ -31,10 +31,10 @@ def test_generate_from_survey_creates_budget_and_pending_quote(client, admin_tok
 
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": product["id"], "description": product["name"], "quantity": 8}],
         ) as mocked_suggest,
-        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft) as mocked_draft,
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft) as mocked_draft,
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
@@ -78,11 +78,11 @@ def test_generate_from_survey_expands_rules_with_quantity(client, admin_token):
 
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": camera["id"], "description": camera["name"], "quantity": 9}],
         ),
         patch(
-            "app.api.routers.ai.draft_engineering",
+            "app.ai_engine.documents.draft_engineering",
             side_effect=HTTPException(status_code=400, detail="Ollama no disponible"),
         ),
         patch("app.api.routers.ai.reindex_project"),
@@ -105,7 +105,7 @@ def test_generate_from_survey_requires_at_least_one_item(client, admin_token):
     project = make_project(client, headers)
 
     with (
-        patch("app.api.routers.ai.suggest_budget_items", return_value=[]),
+        patch("app.ai_engine.documents.suggest_budget_items", return_value=[]),
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
@@ -134,10 +134,10 @@ def test_generate_from_survey_does_not_overwrite_existing_engineering(client, ad
 
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": product["id"], "description": product["name"], "quantity": 1}],
         ),
-        patch("app.api.routers.ai.draft_engineering") as mocked_draft,
+        patch("app.ai_engine.documents.draft_engineering") as mocked_draft,
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)

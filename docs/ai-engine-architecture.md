@@ -359,25 +359,28 @@ apply_cable_waste_margin(items, catalog, waste_margin_pct) -> list[dict]       #
 
 ## Motor 6 — Motor de generación documental
 
-> **Estado: los dos huecos de la Fase 4 quedaron cerrados.** `GET
-> /api/quotes/{id}/purchase-list-preview` expone la lista de compras preliminar (solo
-> lectura) y `GET /api/quotes/{id}/pdf?variant=ejecutiva` genera la cotización ejecutiva
-> como una plantilla distinta sobre el mismo `Quote`. El orquestador general
-> (`generar_desde_levantamiento` → `DocumentSet`) descrito más abajo sigue sin
-> construirse — `generate_from_survey` sigue siendo la función concreta que hace ese
-> trabajo, no una interfaz genérica; generalizarla queda para cuando haga falta un
-> segundo flujo de generación que la necesite.
+> **Estado: orquestador construido.** `app/ai_engine/documents.py::generate_documents_from_survey`
+> generaliza lo que antes vivía inline dentro del endpoint — recibe `(db, project_id,
+> context, created_by)` y devuelve un `DocumentSet` (`budget`, `quote`,
+> `engineering_drafted`, `warnings`). El endpoint `generate_from_survey` quedó como un
+> wrapper delgado: arma el contexto, llama al orquestador, comitea y notifica — los
+> mismos tres pasos que antes hacía `build_pre_invoice_from_quote` estilo "no comitea, el
+> caller decide cuándo". La vista previa (`ai_budget_suggestions`) y el orquestador ahora
+> comparten el mismo cálculo (`compute_survey_items`), que antes estaba duplicado
+> línea por línea entre ambos endpoints.
 
 **Responsabilidad:** producir todos los documentos del proyecto sin recapturar
-información. Este es el motor más maduro: `generate_from_survey` ya encadena
-`suggest_budget_items` → `expand_with_rules` → `apply_cable_waste_margin` →
-`build_budget` → `build_quote_from_budget` → borrador de ingeniería (best-effort), y
-`mark_quote_approved` ya genera Materiales (lista de compras) y Prefactura
-automáticamente al aprobar la cotización.
+información. Este es el motor más maduro: el orquestador encadena
+`suggest_budget_items` → `expand_with_rules` → reglas de Motor 4
+(`resolve_calculation_parameter_overrides`/`resolve_engineering_notes`) →
+`apply_cable_waste_margin` → `calculate_storage` → `calculate_labor` →
+`calculate_capacity_warnings` → `build_budget` → `build_quote_from_budget` → borrador de
+ingeniería (best-effort), y `mark_quote_approved` ya genera Materiales (lista de
+compras) y Prefactura automáticamente al aprobar la cotización.
 
 - **Lista de Compras preliminar (implementado).** `Material` se sigue generando recién al
   aprobar la cotización — correcto como comportamiento de negocio (no tiene sentido
-  comprar algo no aprobado). Lo nuevo es una vista de solo lectura,
+  comprar algo no aprobado). Existe una vista de solo lectura,
   `GET /api/quotes/{quote_id}/purchase-list-preview`, que muestra exactamente lo que
   `mark_quote_approved` generaría como `Material` si esa cotización se aprobara ahora,
   sin crear ninguna fila. Ambos caminos leen de la misma función
@@ -390,16 +393,23 @@ automáticamente al aprobar la cotización.
   producto) y muestra subtotal/ITBIS/total, sin desglose línea por línea. Mismo `pdf.py`
   que ya generaba la cotización detallada y la factura (con su propia variante `global`).
 
-**Interfaz (orquestador, generaliza `generate_from_survey` — no construida todavía):**
+**Interfaz (implementada):**
 ```
-generar_desde_levantamiento(survey) -> DocumentSet
+compute_survey_items(db, context) -> (items, warnings, engineering_notes)          # ai_engine/documents.py
+generate_documents_from_survey(db, project_id, context, created_by) -> DocumentSet  # ai_engine/documents.py
 ```
-donde `DocumentSet` reportaría qué se creó, qué ya existía (idempotencia — patrón ya
-usado en `build_pre_invoice_from_quote`), y qué queda pendiente de aprobación humana.
+`DocumentSet` reporta `budget`, `quote`, `engineering_drafted` y `warnings`. No incluye
+un campo genérico de "qué ya existía": Budget/Quote son siempre una generación nueva por
+diseño (cada corrida es una foto fresca del presupuesto a partir del estado actual del
+levantamiento, no hay "la misma corrida" que evitar duplicar) — `engineering_drafted`
+sigue siendo la única señal de "esto ya existía" que aplica, porque Engineering es la
+única pieza que respeta contenido previo.
 
 **No cambia:** la frontera de aprobación humana antes de Prefactura→Factura, ni el
 patrón "best-effort" para el borrador de ingeniería (si falla, no debe tumbar la
-generación de presupuesto/cotización que sí funcionó).
+generación de presupuesto/cotización que sí funcionó); ni el que el orquestador no
+comitea ni notifica — eso lo sigue haciendo el endpoint, igual que ya hacían
+`build_budget`/`build_quote_from_budget`.
 
 ## Motor 7 — Aprendizaje
 
@@ -578,7 +588,11 @@ falta poder corregir capacidad automáticamente en vez de solo advertir.
   anticipaba — con el efecto colateral de que `action_type` ahora es obligatorio en el
   payload de creación (antes se podía omitir y asumía `add_accessory`).
 
-Con esto, de los 7 motores solo quedan huecos deliberados: el orquestador genérico de
-Motor 6 (`generar_desde_levantamiento -> DocumentSet`, sin un segundo flujo que lo
-necesite todavía) y el análisis periódico de Motor 7 (esperando volumen real de
-proyectos, como estaba planeado).
+- **Motor 6 — orquestador construido:** `generate_documents_from_survey` (§ arriba)
+  generaliza el pipeline que antes vivía inline en el endpoint, y de paso eliminó una
+  duplicación real que ya existía entre `ai_budget_suggestions` y `generate_from_survey`
+  (ambos repetían el mismo cálculo casi línea por línea) — ahora comparten
+  `compute_survey_items`.
+
+Con esto, de los 7 motores solo queda un hueco deliberado: el análisis periódico de
+Motor 7, esperando volumen real de proyectos, como estaba planeado desde el principio.

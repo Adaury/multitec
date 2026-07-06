@@ -174,10 +174,10 @@ def test_technical_rule_expands_alongside_catalog_rule_in_generate_from_survey(c
     }
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": camera["id"], "description": camera["name"], "quantity": 8}],
         ),
-        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft),
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
@@ -228,10 +228,10 @@ def test_set_calculation_parameter_and_flag_engineering_note_apply_in_generate_f
     }
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": fiber["id"], "description": fiber["name"], "quantity": 100}],
         ),
-        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft),
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)

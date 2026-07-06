@@ -3,46 +3,21 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
-from app.ai_engine.calculation import (
-    CABLE_WASTE_MARGIN_KEY,
-    LABOR_HOURLY_RATE_KEY,
-    LABOR_MAX_HOURS_PER_TECHNICIAN_KEY,
-    STORAGE_GB_PER_MP_PER_DAY_KEY,
-    STORAGE_RETENTION_DAYS_KEY,
-    apply_cable_waste_margin,
-    build_labor_budget_item,
-    calculate_capacity_warnings,
-    calculate_labor,
-    calculate_storage,
-    get_calculation_parameter,
-)
-from app.ai_engine.catalog_matching import suggest_budget_items
-from app.ai_engine.documents import draft_engineering
+from app.ai_engine.documents import compute_survey_items, draft_engineering, generate_documents_from_survey
 from app.ai_engine.nlu import summarize_survey
 from app.ai_engine.qa import answer_question
-from app.ai_engine.rules import (
-    build_accessory_rule_dicts,
-    expand_with_rules,
-    resolve_calculation_parameter_overrides,
-    resolve_engineering_notes,
-)
-from app.api.routers.budgets import build_budget, build_quote_from_budget
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.budget import Budget
-from app.models.catalog_rule import CatalogRule
 from app.models.engineering import Engineering
 from app.models.logbook import LogEntry
 from app.models.material import Material
-from app.models.product import Product
 from app.models.project import Project
 from app.models.quote import Quote
 from app.models.survey import Survey
-from app.models.technical_rule import TechnicalRule
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas.ai import AskRequest, AskResponse, BudgetSuggestionOut, EngineeringDraftOut, GenerateFromSurveyOut
-from app.schemas.budget import BudgetItemIn
 from app.schemas.survey import SurveyOut
 from app.services.embeddings import reindex_project, search_projects
 from app.services.notifications import notify_quote_pending
@@ -128,56 +103,6 @@ def _build_project_context(db: Session, project: Project) -> str:
     return "\n".join(lines)
 
 
-def _build_catalog_dicts(products: list[Product]) -> list[dict]:
-    """Catálogo enriquecido con los campos semánticos (§ catálogo inteligente) para que
-    suggest_budget_items pueda hacer matching por tags/sinónimos y proponer accesorios
-    relacionados, en vez de depender solo del nombre exacto. `products` debe venir ordenado
-    por código — expand_with_rules resuelve el primer match del catálogo en ese orden."""
-    return [
-        {
-            "id": p.id,
-            "name": p.name,
-            "category": p.category_name,
-            "unit": p.unit,
-            "tags": p.tags or [],
-            "synonyms": p.synonyms or [],
-        }
-        for p in products
-    ]
-
-
-def _build_install_profiles(products: list[Product]) -> dict[int, tuple[float | None, str | None]]:
-    """product_id -> (install_minutes, labor_role) para `calculate_labor` (Motor 5) — se
-    arma directo de los `Product` ya cargados, sin volver a consultar la base de datos."""
-    return {
-        p.id: (float(p.install_minutes) if p.install_minutes is not None else None, p.labor_role) for p in products
-    }
-
-
-def _build_resolution_profiles(products: list[Product]) -> dict[int, float | None]:
-    """product_id -> resolution_mp para `calculate_storage` (Motor 5)."""
-    return {p.id: (float(p.resolution_mp) if p.resolution_mp is not None else None) for p in products}
-
-
-def _build_storage_capacity_profiles(products: list[Product]) -> dict[int, float | None]:
-    """product_id -> storage_capacity_gb para `calculate_storage` (Motor 5)."""
-    return {p.id: (float(p.storage_capacity_gb) if p.storage_capacity_gb is not None else None) for p in products}
-
-
-def _build_channel_capacity_profiles(products: list[Product]) -> dict[int, int | None]:
-    """product_id -> channel_capacity para `calculate_capacity_warnings` (Motor 5)."""
-    return {p.id: p.channel_capacity for p in products}
-
-
-def _resolve_param(db: Session, key: str, overrides: dict[str, float]) -> float:
-    """Valor de un `calculation_parameter` para esta generación: el override de Motor 4
-    (`resolve_calculation_parameter_overrides`) si alguna `TechnicalRule` lo activó, si no
-    el configurado/default de siempre."""
-    if key in overrides:
-        return overrides[key]
-    return get_calculation_parameter(db, key)
-
-
 def _reindex_quietly(db: Session, project: Project, context: str) -> None:
     """Actualiza el embedding del proyecto para búsqueda semántica; si Ollama no está
     disponible, no debe romper el flujo principal (ingeniería, presupuesto, etc.)."""
@@ -223,36 +148,7 @@ def ai_budget_suggestions(project_id: int, db: Session = Depends(get_db), _=Depe
     context = _build_project_context(db, project)
     _reindex_quietly(db, project, context)
 
-    products = db.query(Product).order_by(Product.code).all()
-    catalog = _build_catalog_dicts(products)
-    technical_rules = db.query(TechnicalRule).all()
-    rules = build_accessory_rule_dicts(db.query(CatalogRule).all(), technical_rules)
-    product_prices = {p.id: float(p.price) for p in products}
-
-    items = suggest_budget_items(context, catalog)
-    items = expand_with_rules(items, catalog, rules)
-    param_overrides = resolve_calculation_parameter_overrides(items, technical_rules)
-    items = apply_cable_waste_margin(items, catalog, _resolve_param(db, CABLE_WASTE_MARGIN_KEY, param_overrides))
-    items = calculate_storage(
-        items,
-        _build_resolution_profiles(products),
-        _build_storage_capacity_profiles(products),
-        _resolve_param(db, STORAGE_GB_PER_MP_PER_DAY_KEY, param_overrides),
-        _resolve_param(db, STORAGE_RETENTION_DAYS_KEY, param_overrides),
-    )
-    labor_estimate = calculate_labor(
-        items,
-        _build_install_profiles(products),
-        _resolve_param(db, LABOR_HOURLY_RATE_KEY, param_overrides),
-        _resolve_param(db, LABOR_MAX_HOURS_PER_TECHNICIAN_KEY, param_overrides),
-    )
-    if labor_estimate is not None:
-        items = items + [build_labor_budget_item(labor_estimate)]
-    warnings = calculate_capacity_warnings(items, catalog, _build_channel_capacity_profiles(products))
-    for item in items:
-        if item.get("product_id") is not None:
-            item["unit_price"] = product_prices.get(item["product_id"], 0)
-
+    items, warnings, _engineering_notes = compute_survey_items(db, context)
     return BudgetSuggestionOut(items=items, warnings=warnings)
 
 
@@ -263,93 +159,24 @@ def generate_from_survey(
     """Genera Presupuesto + Cotización (y, si aplica, un borrador de Ingeniería) de una
     sola vez a partir del levantamiento — § levantamiento inteligente. La cotización queda
     'pendiente': aprobar sigue siendo una decisión humana (staff u oficina, o el cliente
-    desde el portal), no se auto-aprueba aquí."""
+    desde el portal), no se auto-aprueba aquí. El pipeline en sí (Motor 1-6) vive en
+    `app.ai_engine.documents.generate_documents_from_survey`; este endpoint solo arma el
+    contexto, comitea y notifica."""
     project = _get_project(db, project_id)
     context = _build_project_context(db, project)
     _reindex_quietly(db, project, context)
 
-    products = db.query(Product).order_by(Product.code).all()
-    catalog = _build_catalog_dicts(products)
-    technical_rules = db.query(TechnicalRule).all()
-    rules = build_accessory_rule_dicts(db.query(CatalogRule).all(), technical_rules)
-    product_prices = {p.id: float(p.price) for p in products}
-
-    items = suggest_budget_items(context, catalog)
-    items = expand_with_rules(items, catalog, rules)
-    if not items:
-        raise HTTPException(status_code=400, detail="La IA no pudo derivar materiales del levantamiento")
-
-    param_overrides = resolve_calculation_parameter_overrides(items, technical_rules)
-    engineering_notes = resolve_engineering_notes(items, technical_rules)
-    items = apply_cable_waste_margin(items, catalog, _resolve_param(db, CABLE_WASTE_MARGIN_KEY, param_overrides))
-    items = calculate_storage(
-        items,
-        _build_resolution_profiles(products),
-        _build_storage_capacity_profiles(products),
-        _resolve_param(db, STORAGE_GB_PER_MP_PER_DAY_KEY, param_overrides),
-        _resolve_param(db, STORAGE_RETENTION_DAYS_KEY, param_overrides),
-    )
-    labor_estimate = calculate_labor(
-        items,
-        _build_install_profiles(products),
-        _resolve_param(db, LABOR_HOURLY_RATE_KEY, param_overrides),
-        _resolve_param(db, LABOR_MAX_HOURS_PER_TECHNICIAN_KEY, param_overrides),
-    )
-    if labor_estimate is not None:
-        items = items + [build_labor_budget_item(labor_estimate)]
-    warnings = calculate_capacity_warnings(items, catalog, _build_channel_capacity_profiles(products))
-    for item in items:
-        if item.get("product_id") is not None:
-            item["unit_price"] = product_prices.get(item["product_id"], 0)
-
-    items_in = [BudgetItemIn(**item) for item in items]
-    budget = build_budget(
-        db, project_id, "Generado automáticamente desde el levantamiento", items_in, current_user.id,
-        ai_generated=True,
-    )
-    db.flush()  # build_quote_from_budget necesita budget.id
-    quote = build_quote_from_budget(db, budget, current_user.id)
-
-    # El borrador de ingeniería es "best effort": si esta segunda llamada a Ollama falla,
-    # la cotización ya generada no se pierde. Solo se rellena si el proyecto no tiene
-    # ingeniería propia todavía (no pisa lo que oficina ya haya editado a mano).
-    engineering_drafted = False
-    engineering = db.query(Engineering).filter(Engineering.project_id == project_id).one_or_none()
-    if engineering is not None and not any(
-        [
-            engineering.recommended_equipment,
-            engineering.distribution,
-            engineering.conduits,
-            engineering.wiring,
-            engineering.technical_design,
-            engineering.observations,
-        ]
-    ):
-        try:
-            draft = draft_engineering(context)
-            engineering.recommended_equipment = draft["recommended_equipment"]
-            engineering.distribution = draft["distribution"]
-            engineering.conduits = draft["conduits"]
-            engineering.wiring = draft["wiring"]
-            engineering.technical_design = draft["technical_design"]
-            observations = draft["observations"]
-            if engineering_notes:
-                # Motor 4 -> Motor 6: notas de flag_engineering_note activadas por
-                # productos presentes en el presupuesto (ver resolve_engineering_notes).
-                extra = "\n".join(engineering_notes)
-                observations = f"{observations}\n{extra}" if observations else extra
-            engineering.observations = observations
-            engineering.ai_generated = True
-            engineering_drafted = True
-        except HTTPException as e:
-            logger.warning("Borrador de ingeniería omitido para el proyecto %s: %s", project_id, e.detail)
+    document_set = generate_documents_from_survey(db, project_id, context, current_user.id)
 
     db.commit()
-    db.refresh(budget)
-    db.refresh(quote)
-    notify_quote_pending(db, quote)
+    db.refresh(document_set.budget)
+    db.refresh(document_set.quote)
+    notify_quote_pending(db, document_set.quote)
     return GenerateFromSurveyOut(
-        budget=budget, quote=quote, engineering_drafted=engineering_drafted, warnings=warnings
+        budget=document_set.budget,
+        quote=document_set.quote,
+        engineering_drafted=document_set.engineering_drafted,
+        warnings=document_set.warnings,
     )
 
 

@@ -64,10 +64,10 @@ def test_generate_from_survey_applies_configured_cable_waste_margin(client, admi
     }
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": cable["id"], "description": cable["name"], "quantity": 200}],
         ),
-        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft),
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
@@ -98,10 +98,10 @@ def test_generate_from_survey_adds_estimated_labor_line(client, admin_token):
     }
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": camera["id"], "description": camera["name"], "quantity": 8}],
         ),
-        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft),
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
@@ -130,10 +130,10 @@ def test_generate_from_survey_has_no_labor_line_without_install_minutes(client, 
     }
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": camera["id"], "description": camera["name"], "quantity": 8}],
         ),
-        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft),
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
@@ -172,13 +172,13 @@ def test_generate_from_survey_bumps_disk_quantity_to_meet_storage_needs(client, 
     }
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[
                 {"product_id": camera["id"], "description": camera["name"], "quantity": 5},
                 {"product_id": disk["id"], "description": disk["name"], "quantity": 1},
             ],
         ),
-        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft),
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
@@ -212,13 +212,13 @@ def test_generate_from_survey_warns_when_nvr_capacity_is_insufficient(client, ad
     }
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[
                 {"product_id": camera["id"], "description": camera["name"], "quantity": 12},
                 {"product_id": nvr["id"], "description": nvr["name"], "quantity": 1},
             ],
         ),
-        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft),
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)

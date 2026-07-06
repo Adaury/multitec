@@ -31,10 +31,10 @@ def test_generate_from_survey_marks_budget_and_engineering_as_ai_generated(clien
     }
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": camera["id"], "description": camera["name"], "quantity": 8}],
         ),
-        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft),
         patch("app.api.routers.ai.reindex_project"),
     ):
         resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
@@ -54,11 +54,11 @@ def test_editing_ai_generated_budget_records_feedback_and_clears_flag(client, ad
 
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": camera["id"], "description": camera["name"], "quantity": 8}],
         ),
         patch(
-            "app.api.routers.ai.draft_engineering",
+            "app.ai_engine.documents.draft_engineering",
             side_effect=HTTPException(status_code=400, detail="Ollama no disponible"),
         ),
         patch("app.api.routers.ai.reindex_project"),
@@ -131,10 +131,10 @@ def test_editing_ai_generated_engineering_records_feedback(client, admin_token):
     }
     with (
         patch(
-            "app.api.routers.ai.suggest_budget_items",
+            "app.ai_engine.documents.suggest_budget_items",
             return_value=[{"product_id": camera["id"], "description": camera["name"], "quantity": 8}],
         ),
-        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft),
         patch("app.api.routers.ai.reindex_project"),
     ):
         client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
