@@ -122,6 +122,7 @@ export interface Engineering {
   wiring: string | null
   technical_design: string | null
   observations: string | null
+  ai_generated: boolean
 }
 
 export interface Product {
@@ -240,6 +241,7 @@ export interface Budget {
   total: number
   created_at: string
   items: BudgetItem[]
+  ai_generated: boolean
 }
 
 export interface LineItemInput {

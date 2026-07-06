@@ -563,8 +563,15 @@ function IngenieriaTab({ projectId }: { projectId: number }) {
 
   return (
     <Card className="space-y-3">
-      <div className="flex items-center justify-between md:max-w-2xl">
-        <p className="text-sm text-gray-500 dark:text-gray-400">Borrador generado con IA a partir del levantamiento.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3 md:max-w-2xl">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-sm text-gray-500 dark:text-gray-400">Borrador generado con IA a partir del levantamiento.</p>
+          {engineering?.ai_generated && (
+            <Badge tone="blue">
+              <span className="shrink-0 whitespace-nowrap">🤖 Generado por IA</span>
+            </Badge>
+          )}
+        </div>
         <Button
           variant="secondary"
           className="w-auto shrink-0 px-4"
@@ -696,7 +703,10 @@ function BudgetTab({ projectId, onConverted }: { projectId: number; onConverted:
         {budgets?.map((budget) => (
           <Card key={budget.id}>
             <div className="flex items-center justify-between">
-              <p className="font-medium text-gray-900 dark:text-gray-100">{budget.code}</p>
+              <div className="flex items-center gap-2">
+                <p className="font-medium text-gray-900 dark:text-gray-100">{budget.code}</p>
+                {budget.ai_generated && <Badge tone="blue">🤖 IA</Badge>}
+              </div>
               <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{formatDOP(budget.total)}</p>
             </div>
             {budget.notes && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{budget.notes}</p>}
