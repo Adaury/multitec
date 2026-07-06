@@ -1,6 +1,7 @@
 from app.ai_engine.calculation import (
     apply_cable_waste_margin,
     build_labor_budget_item,
+    calculate_capacity_warnings,
     calculate_labor,
     calculate_storage,
 )
@@ -168,3 +169,82 @@ def test_calculate_storage_does_not_add_a_disk_line_when_none_exists():
     result = calculate_storage(items, resolution_by_product_id, {}, 15.0, 30.0)
 
     assert result == items  # ningún producto de almacenamiento en el presupuesto -> nada que ajustar
+
+
+CAPACITY_CATALOG = [
+    {"id": 1, "name": "Cámara IP", "tags": ["camara"]},
+    {"id": 2, "name": "NVR 8 canales", "tags": ["nvr"]},
+    {"id": 3, "name": "Switch PoE 8 puertos", "tags": ["poe-switch"]},
+]
+
+
+def test_calculate_capacity_warns_when_nvr_channels_are_insufficient():
+    items = [
+        {"product_id": 1, "description": "Cámara IP", "quantity": 12},
+        {"product_id": 2, "description": "NVR 8 canales", "quantity": 1},
+    ]
+    capacity_by_product_id = {2: 8}
+
+    warnings = calculate_capacity_warnings(items, CAPACITY_CATALOG, capacity_by_product_id)
+
+    assert len(warnings) == 1
+    assert "NVR" in warnings[0]
+    assert "faltan 4" in warnings[0]
+
+
+def test_calculate_capacity_no_warning_when_nvr_channels_are_sufficient():
+    items = [
+        {"product_id": 1, "description": "Cámara IP", "quantity": 8},
+        {"product_id": 2, "description": "NVR 8 canales", "quantity": 1},
+    ]
+    capacity_by_product_id = {2: 8}
+
+    warnings = calculate_capacity_warnings(items, CAPACITY_CATALOG, capacity_by_product_id)
+
+    assert warnings == []
+
+
+def test_calculate_capacity_accounts_for_multiple_nvr_units():
+    items = [
+        {"product_id": 1, "description": "Cámara IP", "quantity": 16},
+        {"product_id": 2, "description": "NVR 8 canales", "quantity": 2},
+    ]
+    capacity_by_product_id = {2: 8}
+
+    warnings = calculate_capacity_warnings(items, CAPACITY_CATALOG, capacity_by_product_id)
+
+    assert warnings == []  # 2 NVR x 8 canales = 16, alcanza exacto
+
+
+def test_calculate_capacity_warns_separately_for_switch_ports():
+    items = [
+        {"product_id": 1, "description": "Cámara IP", "quantity": 12},
+        {"product_id": 2, "description": "NVR 8 canales", "quantity": 2},  # alcanza (16 >= 12)
+        {"product_id": 3, "description": "Switch PoE 8 puertos", "quantity": 1},  # no alcanza (8 < 12)
+    ]
+    capacity_by_product_id = {2: 8, 3: 8}
+
+    warnings = calculate_capacity_warnings(items, CAPACITY_CATALOG, capacity_by_product_id)
+
+    assert len(warnings) == 1
+    assert "Switch PoE" in warnings[0]
+
+
+def test_calculate_capacity_skips_check_when_capacity_unknown():
+    items = [
+        {"product_id": 1, "description": "Cámara IP", "quantity": 12},
+        {"product_id": 2, "description": "NVR 8 canales", "quantity": 1},
+    ]
+
+    # sin channel_capacity cargado para el NVR -> no se puede comparar, no se advierte
+    warnings = calculate_capacity_warnings(items, CAPACITY_CATALOG, {})
+
+    assert warnings == []
+
+
+def test_calculate_capacity_no_warning_without_any_hub_in_budget():
+    items = [{"product_id": 1, "description": "Cámara IP", "quantity": 12}]
+
+    warnings = calculate_capacity_warnings(items, CAPACITY_CATALOG, {2: 8, 3: 8})
+
+    assert warnings == []

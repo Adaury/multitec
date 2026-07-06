@@ -187,3 +187,49 @@ def test_generate_from_survey_bumps_disk_quantity_to_meet_storage_needs(client, 
     items_by_product = {item["product_id"]: item for item in resp.json()["quote"]["items"]}
     # 5 cámaras * 2MP * 1 GB/MP/día * 10 días = 100 GB -> ceil(100/10) = 10 discos
     assert items_by_product[disk["id"]]["quantity"] == 10
+
+
+def test_generate_from_survey_warns_when_nvr_capacity_is_insufficient(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    camera_category = make_category(client, headers, name="Cámaras IP", code_prefix="CAM")["id"]
+    nvr_category = make_category(client, headers, name="NVR", code_prefix="NVR")["id"]
+    camera = _create_product(
+        client, headers, category_id=camera_category, name="Cámara IP", unit="unidad", tags=["camara"],
+    )
+    nvr = _create_product(
+        client, headers, category_id=nvr_category, name="NVR 8 canales", unit="unidad", tags=["nvr"],
+        channel_capacity=8,
+    )
+
+    engineering_draft = {
+        "recommended_equipment": "-",
+        "distribution": "-",
+        "conduits": "-",
+        "wiring": "-",
+        "technical_design": "-",
+        "observations": "-",
+    }
+    with (
+        patch(
+            "app.api.routers.ai.suggest_budget_items",
+            return_value=[
+                {"product_id": camera["id"], "description": camera["name"], "quantity": 12},
+                {"product_id": nvr["id"], "description": nvr["name"], "quantity": 1},
+            ],
+        ),
+        patch("app.api.routers.ai.draft_engineering", return_value=engineering_draft),
+        patch("app.api.routers.ai.reindex_project"),
+    ):
+        resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
+
+    assert resp.status_code == 200, resp.text
+    warnings = resp.json()["warnings"]
+    assert len(warnings) == 1
+    assert "NVR" in warnings[0]
+    assert "faltan 4" in warnings[0]
+
+    # el presupuesto se genera igual, con la cantidad que el técnico/IA pidió — la
+    # advertencia no bloquea ni corrige nada por su cuenta
+    items_by_product = {item["product_id"]: item for item in resp.json()["quote"]["items"]}
+    assert items_by_product[nvr["id"]]["quantity"] == 1

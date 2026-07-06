@@ -11,6 +11,7 @@ from app.ai_engine.calculation import (
     STORAGE_RETENTION_DAYS_KEY,
     apply_cable_waste_margin,
     build_labor_budget_item,
+    calculate_capacity_warnings,
     calculate_labor,
     calculate_storage,
     get_calculation_parameter,
@@ -158,6 +159,11 @@ def _build_storage_capacity_profiles(products: list[Product]) -> dict[int, float
     return {p.id: (float(p.storage_capacity_gb) if p.storage_capacity_gb is not None else None) for p in products}
 
 
+def _build_channel_capacity_profiles(products: list[Product]) -> dict[int, int | None]:
+    """product_id -> channel_capacity para `calculate_capacity_warnings` (Motor 5)."""
+    return {p.id: p.channel_capacity for p in products}
+
+
 def _reindex_quietly(db: Session, project: Project, context: str) -> None:
     """Actualiza el embedding del proyecto para búsqueda semántica; si Ollama no está
     disponible, no debe romper el flujo principal (ingeniería, presupuesto, etc.)."""
@@ -226,11 +232,12 @@ def ai_budget_suggestions(project_id: int, db: Session = Depends(get_db), _=Depe
     )
     if labor_estimate is not None:
         items = items + [build_labor_budget_item(labor_estimate)]
+    warnings = calculate_capacity_warnings(items, catalog, _build_channel_capacity_profiles(products))
     for item in items:
         if item.get("product_id") is not None:
             item["unit_price"] = product_prices.get(item["product_id"], 0)
 
-    return BudgetSuggestionOut(items=items)
+    return BudgetSuggestionOut(items=items, warnings=warnings)
 
 
 @router.post("/api/projects/{project_id}/generate-from-survey", response_model=GenerateFromSurveyOut)
@@ -271,6 +278,7 @@ def generate_from_survey(
     )
     if labor_estimate is not None:
         items = items + [build_labor_budget_item(labor_estimate)]
+    warnings = calculate_capacity_warnings(items, catalog, _build_channel_capacity_profiles(products))
     for item in items:
         if item.get("product_id") is not None:
             item["unit_price"] = product_prices.get(item["product_id"], 0)
@@ -315,7 +323,9 @@ def generate_from_survey(
     db.refresh(budget)
     db.refresh(quote)
     notify_quote_pending(db, quote)
-    return GenerateFromSurveyOut(budget=budget, quote=quote, engineering_drafted=engineering_drafted)
+    return GenerateFromSurveyOut(
+        budget=budget, quote=quote, engineering_drafted=engineering_drafted, warnings=warnings
+    )
 
 
 @router.post("/api/ai/ask", response_model=AskResponse)

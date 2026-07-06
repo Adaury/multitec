@@ -54,6 +54,10 @@ class Product(Base):
     # simplemente no aporta a ese cálculo, no es un dato faltante por corregir.
     resolution_mp: Mapped[float | None] = mapped_column(Numeric(6, 2), nullable=True)
     storage_capacity_gb: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    # Insumo para Motor 5/CapacityCalculator — canales disponibles en un NVR/DVR o puertos
+    # en un switch (mismo campo para ambos: "cuántos dispositivos puede recibir este hub").
+    # Nulo por defecto: un producto que no es NVR ni switch no aporta a ese cálculo.
+    channel_capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Catálogo "inteligente" (§ levantamiento con IA): tags/synonyms alimentan el matching
     # semántico en suggest_budget_items. Las reglas de accesorios con cantidad viven en
     # CatalogRule (source_product_id → este producto), no aquí. JSON (no ARRAY) para

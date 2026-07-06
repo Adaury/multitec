@@ -1,9 +1,9 @@
 """Motor 5 — Motor de cálculos (§ docs/ai-engine-architecture.md).
 
-Calculadoras implementadas: margen de desperdicio de cable (`apply_cable_waste_margin`),
-mano de obra (`calculate_labor` + `build_labor_budget_item`) y almacenamiento
-(`calculate_storage`). `CapacityCalculator` queda para cuando exista el dato que necesita
-(capacidad de canal de NVR/switch) — ver el plan de evolución del documento de arquitectura.
+Las cuatro calculadoras del diseño original ya están implementadas: margen de desperdicio
+de cable (`apply_cable_waste_margin`), mano de obra (`calculate_labor` +
+`build_labor_budget_item`), almacenamiento (`calculate_storage`) y capacidad de
+canales/puertos (`calculate_capacity_warnings`).
 """
 
 import math
@@ -13,6 +13,9 @@ from sqlalchemy.orm import Session
 from app.models.calculation_parameter import CalculationParameter
 
 CABLE_TAG = "cable"
+CAMERA_TAG = "camara"
+NVR_TAG = "nvr"
+SWITCH_TAG = "poe-switch"
 
 CABLE_WASTE_MARGIN_KEY = "cable_waste_margin_pct"
 LABOR_HOURLY_RATE_KEY = "labor_hourly_rate"
@@ -196,3 +199,61 @@ def calculate_storage(
             item = {**item, "quantity": max(required_units, item.get("quantity") or 0)}
         updated.append(item)
     return updated
+
+
+def _check_hub_capacity(
+    items: list[dict],
+    hub_ids: set[int],
+    consumer_ids: set[int],
+    capacity_by_product_id: dict[int, int | None],
+    hub_label: str,
+) -> str | None:
+    """Compara la capacidad total de los ítems "hub" (NVR o switch) ya presentes en el
+    presupuesto contra la cantidad de "consumidores" (cámaras) que necesitan un
+    canal/puerto. Si ningún hub presente tiene `channel_capacity` cargado, no se puede
+    comparar nada — se omite en vez de asumir capacidad cero (que generaría una
+    advertencia falsa por falta de dato, no por falta de capacidad real)."""
+    total_capacity = 0
+    any_known_capacity = False
+    for item in items:
+        product_id = item.get("product_id")
+        if product_id not in hub_ids:
+            continue
+        capacity = capacity_by_product_id.get(product_id)
+        if capacity:
+            any_known_capacity = True
+            total_capacity += capacity * (item.get("quantity") or 0)
+
+    if not any_known_capacity:
+        return None
+
+    total_consumers = sum((item.get("quantity") or 0) for item in items if item.get("product_id") in consumer_ids)
+    if total_consumers <= total_capacity:
+        return None
+
+    missing = total_consumers - total_capacity
+    return (
+        f"{hub_label}: capacidad total de {total_capacity:g} canal(es)/puerto(s) para "
+        f"{total_consumers:g} cámara(s) — faltan {missing:g}."
+    )
+
+
+def calculate_capacity_warnings(items: list[dict], catalog: list[dict], capacity_by_product_id: dict[int, int | None]) -> list[str]:
+    """Advierte (sin corregir nada) si los NVR o switches PoE ya presentes en el
+    presupuesto no tienen canales/puertos suficientes para las cámaras del proyecto —
+    a diferencia de `calculate_storage`, esta calculadora no ajusta ninguna cantidad: qué
+    hacer con la falta de capacidad (agregar otro NVR, cambiar de modelo, dividir en dos
+    switches) es una decisión de diseño que le corresponde a un humano, no a una
+    corrección automática silenciosa."""
+    camera_ids = {p["id"] for p in catalog if CAMERA_TAG in (p.get("tags") or [])}
+    nvr_ids = {p["id"] for p in catalog if NVR_TAG in (p.get("tags") or [])}
+    switch_ids = {p["id"] for p in catalog if SWITCH_TAG in (p.get("tags") or [])}
+
+    warnings = []
+    nvr_warning = _check_hub_capacity(items, nvr_ids, camera_ids, capacity_by_product_id, "NVR")
+    if nvr_warning:
+        warnings.append(nvr_warning)
+    switch_warning = _check_hub_capacity(items, switch_ids, camera_ids, capacity_by_product_id, "Switch PoE")
+    if switch_warning:
+        warnings.append(switch_warning)
+    return warnings

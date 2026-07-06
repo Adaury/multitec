@@ -19,6 +19,7 @@ class ProductCreate(BaseModel):
     priority: int | None = None
     resolution_mp: float | None = None
     storage_capacity_gb: float | None = None
+    channel_capacity: int | None = None
     tags: list[str] = []
     synonyms: list[str] = []
 
@@ -39,6 +40,7 @@ class ProductUpdate(BaseModel):
     priority: int | None = None
     resolution_mp: float | None = None
     storage_capacity_gb: float | None = None
+    channel_capacity: int | None = None
     tags: list[str] | None = None
     synonyms: list[str] | None = None
 
@@ -64,6 +66,7 @@ class ProductOut(BaseModel):
     priority: int | None = None
     resolution_mp: float | None = None
     storage_capacity_gb: float | None = None
+    channel_capacity: int | None = None
     tags: list[str] = []
     synonyms: list[str] = []
     created_by: int | None = None

@@ -129,13 +129,14 @@ detectó la IA antes de que Motor 2 la resuelva — útil para depuración y par
 > **Estado: los huecos de datos del objetivo original quedaron cerrados; matching sigue
 > siendo el mismo de Fase 1.** `Product` tiene `cost`, `install_minutes`, `labor_role` y
 > `priority` (migración `bc52912f5a4c`) y `product_relations` (migración `21847344e44d`,
-> CRUD en `/api/catalog/{product_id}/relations`). Después, para Motor 5, se sumaron dos
-> campos más que el objetivo original no pedía explícitamente pero que
-> `StorageCalculator` necesitaba: `resolution_mp` y `storage_capacity_gb` (migración
-> `71cc131c407a`). El matching en sí (`catalog_matching.match_entities_to_catalog`) no
-> cambió: sigue resolviendo por nombre/categoría/tags/sinónimos — ninguno de estos campos
-> nuevos participa en esa decisión, son datos informativos/de cálculo, no señales de
-> matching.
+> CRUD en `/api/catalog/{product_id}/relations`). Después, para Motor 5, se sumaron tres
+> campos más que el objetivo original no pedía explícitamente pero que las calculadoras
+> necesitaban: `resolution_mp` y `storage_capacity_gb` (migración `71cc131c407a`, para
+> `StorageCalculator`) y `channel_capacity` (migración `4abec1ec6eff`, para
+> `CapacityCalculator`). El matching en sí (`catalog_matching.match_entities_to_catalog`)
+> no cambió: sigue resolviendo por nombre/categoría/tags/sinónimos — ninguno de estos
+> campos nuevos participa en esa decisión, son datos informativos/de cálculo, no señales
+> de matching.
 
 **Responsabilidad:** resolver cada `DetectedEntity` contra un producto real del catálogo,
 usando nombre, categoría, tags y sinónimos (Motor 3). Ya existe como concepto
@@ -251,21 +252,25 @@ seguridad (ejecutar reglas arbitrarias) que no hace falta.
 
 ## Motor 5 — Motor de cálculos
 
-> **Estado: tres de cuatro calculadoras implementadas.** `CableCalculator`
-> (`apply_cable_waste_margin`), `LaborCalculator` (`calculate_labor` +
-> `build_labor_budget_item`) y `StorageCalculator` (`calculate_storage`) corren dentro de
+> **Estado: las cuatro calculadoras del diseño original están implementadas.**
+> `CableCalculator` (`apply_cable_waste_margin`), `LaborCalculator` (`calculate_labor` +
+> `build_labor_budget_item`), `StorageCalculator` (`calculate_storage`) y
+> `CapacityCalculator` (`calculate_capacity_warnings`) corren dentro de
 > `ai_budget_suggestions` y `generate_from_survey`, en ese orden, después de
 > `expand_with_rules`. `calculation_parameters` tiene cinco claves conocidas:
 > `cable_waste_margin_pct` (default 5%), `labor_hourly_rate` (default RD$200/hora),
 > `labor_max_hours_per_technician` (default 40h), `storage_gb_per_megapixel_per_day`
-> (default 15) y `storage_retention_days` (default 30). Solo `CapacityCalculator` sigue
-> sin implementar — espera un dato que todavía no existe (capacidad de canal de
-> NVR/switch).
+> (default 15) y `storage_retention_days` (default 30) — `CapacityCalculator` no necesitó
+> ninguna clave nueva, solo el dato de catálogo `channel_capacity`. `BudgetSuggestionOut`
+> y `GenerateFromSurveyOut` ganaron un campo `warnings: list[str]` para que
+> `CapacityCalculator` tenga dónde reportar sin inventar un contrato `RuleEffect` genérico
+> que ningún otro caso de uso pedía todavía.
 
-**Responsabilidad:** toda la aritmética técnica y comercial que hoy falta. `totals.py` ya
-cubre lo financiero genérico (subtotal/ITBIS/total); `expand_with_rules` ya cubre
-cantidad-por-accesorio. Lo que sigue sin existir: canalización, conectores, capacidad de
-NVR/DVR, cantidad de switches.
+**Responsabilidad:** toda la aritmética técnica y comercial que el objetivo original
+pedía. `totals.py` ya cubre lo financiero genérico (subtotal/ITBIS/total);
+`expand_with_rules` ya cubre cantidad-por-accesorio. Lo único que sigue sin existir de la
+lista original es canalización/conectores — nadie ha pedido todavía esa calculadora
+específica.
 
 **Diseño:** un `CalculationEngine` que despacha a **calculadoras** independientes por tipo
 de cálculo, cada una una función pura `(items_resueltos, parámetros) -> ajustes`:
@@ -297,9 +302,16 @@ de cálculo, cada una una función pura `(items_resueltos, parámetros) -> ajust
   lo ya elegido sea suficiente, y nunca la reduce por debajo de lo que ya había (mejor de
   más que sub-aprovisionar). El "GB por megapixel por día" es una aproximación de
   planeación configurable, no un cálculo exacto de bitrate/codec.
-- `CapacityCalculator` — canales de NVR/puertos de switch necesarios vs. disponibles en el
-  producto elegido; genera una `RuleEffect` de tipo advertencia si no alcanza. Pendiente
-  — espera un dato de capacidad de canal que `Product` todavía no tiene.
+- ✅ `CapacityCalculator` (`calculate_capacity_warnings`) — compara la capacidad total de
+  los NVR/switches PoE ya presentes en el presupuesto (`channel_capacity × cantidad`)
+  contra la cantidad de cámaras (tag `camara`), y devuelve una advertencia en texto si no
+  alcanza (ej. "NVR: capacidad total de 8 canal(es)/puerto(s) para 12 cámara(s) — faltan
+  4."). A diferencia de `StorageCalculator`, **no corrige ninguna cantidad** — qué hacer
+  ante la falta de capacidad (agregar otro NVR, cambiar de modelo, dividir en dos
+  switches) es una decisión de diseño que le corresponde a un humano, no una corrección
+  silenciosa. Si ningún NVR/switch presente tiene `channel_capacity` cargado, no advierte
+  nada (dato sin cargar, no capacidad cero). Las advertencias viajan en el nuevo campo
+  `warnings` de `BudgetSuggestionOut`/`GenerateFromSurveyOut`.
 
 Cada calculadora es un módulo independiente y **agregable**: sumar una nueva área técnica
 (ej. detección de incendios) puede requerir una calculadora nueva (ej. cobertura de
@@ -492,11 +504,10 @@ en un estado roto:
    en dos llamadas al modelo en vez de una — esto ya destraba guardar entidades sin match.
 2. ✅ **Generalizar `CatalogRule` → `TechnicalRule`** sin migrar datos existentes (tabla
    nueva en paralelo; `expand_with_rules` sigue funcionando igual para lo ya configurado).
-3. ✅ **Motor 5 (parcial):** agregada `calculation_parameters` + `CableCalculator` (la de
-   mayor impacto/menor riesgo, primero), después `LaborCalculator` y `StorageCalculator`
-   (una vez que Motor 2 tuvo los campos que cada una necesitaba). Solo
-   `CapacityCalculator` sigue pendiente — espera un dato que no existe (capacidad de
-   canal de NVR/switch).
+3. ✅ **Motor 5 (completo):** agregada `calculation_parameters` + las cuatro calculadoras
+   — `CableCalculator` primero (la de mayor impacto/menor riesgo), después
+   `LaborCalculator`, `StorageCalculator` y `CapacityCalculator`, cada una una vez que
+   Motor 2 tuvo los campos que necesitaba.
 4. ✅ **Motor 6:** cerrado el hueco de "lista de compras preliminar" y "cotización
    ejecutiva" como vista, sin nuevas tablas financieras.
 5. ✅ **Motor 7 (parcial):** instrumentada la captura pasiva de ediciones
@@ -507,11 +518,12 @@ en un estado roto:
 Cada fase es útil por sí sola y ninguna depende de que las siguientes existan — se puede
 pausar el plan en cualquier punto sin dejar deuda a medias.
 
-Con las 5 fases del plan original completas (algunas parciales por diseño, esperando
-datos reales o campos de otro motor), lo que sigue no es una fase numerada más sino
-trabajo dirigido por lo que el uso real revele: qué calculadoras de Motor 5 hacen falta
-primero, cuándo hay volumen suficiente para el análisis de Motor 7, o si aparece una
-segunda área técnica que ponga a prueba la extensibilidad del diseño.
+Con las 5 fases del plan original completas (Motor 5 ya completo; Motor 7 parcial por
+diseño, esperando volumen real de proyectos), lo que sigue no es una fase numerada más
+sino trabajo dirigido por lo que el uso real revele: cuándo hay volumen suficiente para
+el análisis de Motor 7, si aparece una segunda área técnica que ponga a prueba la
+extensibilidad del diseño, o si el uso real de `CapacityCalculator` revela que sí hace
+falta poder corregir capacidad automáticamente en vez de solo advertir.
 
 **Extensiones posteriores:**
 - **Motor 2 completo (campos del objetivo original):** `Product` ganó `cost`,
@@ -519,8 +531,12 @@ segunda área técnica que ponga a prueba la extensibilidad del diseño.
   `product_relations` (migración `21847344e44d`) cerró el último hueco de datos que el
   objetivo original pedía — compatibilidades y productos relacionados, con CRUD en
   `/api/catalog/{product_id}/relations`.
-- **Motor 5 — `LaborCalculator` y `StorageCalculator`:** construidos una vez que Motor 2
-  tuvo los datos que cada uno necesitaba (`install_minutes`/`labor_role` para el primero;
-  `resolution_mp`/`storage_capacity_gb`, migración `71cc131c407a`, para el segundo — estos
-  dos no estaban en la lista original de campos del objetivo, se agregaron
-  específicamente para esta calculadora). Solo `CapacityCalculator` sigue pendiente.
+- **Motor 5 completo — `LaborCalculator`, `StorageCalculator` y `CapacityCalculator`:**
+  las tres se construyeron una vez que Motor 2 tuvo los datos que cada una necesitaba —
+  `install_minutes`/`labor_role` para la primera; `resolution_mp`/`storage_capacity_gb`
+  (migración `71cc131c407a`) para la segunda; `channel_capacity` (migración
+  `4abec1ec6eff`) para la tercera. Ninguno de estos tres campos estaba en la lista
+  original de campos del objetivo — se agregaron específicamente para la calculadora que
+  los necesitaba. `CapacityCalculator` es la única de las cuatro que no corrige nada por
+  su cuenta: solo advierte (`warnings` en la respuesta), porque qué hacer ante una
+  capacidad insuficiente es una decisión de diseño, no aritmética determinista.

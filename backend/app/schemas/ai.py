@@ -22,6 +22,7 @@ class BudgetSuggestionItem(BaseModel):
 
 class BudgetSuggestionOut(BaseModel):
     items: list[BudgetSuggestionItem]
+    warnings: list[str] = []
 
 
 class AskRequest(BaseModel):
@@ -41,3 +42,4 @@ class GenerateFromSurveyOut(BaseModel):
     budget: BudgetOut
     quote: QuoteOut
     engineering_drafted: bool
+    warnings: list[str] = []
