@@ -43,11 +43,18 @@ interface ProductForm {
   name: string
   unit: string
   price: number
+  cost: number
   notes: string
   brand: string
   model: string
   commercial_description: string
   technical_description: string
+  install_minutes: string
+  labor_role: string
+  priority: string
+  resolution_mp: string
+  storage_capacity_gb: string
+  channel_capacity: string
   tags: string
   synonyms: string
 }
@@ -58,14 +65,25 @@ function emptyForm(): ProductForm {
     name: '',
     unit: 'unidad',
     price: 0,
+    cost: 0,
     notes: '',
     brand: '',
     model: '',
     commercial_description: '',
     technical_description: '',
+    install_minutes: '',
+    labor_role: '',
+    priority: '',
+    resolution_mp: '',
+    storage_capacity_gb: '',
+    channel_capacity: '',
     tags: '',
     synonyms: '',
   }
+}
+
+function optionalNumber(value: string): number | null {
+  return value.trim() === '' ? null : Number(value)
 }
 
 function splitTags(value: string): string[] {
@@ -98,6 +116,12 @@ export function Catalog() {
         await api.post('/catalog', {
           ...payload,
           category_id: Number(payload.category_id),
+          install_minutes: optionalNumber(payload.install_minutes),
+          labor_role: payload.labor_role.trim() || null,
+          priority: optionalNumber(payload.priority),
+          resolution_mp: optionalNumber(payload.resolution_mp),
+          storage_capacity_gb: optionalNumber(payload.storage_capacity_gb),
+          channel_capacity: optionalNumber(payload.channel_capacity),
           tags: splitTags(payload.tags),
           synonyms: splitTags(payload.synonyms),
         })
@@ -165,6 +189,15 @@ export function Catalog() {
                   onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
                 />
               </Field>
+              <Field label="Costo (RD$)">
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={form.cost}
+                  onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })}
+                />
+              </Field>
               <Field label="Marca">
                 <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
               </Field>
@@ -193,6 +226,66 @@ export function Catalog() {
             <Field label="Notas">
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </Field>
+
+            <div className="border-t border-gray-100 pt-3 dark:border-gray-800">
+              <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                Datos para el Motor de IA (opcionales) — los usan las calculadoras de presupuesto al generar
+                sugerencias automáticas; un producto sin estos datos igual funciona, solo queda fuera de esos
+                cálculos.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Field label="Minutos de instalación (por unidad)">
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={form.install_minutes}
+                    onChange={(e) => setForm({ ...form, install_minutes: e.target.value })}
+                  />
+                </Field>
+                <Field label="Rol de mano de obra — ej: técnico eléctrico">
+                  <Input
+                    value={form.labor_role}
+                    onChange={(e) => setForm({ ...form, labor_role: e.target.value })}
+                  />
+                </Field>
+                <Field label="Prioridad">
+                  <Input
+                    type="number"
+                    step="1"
+                    value={form.priority}
+                    onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                  />
+                </Field>
+                <Field label="Resolución en megapíxeles (cámaras)">
+                  <Input
+                    type="number"
+                    step="0.1"
+                    min="0"
+                    value={form.resolution_mp}
+                    onChange={(e) => setForm({ ...form, resolution_mp: e.target.value })}
+                  />
+                </Field>
+                <Field label="Capacidad de almacenamiento en GB (discos/NVR)">
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={form.storage_capacity_gb}
+                    onChange={(e) => setForm({ ...form, storage_capacity_gb: e.target.value })}
+                  />
+                </Field>
+                <Field label="Capacidad de canales/puertos (NVR/switch PoE)">
+                  <Input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={form.channel_capacity}
+                    onChange={(e) => setForm({ ...form, channel_capacity: e.target.value })}
+                  />
+                </Field>
+              </div>
+            </div>
             <Button type="submit" disabled={createProduct.isPending}>
               {createProduct.isPending ? 'Guardando…' : 'Guardar producto'}
             </Button>
@@ -213,6 +306,33 @@ export function Catalog() {
         ))}
         {products?.length === 0 && <p className="text-sm text-gray-500">Aún no hay productos en el catálogo.</p>}
       </div>
+    </div>
+  )
+}
+
+function AiFieldsSummary({ product }: { product: Product }) {
+  const entries: [string, string][] = []
+  if (product.cost > 0) entries.push(['Costo', `RD$ ${product.cost.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`])
+  if (product.install_minutes != null) entries.push(['Minutos de instalación', String(product.install_minutes)])
+  if (product.labor_role) entries.push(['Rol de mano de obra', product.labor_role])
+  if (product.priority != null) entries.push(['Prioridad', String(product.priority)])
+  if (product.resolution_mp != null) entries.push(['Resolución', `${product.resolution_mp} MP`])
+  if (product.storage_capacity_gb != null) entries.push(['Capacidad de almacenamiento', `${product.storage_capacity_gb} GB`])
+  if (product.channel_capacity != null) entries.push(['Capacidad de canales/puertos', String(product.channel_capacity)])
+
+  if (entries.length === 0) return null
+
+  return (
+    <div>
+      <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Datos para el Motor de IA</p>
+      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-gray-600 dark:text-gray-400">
+        {entries.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt className="text-gray-400">{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
     </div>
   )
 }
@@ -294,6 +414,7 @@ function ProductCard({
 
       {expanded && (
         <div className="mt-3 space-y-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <AiFieldsSummary product={product} />
           <form
             className="space-y-2"
             onSubmit={(e) => {

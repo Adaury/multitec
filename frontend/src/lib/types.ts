@@ -134,12 +134,19 @@ export interface Product {
   name: string
   unit: string
   price: number
+  cost: number
   stock_quantity: number
   notes: string | null
   brand: string | null
   model: string | null
   commercial_description: string | null
   technical_description: string | null
+  install_minutes: number | null
+  labor_role: string | null
+  priority: number | null
+  resolution_mp: number | null
+  storage_capacity_gb: number | null
+  channel_capacity: number | null
   tags: string[]
   synonyms: string[]
 }
