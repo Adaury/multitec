@@ -453,24 +453,30 @@ proyecto atípico) contamine el catálogo de reglas para todos. Construirlo ahor
 datos reales que analizar, habría sido especular sobre qué forma deben tener los
 patrones — mejor esperar al volumen real de proyectos que ya está capturando esta fase.
 
-### Scoping del análisis periódico (diseño, aún sin construir)
+### Scoping del análisis periódico (diseño; prerrequisito de esquema ya implementado)
 
-> **Estado: solo diseño — cero filas en `ai_feedback_events` en el ambiente real hoy.**
-> Esta sección fija el alcance para cuando haya volumen suficiente; no se implementa en
-> esta fase por la misma razón que el resto del documento ya defendía: construir el
-> análisis sin datos reales sería adivinar la forma de los patrones. Lo que sí se puede
-> fijar ahora, sin datos, es el contrato (qué pregunta responde, qué no) y un prerrequisito
-> de esquema que es gratis hoy y costoso después.
+> **Estado: el prerrequisito de esquema (`budget_id`) ya está — el análisis en sí
+> todavía no.** Cero filas reales en `ai_feedback_events` cuando se escribió este
+> scoping, así que el trabajo de construir las dos consultas de detección sigue
+> esperando volumen suficiente para no adivinar la forma de los patrones (misma razón
+> que el resto del documento ya defendía). Lo que sí se podía adelantar sin datos era el
+> contrato (qué pregunta responde v1, qué no) y la columna que hace posible reconstruir
+> contexto por evento — eso ya se hizo (migración `eccc613fdde1`).
 
-**Prerrequisito — `ai_feedback_events.budget_id`.** Hoy la tabla solo guarda `project_id`,
-no `budget_id`. Un proyecto puede tener más de un `Budget` (recotizaciones), así que para
-reconstruir "qué otros productos había en el presupuesto cuando se agregó/quitó esta
-línea a mano" hace falta saber de cuál `Budget` viene cada evento — con solo `project_id`
-esa reconstrucción es ambigua si hubo más de una generación. Agregar `budget_id` (FK
-nullable a `budgets`, sin backfill porque hoy no hay filas que migrar) es un cambio de una
-columna que cuesta cero ahora mismo y se vuelve una migración con filas huérfanas (NULL)
-en cuanto exista tráfico real — por eso este es el único cambio de esquema que tiene
-sentido hacer *antes* de tener volumen, no después.
+**Prerrequisito — `ai_feedback_events.budget_id` (✅ implementado).** La tabla solo
+guardaba `project_id`, no `budget_id`. Un proyecto puede tener más de un `Budget`
+(recotizaciones), así que para reconstruir "qué otros productos había en el presupuesto
+cuando se agregó/quitó esta línea a mano" hace falta saber de cuál `Budget` viene cada
+evento — con solo `project_id` esa reconstrucción era ambigua si hubo más de una
+generación. `budget_id` (FK nullable a `budgets`, `ondelete=CASCADE`, migración
+`eccc613fdde1`) se agregó sin backfill porque no había filas reales que migrar —
+`record_budget_edit_feedback` (`app/ai_engine/learning.py`) ya lo puebla en los tres
+tipos de evento de `budget_item` (`human_added`/`human_removed`/`human_modified`); los
+eventos de `entity_type=engineering` quedan con `budget_id=NULL` porque no aplica (no
+hay un `Budget` de por medio). Este era el único cambio de esquema con sentido de hacer
+*antes* de tener volumen — ahora que existe, cualquier evento nuevo ya trae el contexto
+que el análisis va a necesitar, aunque las consultas de detección en sí sigan sin
+construirse.
 
 **Qué pregunta responde v1 — solo dos patrones, ambos con espejo 1:1 en algo que el
 admin ya sabe crear/borrar hoy:**
@@ -681,6 +687,7 @@ falta poder corregir capacidad automáticamente en vez de solo advertir.
 Con esto, de los 7 motores solo queda un hueco deliberado: el análisis periódico de
 Motor 7, esperando volumen real de proyectos, como estaba planeado desde el principio.
 Su alcance ya quedó fijado (§ "Scoping del análisis periódico" arriba: dos patrones v1,
-sin tabla ni endpoint de propuestas, disparo manual sin scheduler) — lo único pendiente
-de ese diseño son los umbrales numéricos, que dependen de datos reales para calibrarse
-sin adivinar.
+sin tabla ni endpoint de propuestas, disparo manual sin scheduler) y su prerrequisito de
+esquema (`ai_feedback_events.budget_id`) ya está implementado — lo único pendiente de
+ese diseño son las dos consultas de detección en sí y los umbrales numéricos, que
+dependen de datos reales para calibrarse sin adivinar.

@@ -212,6 +212,7 @@ export type AIFeedbackOrigin = 'ai_suggested' | 'human_added' | 'human_removed' 
 export interface AIFeedbackEvent {
   id: number
   project_id: number
+  budget_id: number | null
   entity_type: AIFeedbackEntityType
   origin: AIFeedbackOrigin
   product_id: number | null

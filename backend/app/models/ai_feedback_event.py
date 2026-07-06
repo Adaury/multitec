@@ -31,6 +31,12 @@ class AIFeedbackEvent(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    # Nullable porque un evento de tipo "engineering" no tiene budget asociado, y porque
+    # filas creadas antes de esta columna (ninguna en el ambiente real hoy) quedarían sin
+    # valor. Necesario para el análisis de Motor 7: un proyecto puede tener más de un
+    # Budget, así que project_id solo no basta para saber qué otros productos había en el
+    # presupuesto cuando ocurrió este evento (§ docs/ai-engine-architecture.md).
+    budget_id: Mapped[int | None] = mapped_column(ForeignKey("budgets.id", ondelete="CASCADE"), nullable=True, index=True)
     entity_type: Mapped[str] = mapped_column(String(20))
     origin: Mapped[str] = mapped_column(String(20))
     product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)

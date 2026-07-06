@@ -64,6 +64,7 @@ def record_budget_edit_feedback(
             db.add(
                 AIFeedbackEvent(
                     project_id=project_id,
+                    budget_id=budget.id,
                     entity_type=ENTITY_TYPE_BUDGET_ITEM,
                     origin=ORIGIN_HUMAN_REMOVED,
                     product_id=product_id,
@@ -76,6 +77,7 @@ def record_budget_edit_feedback(
             db.add(
                 AIFeedbackEvent(
                     project_id=project_id,
+                    budget_id=budget.id,
                     entity_type=ENTITY_TYPE_BUDGET_ITEM,
                     origin=ORIGIN_HUMAN_ADDED,
                     product_id=product_id,
@@ -88,6 +90,7 @@ def record_budget_edit_feedback(
             db.add(
                 AIFeedbackEvent(
                     project_id=project_id,
+                    budget_id=budget.id,
                     entity_type=ENTITY_TYPE_BUDGET_ITEM,
                     origin=ORIGIN_HUMAN_MODIFIED,
                     product_id=product_id,

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 class AIFeedbackEventOut(BaseModel):
     id: int
     project_id: int
+    budget_id: int | None = None
     entity_type: str
     origin: str
     product_id: int | None

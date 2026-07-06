@@ -19,8 +19,8 @@ def _budget_item(product_id, description, quantity):
     return SimpleNamespace(product_id=product_id, description=description, quantity=quantity)
 
 
-def _budget(ai_generated, items):
-    return SimpleNamespace(ai_generated=ai_generated, items=items)
+def _budget(ai_generated, items, id=1):
+    return SimpleNamespace(id=id, ai_generated=ai_generated, items=items)
 
 
 def test_untouched_budget_produces_no_events_and_flips_flag():
@@ -44,6 +44,7 @@ def test_removed_item_is_recorded():
     assert event.origin == "human_removed"
     assert event.product_id == 2
     assert event.old_value == "1.0"
+    assert event.budget_id == 1
 
 
 def test_added_item_is_recorded():
@@ -59,6 +60,7 @@ def test_added_item_is_recorded():
     assert event.origin == "human_added"
     assert event.product_id == 3
     assert event.new_value == "1.0"
+    assert event.budget_id == 1
 
 
 def test_quantity_change_is_recorded_as_modified():
@@ -73,6 +75,7 @@ def test_quantity_change_is_recorded_as_modified():
     assert event.field_changed == "quantity"
     assert event.old_value == "8.0"
     assert event.new_value == "12.0"
+    assert event.budget_id == 1
 
 
 def test_already_edited_budget_does_not_record_again():
