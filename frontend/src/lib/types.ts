@@ -198,6 +198,21 @@ export interface ProductRelationView {
   created_at: string
 }
 
+export type AIFeedbackEntityType = 'budget_item' | 'engineering'
+export type AIFeedbackOrigin = 'ai_suggested' | 'human_added' | 'human_removed' | 'human_modified'
+
+export interface AIFeedbackEvent {
+  id: number
+  project_id: number
+  entity_type: AIFeedbackEntityType
+  origin: AIFeedbackOrigin
+  product_id: number | null
+  field_changed: string | null
+  old_value: string | null
+  new_value: string | null
+  created_at: string
+}
+
 export type StockMovementType = 'entrada' | 'salida'
 
 export interface StockMovement {

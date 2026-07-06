@@ -37,6 +37,7 @@ const adminSidebarItems: NavItem[] = [
   { to: '/ncf', label: 'NCF', icon: '🧾' },
   { to: '/clasificaciones', label: 'Clasificaciones', icon: '🗂️' },
   { to: '/parametros-calculo', label: 'Parámetros IA', icon: '🎛️' },
+  { to: '/aprendizaje-ia', label: 'Aprendizaje IA', icon: '📈' },
 ]
 
 export function Layout() {
