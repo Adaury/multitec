@@ -215,47 +215,60 @@ construyó por adelantado.
 
 ## Motor 4 — Motor de reglas técnicas
 
-> **Estado: implementado (Fase 2).** `TechnicalRule` ya existe (tabla `technical_rules`,
-> migración `99fe2962bc29`), con CRUD en `/api/catalog/{product_id}/technical-rules` y
-> `/api/catalog/technical-rules/{rule_id}`. `CatalogRule` no se tocó ni se migró — ambas
-> fuentes conviven y se combinan en `build_accessory_rule_dicts`
-> (`app/ai_engine/rules.py`) antes de llamar a `expand_with_rules`, así que una regla
-> creada por cualquiera de los dos mecanismos tiene el mismo efecto en la generación de
-> presupuesto. El resto de esta sección describe el diseño tal como quedó, para orientar
-> el siguiente tipo de acción que se agregue.
+> **Estado: los tres `action_type` del diseño original están implementados.**
+> `TechnicalRule` (tabla `technical_rules`, migración `99fe2962bc29`) soporta
+> `add_accessory` (desde la Fase 2), y ahora también `set_calculation_parameter` →
+> Motor 5 y `flag_engineering_note` → Motor 6, una vez que ambos motores tuvieron un
+> consumidor real (`calculation_parameters` y el borrador de ingeniería por IA). CRUD en
+> `/api/catalog/{product_id}/technical-rules` y `/api/catalog/technical-rules/{rule_id}`,
+> con `TechnicalRuleCreate` ahora como unión discriminada por `action_type` (antes fijo a
+> `Literal["add_accessory"]`) — **esto hace que `action_type` sea obligatorio en el
+> payload de creación**, ya no se puede omitir y asumir `add_accessory` por default, para
+> no arriesgar una regla del tipo equivocado por ambigüedad ahora que hay tres opciones.
+> `CatalogRule` sigue sin tocarse ni migrarse.
 
 **Responsabilidad:** codificar conocimiento técnico como reglas configurables desde el
-ERP, sin tocar código. `CatalogRule` modela **un solo tipo** de regla: "si el catálogo
+ERP, sin tocar código. `CatalogRule` modela un solo tipo de regla: "si el catálogo
 incluye N unidades de un producto fuente, agregar M unidades de un accesorio identificado
 por tag". El objetivo pide reglas más generales ("si existe fibra → agregar pigtails",
-"si existe rack → agregar organizadores"), que de hecho ya caben en el modelo actual
-(fibra y rack son "productos fuente" como cualquier cámara). El gap real no era
-expresividad de condición — era que **la única acción posible era "agregar accesorio con
-cantidad"**.
+"si existe rack → agregar organizadores", "si existe fibra, sube el margen de
+desperdicio", "si existe fibra, agrega una nota de ingeniería") — todas caben en la misma
+condición ("producto fuente presente en el presupuesto"); lo que variaba era la acción.
 
-**Diseño:** `TechnicalRule` generaliza `CatalogRule` con condición y acción tipadas,
-donde el tipo de acción actual (`add_accessory`) es una de varias posibles a futuro:
+**Diseño (implementado):** `TechnicalRule` generaliza `CatalogRule` con condición y
+acción tipadas:
 
 - `condition`: `source_product_id` (igual que `CatalogRule`) — no hizo falta un lenguaje
   de condiciones más rico; todas las reglas del objetivo son "si existe producto X".
-- `action_type`: hoy solo `add_accessory` tiene manejador implementado (mismo
-  comportamiento que `CatalogRule`, vía `expand_with_rules`). El diseño deja espacio para
-  `set_calculation_parameter` (ej. "si existe fibra, el margen de desperdicio de cable
-  sube a 8%", Motor 5) y `flag_engineering_note` (ej. "verificar distancia máxima de
-  fibra monomodo", Motor 6) — ninguno de los dos se implementó todavía porque los
-  sistemas que consumirían esa señal (`calculation_parameters`, borrador de ingeniería
-  guiado por reglas) tampoco existen aún; declarar esos tipos ahora sin un consumidor real
-  habría sido un action_type muerto.
+- `action_type` — tres manejadores, todos en `app/ai_engine/rules.py`:
+  - `add_accessory` (igual que `CatalogRule`, vía `expand_with_rules` +
+    `build_accessory_rule_dicts`).
+  - `set_calculation_parameter` (`resolve_calculation_parameter_overrides`) — mientras el
+    producto fuente esté presente, sobreescribe un `calculation_parameter` (ej.
+    `cable_waste_margin_pct`) solo para esa generación, sin tocar el default global en la
+    tabla `calculation_parameters`. Si varias reglas activas apuntan a la misma clave, se
+    usa el valor más alto — todas suben un parámetro para un caso especial, nunca lo
+    bajan, así que el más alto es el más conservador. `parameter_key` se valida contra
+    `KNOWN_PARAMETERS` (Motor 5) al crear la regla — no se puede apuntar a un parámetro
+    que no existe.
+  - `flag_engineering_note` (`resolve_engineering_notes`) — mientras el producto fuente
+    esté presente, agrega una nota de texto al borrador de ingeniería que
+    `generate_from_survey` genera con IA. Solo se aplica cuando ese borrador se genera en
+    esa misma corrida (mismo candado que ya protegía el borrador: no pisa ingeniería que
+    oficina ya escribió a mano). Sin duplicados si varias reglas activas repiten la misma
+    nota.
 - `action_params` (JSON) guarda los parámetros propios de cada `action_type` en vez de
-  columnas por tipo — agregar una acción nueva no pide migración, solo un manejador nuevo
-  en `app/ai_engine/rules.py` (ver `_technical_rule_to_dict`) y una variante nueva en el
-  esquema de creación (`TechnicalRuleCreate`, hoy fijo a `Literal["add_accessory"]`).
+  columnas por tipo — agregar una acción nueva no pidió migración para ninguna de las
+  tres, solo un manejador nuevo en `app/ai_engine/rules.py` y una variante nueva del
+  esquema de creación.
 - La tabla `catalog_rules` existente se mantiene tal cual (no se migró, no se rompió).
 
 **Interfaz (implementada):**
 ```
-build_accessory_rule_dicts(catalog_rules, technical_rules) -> list[dict]   # ai_engine/rules.py
-expand_with_rules(items, catalog, rules) -> list[dict]                     # sin cambios
+build_accessory_rule_dicts(catalog_rules, technical_rules) -> list[dict]          # ai_engine/rules.py
+resolve_calculation_parameter_overrides(items, technical_rules) -> dict[str,float]  # ai_engine/rules.py
+resolve_engineering_notes(items, technical_rules) -> list[str]                   # ai_engine/rules.py
+expand_with_rules(items, catalog, rules) -> list[dict]                           # sin cambios
 ```
 
 **Por qué no un motor de reglas genérico (tipo Drools):** el objetivo pide "configurable
@@ -557,6 +570,15 @@ falta poder corregir capacidad automáticamente en vez de solo advertir.
 - **Motor 3 implementado (`ai_engine/tagging.py`):** el gap más antiguo del documento —
   el matching de tags llevaba desde la Fase 1 hardcodeado dentro del prompt de Motor 2,
   sin ningún filtro determinista propio. `find_product_by_text` + `_apply_tag_fallback`
-  cierran eso como respaldo (no como reemplazo) del matching semántico del modelo. Con
-  esto, de los 7 motores solo quedan huecos deliberados: los dos `action_type` de Motor 4
-  sin consumidor, el orquestador genérico de Motor 6, y el análisis periódico de Motor 7.
+  cierran eso como respaldo (no como reemplazo) del matching semántico del modelo.
+- **Motor 4 completo — los tres `action_type`:** `set_calculation_parameter` y
+  `flag_engineering_note` se construyeron una vez que Motor 5 y Motor 6 tuvieron un
+  consumidor real para esa señal (`calculation_parameters`, el borrador de ingeniería por
+  IA). `TechnicalRuleCreate` pasó a ser la unión discriminada que el diseño original ya
+  anticipaba — con el efecto colateral de que `action_type` ahora es obligatorio en el
+  payload de creación (antes se podía omitir y asumía `add_accessory`).
+
+Con esto, de los 7 motores solo quedan huecos deliberados: el orquestador genérico de
+Motor 6 (`generar_desde_levantamiento -> DocumentSet`, sin un segundo flujo que lo
+necesite todavía) y el análisis periódico de Motor 7 (esperando volumen real de
+proyectos, como estaba planeado).

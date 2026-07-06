@@ -20,7 +20,12 @@ from app.ai_engine.catalog_matching import suggest_budget_items
 from app.ai_engine.documents import draft_engineering
 from app.ai_engine.nlu import summarize_survey
 from app.ai_engine.qa import answer_question
-from app.ai_engine.rules import build_accessory_rule_dicts, expand_with_rules
+from app.ai_engine.rules import (
+    build_accessory_rule_dicts,
+    expand_with_rules,
+    resolve_calculation_parameter_overrides,
+    resolve_engineering_notes,
+)
 from app.api.routers.budgets import build_budget, build_quote_from_budget
 from app.core.security import require_role
 from app.db.session import get_db
@@ -164,6 +169,15 @@ def _build_channel_capacity_profiles(products: list[Product]) -> dict[int, int |
     return {p.id: p.channel_capacity for p in products}
 
 
+def _resolve_param(db: Session, key: str, overrides: dict[str, float]) -> float:
+    """Valor de un `calculation_parameter` para esta generación: el override de Motor 4
+    (`resolve_calculation_parameter_overrides`) si alguna `TechnicalRule` lo activó, si no
+    el configurado/default de siempre."""
+    if key in overrides:
+        return overrides[key]
+    return get_calculation_parameter(db, key)
+
+
 def _reindex_quietly(db: Session, project: Project, context: str) -> None:
     """Actualiza el embedding del proyecto para búsqueda semántica; si Ollama no está
     disponible, no debe romper el flujo principal (ingeniería, presupuesto, etc.)."""
@@ -211,24 +225,26 @@ def ai_budget_suggestions(project_id: int, db: Session = Depends(get_db), _=Depe
 
     products = db.query(Product).order_by(Product.code).all()
     catalog = _build_catalog_dicts(products)
-    rules = build_accessory_rule_dicts(db.query(CatalogRule).all(), db.query(TechnicalRule).all())
+    technical_rules = db.query(TechnicalRule).all()
+    rules = build_accessory_rule_dicts(db.query(CatalogRule).all(), technical_rules)
     product_prices = {p.id: float(p.price) for p in products}
 
     items = suggest_budget_items(context, catalog)
     items = expand_with_rules(items, catalog, rules)
-    items = apply_cable_waste_margin(items, catalog, get_calculation_parameter(db, CABLE_WASTE_MARGIN_KEY))
+    param_overrides = resolve_calculation_parameter_overrides(items, technical_rules)
+    items = apply_cable_waste_margin(items, catalog, _resolve_param(db, CABLE_WASTE_MARGIN_KEY, param_overrides))
     items = calculate_storage(
         items,
         _build_resolution_profiles(products),
         _build_storage_capacity_profiles(products),
-        get_calculation_parameter(db, STORAGE_GB_PER_MP_PER_DAY_KEY),
-        get_calculation_parameter(db, STORAGE_RETENTION_DAYS_KEY),
+        _resolve_param(db, STORAGE_GB_PER_MP_PER_DAY_KEY, param_overrides),
+        _resolve_param(db, STORAGE_RETENTION_DAYS_KEY, param_overrides),
     )
     labor_estimate = calculate_labor(
         items,
         _build_install_profiles(products),
-        get_calculation_parameter(db, LABOR_HOURLY_RATE_KEY),
-        get_calculation_parameter(db, LABOR_MAX_HOURS_PER_TECHNICIAN_KEY),
+        _resolve_param(db, LABOR_HOURLY_RATE_KEY, param_overrides),
+        _resolve_param(db, LABOR_MAX_HOURS_PER_TECHNICIAN_KEY, param_overrides),
     )
     if labor_estimate is not None:
         items = items + [build_labor_budget_item(labor_estimate)]
@@ -254,7 +270,8 @@ def generate_from_survey(
 
     products = db.query(Product).order_by(Product.code).all()
     catalog = _build_catalog_dicts(products)
-    rules = build_accessory_rule_dicts(db.query(CatalogRule).all(), db.query(TechnicalRule).all())
+    technical_rules = db.query(TechnicalRule).all()
+    rules = build_accessory_rule_dicts(db.query(CatalogRule).all(), technical_rules)
     product_prices = {p.id: float(p.price) for p in products}
 
     items = suggest_budget_items(context, catalog)
@@ -262,19 +279,21 @@ def generate_from_survey(
     if not items:
         raise HTTPException(status_code=400, detail="La IA no pudo derivar materiales del levantamiento")
 
-    items = apply_cable_waste_margin(items, catalog, get_calculation_parameter(db, CABLE_WASTE_MARGIN_KEY))
+    param_overrides = resolve_calculation_parameter_overrides(items, technical_rules)
+    engineering_notes = resolve_engineering_notes(items, technical_rules)
+    items = apply_cable_waste_margin(items, catalog, _resolve_param(db, CABLE_WASTE_MARGIN_KEY, param_overrides))
     items = calculate_storage(
         items,
         _build_resolution_profiles(products),
         _build_storage_capacity_profiles(products),
-        get_calculation_parameter(db, STORAGE_GB_PER_MP_PER_DAY_KEY),
-        get_calculation_parameter(db, STORAGE_RETENTION_DAYS_KEY),
+        _resolve_param(db, STORAGE_GB_PER_MP_PER_DAY_KEY, param_overrides),
+        _resolve_param(db, STORAGE_RETENTION_DAYS_KEY, param_overrides),
     )
     labor_estimate = calculate_labor(
         items,
         _build_install_profiles(products),
-        get_calculation_parameter(db, LABOR_HOURLY_RATE_KEY),
-        get_calculation_parameter(db, LABOR_MAX_HOURS_PER_TECHNICIAN_KEY),
+        _resolve_param(db, LABOR_HOURLY_RATE_KEY, param_overrides),
+        _resolve_param(db, LABOR_MAX_HOURS_PER_TECHNICIAN_KEY, param_overrides),
     )
     if labor_estimate is not None:
         items = items + [build_labor_budget_item(labor_estimate)]
@@ -313,7 +332,13 @@ def generate_from_survey(
             engineering.conduits = draft["conduits"]
             engineering.wiring = draft["wiring"]
             engineering.technical_design = draft["technical_design"]
-            engineering.observations = draft["observations"]
+            observations = draft["observations"]
+            if engineering_notes:
+                # Motor 4 -> Motor 6: notas de flag_engineering_note activadas por
+                # productos presentes en el presupuesto (ver resolve_engineering_notes).
+                extra = "\n".join(engineering_notes)
+                observations = f"{observations}\n{extra}" if observations else extra
+            engineering.observations = observations
             engineering.ai_generated = True
             engineering_drafted = True
         except HTTPException as e:

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.ai_engine.calculation import KNOWN_PARAMETERS
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.category import Category
@@ -18,7 +19,14 @@ from app.schemas.product_relation import (
     ProductRelationUpdate,
     ProductRelationView,
 )
-from app.schemas.technical_rule import TechnicalRuleCreate, TechnicalRuleOut, TechnicalRuleUpdate
+from app.schemas.technical_rule import (
+    AddAccessoryCreate,
+    FlagEngineeringNoteCreate,
+    SetCalculationParameterCreate,
+    TechnicalRuleCreate,
+    TechnicalRuleOut,
+    TechnicalRuleUpdate,
+)
 from app.services.code_generator import next_code
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
@@ -125,14 +133,26 @@ def create_technical_rule(
     product = db.get(Product, product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
-    rule = TechnicalRule(
-        source_product_id=product_id,
-        action_type=payload.action_type,
-        action_params={
+
+    if isinstance(payload, AddAccessoryCreate):
+        action_params = {
             "target_tag": payload.target_tag,
             "per_source_units": payload.per_source_units,
             "quantity": payload.quantity,
-        },
+        }
+    elif isinstance(payload, SetCalculationParameterCreate):
+        if payload.parameter_key not in KNOWN_PARAMETERS:
+            raise HTTPException(status_code=400, detail=f"Parámetro desconocido: {payload.parameter_key}")
+        action_params = {"parameter_key": payload.parameter_key, "value": payload.value}
+    elif isinstance(payload, FlagEngineeringNoteCreate):
+        action_params = {"engineering_note": payload.engineering_note}
+    else:  # pragma: no cover - inalcanzable: el discriminador de Pydantic ya lo garantiza
+        raise HTTPException(status_code=400, detail=f"action_type no soportado: {payload.action_type}")
+
+    rule = TechnicalRule(
+        source_product_id=product_id,
+        action_type=payload.action_type,
+        action_params=action_params,
         notes=payload.notes,
     )
     db.add(rule)
@@ -152,6 +172,8 @@ def update_technical_rule(
     data = payload.model_dump(exclude_unset=True)
     if "notes" in data:
         rule.notes = data.pop("notes")
+    if "parameter_key" in data and data["parameter_key"] not in KNOWN_PARAMETERS:
+        raise HTTPException(status_code=400, detail=f"Parámetro desconocido: {data['parameter_key']}")
     if data:
         rule.action_params = {**rule.action_params, **data}
 

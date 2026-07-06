@@ -2,16 +2,21 @@
 
 Dos fuentes de reglas conviven aquí a propósito: `CatalogRule` (el modelo original, un
 solo tipo de acción, sin migrar) y `TechnicalRule` (la generalización hacia adelante,
-condición/acción tipada — hoy solo implementa el mismo tipo de acción,
-`add_accessory`). `build_accessory_rule_dicts` une ambas fuentes en el formato que
-`expand_with_rules` ya sabe consumir, para que una regla creada por cualquiera de los
-dos mecanismos tenga el mismo efecto en la generación de presupuesto.
+condición/acción tipada). `TechnicalRule` ya implementa sus tres tipos de acción:
+`add_accessory` (`build_accessory_rule_dicts`, unido con `CatalogRule`),
+`set_calculation_parameter` (`resolve_calculation_parameter_overrides`, hacia Motor 5) y
+`flag_engineering_note` (`resolve_engineering_notes`, hacia Motor 6).
 """
 
 import math
 
 from app.models.catalog_rule import CatalogRule
-from app.models.technical_rule import ACTION_TYPE_ADD_ACCESSORY, TechnicalRule
+from app.models.technical_rule import (
+    ACTION_TYPE_ADD_ACCESSORY,
+    ACTION_TYPE_FLAG_ENGINEERING_NOTE,
+    ACTION_TYPE_SET_CALCULATION_PARAMETER,
+    TechnicalRule,
+)
 
 
 def expand_with_rules(items: list[dict], catalog: list[dict], rules: list[dict]) -> list[dict]:
@@ -101,3 +106,52 @@ def build_accessory_rule_dicts(catalog_rules: list[CatalogRule], technical_rules
     dicts = [_catalog_rule_to_dict(r) for r in catalog_rules]
     dicts.extend(d for r in technical_rules if (d := _technical_rule_to_dict(r)) is not None)
     return dicts
+
+
+def _present_product_ids(items: list[dict]) -> set[int]:
+    return {item["product_id"] for item in items if item.get("product_id")}
+
+
+def resolve_calculation_parameter_overrides(items: list[dict], technical_rules: list[TechnicalRule]) -> dict[str, float]:
+    """Motor 4 → Motor 5: por cada `TechnicalRule` de tipo `set_calculation_parameter`
+    cuyo `source_product_id` está presente en `items` (ítems ya resueltos del
+    presupuesto), devuelve el valor a usar para ese `parameter_key` en vez del default
+    de `calculation_parameters` — solo para esta generación, no se persiste.
+
+    Si varias reglas activas apuntan a la misma clave (ej. dos productos distintos que
+    ambos suben el margen de desperdicio de cable), se usa el valor más alto: todas las
+    reglas de este tipo hoy suben un parámetro para un caso especial, nunca lo bajan, así
+    que el valor más conservador es el más alto, no el último que se evalúe."""
+    present_ids = _present_product_ids(items)
+    overrides: dict[str, float] = {}
+    for rule in technical_rules:
+        if rule.action_type != ACTION_TYPE_SET_CALCULATION_PARAMETER:
+            continue
+        if rule.source_product_id not in present_ids:
+            continue
+        key, value = rule.parameter_key, rule.value
+        if key is None or value is None:
+            continue
+        if key not in overrides or value > overrides[key]:
+            overrides[key] = value
+    return overrides
+
+
+def resolve_engineering_notes(items: list[dict], technical_rules: list[TechnicalRule]) -> list[str]:
+    """Motor 4 → Motor 6: notas de `TechnicalRule` de tipo `flag_engineering_note` cuyo
+    `source_product_id` está presente en `items`, para agregar al borrador de ingeniería
+    generado por IA (ver api/routers/ai.py). Sin duplicados; conserva el orden en que se
+    encontraron las reglas."""
+    present_ids = _present_product_ids(items)
+    notes: list[str] = []
+    seen: set[str] = set()
+    for rule in technical_rules:
+        if rule.action_type != ACTION_TYPE_FLAG_ENGINEERING_NOTE:
+            continue
+        if rule.source_product_id not in present_ids:
+            continue
+        note = rule.engineering_note
+        if note and note not in seen:
+            seen.add(note)
+            notes.append(note)
+    return notes

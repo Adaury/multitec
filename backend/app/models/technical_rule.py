@@ -5,12 +5,17 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
-# Único action_type con manejador implementado hoy (ver app/ai_engine/rules.py). Agregar
-# uno nuevo (ej. "set_calculation_parameter" para Motor 5, "flag_engineering_note" para
-# Motor 6) no requiere migración — sus parámetros propios van en `action_params` (JSON),
+# Los tres action_type con manejador implementado (ver app/ai_engine/rules.py). Agregar
+# uno nuevo no requiere migración — sus parámetros propios van en `action_params` (JSON),
 # no en columnas — solo hace falta registrar el manejador nuevo ahí.
 ACTION_TYPE_ADD_ACCESSORY = "add_accessory"
-SUPPORTED_ACTION_TYPES = (ACTION_TYPE_ADD_ACCESSORY,)
+ACTION_TYPE_SET_CALCULATION_PARAMETER = "set_calculation_parameter"
+ACTION_TYPE_FLAG_ENGINEERING_NOTE = "flag_engineering_note"
+SUPPORTED_ACTION_TYPES = (
+    ACTION_TYPE_ADD_ACCESSORY,
+    ACTION_TYPE_SET_CALCULATION_PARAMETER,
+    ACTION_TYPE_FLAG_ENGINEERING_NOTE,
+)
 
 
 class TechnicalRule(Base):
@@ -32,7 +37,7 @@ class TechnicalRule(Base):
 
     source_product: Mapped["Product"] = relationship(back_populates="technical_rules")  # noqa: F821
 
-    # Accesores planos para el único action_type de hoy — permiten que TechnicalRuleOut
+    # Accesores planos por action_type — permiten que TechnicalRuleOut
     # (schemas/technical_rule.py) se sirva con `from_attributes=True` igual que
     # CatalogRuleOut, sin que el frontend tenga que interpretar action_params a mano.
     @property
@@ -46,3 +51,21 @@ class TechnicalRule(Base):
     @property
     def quantity(self) -> float:
         return self.action_params.get("quantity", 1) if self.action_type == ACTION_TYPE_ADD_ACCESSORY else 1
+
+    @property
+    def parameter_key(self) -> str | None:
+        if self.action_type != ACTION_TYPE_SET_CALCULATION_PARAMETER:
+            return None
+        return self.action_params.get("parameter_key")
+
+    @property
+    def value(self) -> float | None:
+        if self.action_type != ACTION_TYPE_SET_CALCULATION_PARAMETER:
+            return None
+        return self.action_params.get("value")
+
+    @property
+    def engineering_note(self) -> str | None:
+        if self.action_type != ACTION_TYPE_FLAG_ENGINEERING_NOTE:
+            return None
+        return self.action_params.get("engineering_note")
