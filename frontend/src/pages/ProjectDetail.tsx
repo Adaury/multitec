@@ -876,12 +876,50 @@ function QuoteCard({
             </div>
           </div>
 
-          <Button
-            variant="secondary"
-            onClick={() => downloadFile(`/quotes/${quote.id}/pdf`, `${quote.code}.pdf`)}
-          >
-            Descargar PDF
-          </Button>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Cotización detallada</p>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  onClick={() => viewFile(`/quotes/${quote.id}/pdf`)}
+                >
+                  Ver
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  onClick={() => downloadFile(`/quotes/${quote.id}/pdf`, `${quote.code}.pdf`)}
+                >
+                  Descargar
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                Cotización ejecutiva (resumen por categoría)
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  onClick={() => viewFile(`/quotes/${quote.id}/pdf?variant=ejecutiva`)}
+                >
+                  Ver
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  onClick={() =>
+                    downloadFile(`/quotes/${quote.id}/pdf?variant=ejecutiva`, `${quote.code}-ejecutiva.pdf`)
+                  }
+                >
+                  Descargar
+                </Button>
+              </div>
+            </div>
+          </div>
 
           {quote.status === 'pendiente' && (
             <div className="flex gap-2">
