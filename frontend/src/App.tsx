@@ -14,6 +14,7 @@ import { Quotes } from './pages/Quotes'
 import { Ask } from './pages/Ask'
 import { Users } from './pages/Users'
 import { Ncf } from './pages/Ncf'
+import { CalculationParameters } from './pages/CalculationParameters'
 import { Calendario } from './pages/Calendario'
 import { PortalCliente } from './pages/PortalCliente'
 
@@ -36,6 +37,7 @@ function App() {
           <Route path="/preguntar" element={<Ask />} />
           <Route path="/usuarios" element={<Users />} />
           <Route path="/ncf" element={<Ncf />} />
+          <Route path="/parametros-calculo" element={<CalculationParameters />} />
           <Route path="/calendario" element={<Calendario />} />
         </Route>
       </Route>
