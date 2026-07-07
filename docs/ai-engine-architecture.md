@@ -453,15 +453,15 @@ proyecto atípico) contamine el catálogo de reglas para todos. Construirlo ahor
 datos reales que analizar, habría sido especular sobre qué forma deben tener los
 patrones — mejor esperar al volumen real de proyectos que ya está capturando esta fase.
 
-### Scoping del análisis periódico (diseño; prerrequisito de esquema ya implementado)
+### Scoping del análisis periódico (implementado end-to-end)
 
-> **Estado: el prerrequisito de esquema (`budget_id`) ya está — el análisis en sí
-> todavía no.** Cero filas reales en `ai_feedback_events` cuando se escribió este
-> scoping, así que el trabajo de construir las dos consultas de detección sigue
-> esperando volumen suficiente para no adivinar la forma de los patrones (misma razón
-> que el resto del documento ya defendía). Lo que sí se podía adelantar sin datos era el
-> contrato (qué pregunta responde v1, qué no) y la columna que hace posible reconstruir
-> contexto por evento — eso ya se hizo (migración `eccc613fdde1`).
+> **Estado: implementado — prerrequisito de esquema, las dos consultas de detección, el
+> endpoint bajo demanda y la UI de revisión.** `budget_id` (migración `eccc613fdde1`),
+> `app/ai_engine/learning_analysis.py::detect_accessory_candidates`/
+> `detect_stale_rule_candidates`, `POST /api/ai-feedback-events/analyze` (admin-only) y
+> el botón "Analizar ahora" en `AIFeedbackEvents.tsx` ya existen. Los umbrales
+> (`min_projects`/`min_ratio`) siguen en sus defaults provisionales (3, 0.5) — lo único
+> que de verdad depende de datos reales todavía es calibrarlos, no construir nada más.
 
 **Prerrequisito — `ai_feedback_events.budget_id` (✅ implementado).** La tabla solo
 guardaba `project_id`, no `budget_id`. Un proyecto puede tener más de un `Budget`
@@ -506,37 +506,41 @@ admin ya sabe crear/borrar hoy:**
 - **Aplicar la propuesta automáticamente.** Ver siguiente punto — la propuesta no crea
   ni borra nada por sí sola.
 
-**Cómo se presenta la propuesta — sin tabla nueva, sin endpoint de "aplicar".** La
-propuesta es el resultado de un cálculo de solo lectura, no un registro persistente: se
-muestra en `AIFeedbackEvents.tsx` como una lista de sugerencias con su evidencia (qué
-productos, en cuántos proyectos, ejemplo de cantidades), y cada una enlaza a la acción que
-un admin ya sabe hacer manualmente hoy:
-- Patrón 1 → abre el formulario de "Agregar regla" (`RulesEditor`) ya existente,
-  pre-rellenado con el producto fuente y una etiqueta sugerida (la primera de
-  `Product.tags` del producto agregado) que el admin puede corregir antes de enviar —
-  nunca se envía sin que el admin lo confirme, porque solo el admin sabe si esa etiqueta
-  es demasiado amplia o exacta.
-- Patrón 2 → resalta la regla existente en la lista de reglas del producto con la
-  evidencia al lado; borrar sigue siendo el botón "Eliminar" que ya existe.
+**Cómo se presenta la propuesta (implementado) — sin tabla nueva, sin endpoint de
+"aplicar".** La propuesta es el resultado de un cálculo de solo lectura, no un registro
+persistente: `AIFeedbackEvents.tsx` la muestra como una lista de tarjetas con su
+evidencia (qué productos, en cuántos proyectos, ejemplo de cantidades), cada una con la
+acción real ya integrada en la misma página — no un enlace cruzado a `Catalog.tsx`:
+- Patrón 1 → `AccessoryCandidateCard` trae un mini-formulario pre-rellenado (etiqueta
+  sugerida = la primera de `Product.tags` del producto agregado, cantidad = mediana de
+  lo observado) que llama al mismo `POST /catalog/{source_product_id}/technical-rules`
+  que ya usa `RulesEditor` — el admin puede corregir la etiqueta/cantidad antes de
+  enviar, nunca se crea sin su confirmación.
+- Patrón 2 → `StaleRuleCandidateCard` muestra la evidencia junto a un botón "Eliminar
+  regla" que llama al mismo `DELETE /catalog/technical-rules/{rule_id}` que ya usa
+  `RulesEditor`.
 
-Esto evita construir una tabla `rule_proposals` + un endpoint de aprobación/rechazo +
-un flujo de estados nuevo, cuando la acción real (crear o borrar una `TechnicalRule`) ya
-tiene su propio endpoint aprobado por diseño. La limitación conocida de este enfoque: si
-un admin decide activamente "no quiero esta regla" pero el patrón se sigue repitiendo, la
-misma sugerencia reaparecerá en la próxima corrida (no hay dónde recordar "ya la descarté").
+Una vez que el admin actúa sobre una tarjeta, esa sugerencia se oculta localmente (no
+vuelve a aparecer hasta la próxima corrida de "Analizar ahora") — evita construir una
+tabla `rule_proposals` + un endpoint de aprobación/rechazo + un flujo de estados nuevo,
+cuando la acción real (crear o borrar una `TechnicalRule`) ya tiene su propio endpoint.
+La limitación conocida de este enfoque: si un admin decide activamente "no quiero esta
+regla" pero el patrón se sigue repitiendo, la misma sugerencia reaparecerá la próxima
+vez que se dispare el análisis (no hay dónde recordar "ya la descarté" entre sesiones).
 Aceptable para v1 dado el volumen esperado inicial; si en la práctica resulta molesto, la
 extensión natural es una tabla pequeña `dismissed_rule_proposals` (huella de
 `(proposal_type, source_product_id, target_product_id)` + fecha) consultada antes de
 incluir una sugerencia — no hace falta construirla por adelantado sin evidencia de que el
 problema ocurre.
 
-**Disparo — sin scheduler.** Igual que `quote_archiver.archive_stale_quotes` evita un
-scheduler ejecutándose de forma perezosa, el análisis de Motor 7 se dispara con un botón
-"Analizar ahora" en `AIFeedbackEvents.tsx` (`POST /api/ai-feedback-events/analyze`),
-no con un cron. Es una operación de lectura pesada (recorre todos los eventos) que un
-admin dispara cuando quiere revisar propuestas, no algo que deba correr en cada carga de
-página. Si con el tiempo se vuelve una tarea de rutina periódica, ahí se justifica mover
-el disparo a un scheduler — no antes.
+**Disparo (implementado) — sin scheduler.** Igual que
+`quote_archiver.archive_stale_quotes` evita un scheduler ejecutándose de forma
+perezosa, el análisis de Motor 7 se dispara con el botón "Analizar ahora" en
+`AIFeedbackEvents.tsx`, que llama a `POST /api/ai-feedback-events/analyze` (admin-only,
+igual que crear/borrar `TechnicalRule`). Es una operación de lectura pesada (recorre
+todos los eventos) que un admin dispara cuando quiere revisar propuestas, no algo que
+corra en cada carga de página ni con un cron. Si con el tiempo se vuelve una tarea de
+rutina periódica, ahí se justifica mover el disparo a un scheduler — no antes.
 
 **Umbrales (N proyectos, proporción mínima):** deliberadamente sin fijar todavía. Son los
 únicos números de este diseño que dependen de ver datos reales para calibrarse sin
@@ -684,10 +688,10 @@ falta poder corregir capacidad automáticamente en vez de solo advertir.
   (ambos repetían el mismo cálculo casi línea por línea) — ahora comparten
   `compute_survey_items`.
 
-Con esto, de los 7 motores solo queda un hueco deliberado: el análisis periódico de
-Motor 7, esperando volumen real de proyectos, como estaba planeado desde el principio.
-Su alcance ya quedó fijado (§ "Scoping del análisis periódico" arriba: dos patrones v1,
-sin tabla ni endpoint de propuestas, disparo manual sin scheduler) y su prerrequisito de
-esquema (`ai_feedback_events.budget_id`) ya está implementado — lo único pendiente de
-ese diseño son las dos consultas de detección en sí y los umbrales numéricos, que
-dependen de datos reales para calibrarse sin adivinar.
+Con esto, los 7 motores están implementados de punta a punta, incluyendo Motor 7: el
+análisis periódico (§ "Scoping del análisis periódico" arriba) tiene su prerrequisito de
+esquema, sus dos consultas de detección, el endpoint bajo demanda y la tarjeta de
+revisión en `AIFeedbackEvents.tsx`, todo sin tabla de propuestas ni scheduler, tal como
+se diseñó. Lo único que queda deliberadamente sin resolver son los umbrales numéricos
+(`min_projects`/`min_ratio`) — dependen de volumen real de proyectos para calibrarse sin
+adivinar, no de más código.

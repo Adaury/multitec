@@ -222,6 +222,37 @@ export interface AIFeedbackEvent {
   created_at: string
 }
 
+export interface AccessoryCandidate {
+  source_product_id: number
+  source_product_name: string
+  added_product_id: number
+  added_product_name: string
+  suggested_target_tag: string | null
+  project_count: number
+  total_projects_with_source: number
+  ratio: number
+  example_quantity: number
+  example_project_codes: string[]
+}
+
+export interface StaleRuleCandidate {
+  rule_id: number
+  source_product_id: number
+  source_product_name: string
+  target_tag: string
+  would_add_product_id: number | null
+  would_add_product_name: string | null
+  removed_count: number
+  total_projects_with_source: number
+  ratio: number
+  example_project_codes: string[]
+}
+
+export interface LearningAnalysisOut {
+  accessory_candidates: AccessoryCandidate[]
+  stale_rule_candidates: StaleRuleCandidate[]
+}
+
 export type StockMovementType = 'entrada' | 'salida'
 
 export interface StockMovement {

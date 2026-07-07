@@ -2,6 +2,8 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
+from app.models.ai_feedback_event import ENTITY_TYPE_BUDGET_ITEM, ORIGIN_HUMAN_ADDED, AIFeedbackEvent
+from app.models.budget import Budget, BudgetItem
 from tests.conftest import auth_headers, make_project
 
 
@@ -153,3 +155,53 @@ def test_editing_ai_generated_engineering_records_feedback(client, admin_token):
     assert events[0]["field_changed"] == "distribution"
     assert events[0]["old_value"] == "Perímetro"
     assert events[0]["new_value"] == "Perímetro + interior"
+
+
+def test_analyze_requires_admin(client, oficina_token):
+    headers = auth_headers(oficina_token)
+    resp = client.post("/api/ai-feedback-events/analyze", headers=headers)
+    assert resp.status_code == 403
+
+
+def test_analyze_returns_empty_lists_when_no_patterns(client, admin_token):
+    headers = auth_headers(admin_token)
+    resp = client.post("/api/ai-feedback-events/analyze", headers=headers)
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {"accessory_candidates": [], "stale_rule_candidates": []}
+
+
+def test_analyze_detects_accessory_candidate(client, admin_token, db_session):
+    headers = auth_headers(admin_token)
+    source = _create_product(client, headers, name="Cable de fibra", tags=["fibra"])
+    added = _create_product(client, headers, name="Organizador de rack", tags=["organizador"])
+
+    for i in range(3):
+        project = make_project(client, headers)
+        budget = Budget(code=f"PRE-ANALYZE{i}", project_id=project["id"], total=0)
+        db_session.add(budget)
+        db_session.commit()
+        db_session.refresh(budget)
+        db_session.add(BudgetItem(budget_id=budget.id, product_id=source["id"], description="x", quantity=1))
+        db_session.add(BudgetItem(budget_id=budget.id, product_id=added["id"], description="y", quantity=1))
+        db_session.add(
+            AIFeedbackEvent(
+                project_id=project["id"],
+                budget_id=budget.id,
+                entity_type=ENTITY_TYPE_BUDGET_ITEM,
+                origin=ORIGIN_HUMAN_ADDED,
+                product_id=added["id"],
+                new_value="1.0",
+            )
+        )
+        db_session.commit()
+
+    resp = client.post("/api/ai-feedback-events/analyze", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["stale_rule_candidates"] == []
+    assert len(body["accessory_candidates"]) == 1
+    candidate = body["accessory_candidates"][0]
+    assert candidate["source_product_id"] == source["id"]
+    assert candidate["added_product_id"] == added["id"]
+    assert candidate["suggested_target_tag"] == "organizador"
+    assert candidate["project_count"] == 3

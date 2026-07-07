@@ -1,9 +1,17 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
-import type { AIFeedbackEvent, AIFeedbackOrigin, Product, Project } from '../lib/types'
+import type {
+  AccessoryCandidate,
+  AIFeedbackEvent,
+  AIFeedbackOrigin,
+  LearningAnalysisOut,
+  Product,
+  Project,
+  StaleRuleCandidate,
+} from '../lib/types'
 import { useAuthStore } from '../lib/authStore'
-import { Badge, Card, Field } from '../components/ui'
+import { Badge, Button, Card, Field, Input } from '../components/ui'
 
 const ORIGIN_LABELS: Record<AIFeedbackOrigin, string> = {
   ai_suggested: 'Sugerido por IA',
@@ -30,10 +38,101 @@ function describeEvent(event: AIFeedbackEvent, productName: string | null): stri
   return `Se cambió la cantidad de ${product}: ${event.old_value} → ${event.new_value}`
 }
 
+function AccessoryCandidateCard({ candidate, onHandled }: { candidate: AccessoryCandidate; onHandled: () => void }) {
+  const [targetTag, setTargetTag] = useState(candidate.suggested_target_tag ?? '')
+  const [quantity, setQuantity] = useState(String(Math.round(candidate.example_quantity)))
+  const [error, setError] = useState<string | null>(null)
+
+  const createRule = useMutation({
+    mutationFn: async () =>
+      (
+        await api.post(`/catalog/${candidate.source_product_id}/technical-rules`, {
+          action_type: 'add_accessory',
+          target_tag: targetTag,
+          per_source_units: null,
+          quantity: Number(quantity),
+        })
+      ).data,
+    onSuccess: onHandled,
+    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo crear la regla'),
+  })
+
+  return (
+    <Card className="space-y-2">
+      <p className="text-sm text-gray-700 dark:text-gray-300">
+        Cuando se usa <strong>{candidate.source_product_name}</strong>, se agregó a mano{' '}
+        <strong>{candidate.added_product_name}</strong> en {candidate.project_count} de{' '}
+        {candidate.total_projects_with_source} proyectos ({Math.round(candidate.ratio * 100)}%).
+      </p>
+      {candidate.example_project_codes.length > 0 && (
+        <p className="text-xs text-gray-400">Ejemplos: {candidate.example_project_codes.join(', ')}</p>
+      )}
+      <form
+        className="space-y-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          createRule.mutate()
+        }}
+      >
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Field label="Etiqueta del accesorio">
+            <Input required value={targetTag} onChange={(e) => setTargetTag(e.target.value)} />
+          </Field>
+          <Field label="Cantidad fija">
+            <Input type="number" min="1" step="1" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          </Field>
+        </div>
+        <Button type="submit" disabled={createRule.isPending || !targetTag}>
+          {createRule.isPending ? 'Creando…' : '+ Crear regla'}
+        </Button>
+      </form>
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+    </Card>
+  )
+}
+
+function StaleRuleCandidateCard({ candidate, onHandled }: { candidate: StaleRuleCandidate; onHandled: () => void }) {
+  const [error, setError] = useState<string | null>(null)
+
+  const deleteRule = useMutation({
+    mutationFn: async () => (await api.delete(`/catalog/technical-rules/${candidate.rule_id}`)).data,
+    onSuccess: onHandled,
+    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo eliminar la regla'),
+  })
+
+  return (
+    <Card className="space-y-2">
+      <p className="text-sm text-gray-700 dark:text-gray-300">
+        La regla de <strong>{candidate.source_product_name}</strong> agrega{' '}
+        <strong>{candidate.would_add_product_name ?? `tag "${candidate.target_tag}"`}</strong>, pero se quitó a mano
+        en {candidate.removed_count} de {candidate.total_projects_with_source} proyectos (
+        {Math.round(candidate.ratio * 100)}%).
+      </p>
+      {candidate.example_project_codes.length > 0 && (
+        <p className="text-xs text-gray-400">Ejemplos: {candidate.example_project_codes.join(', ')}</p>
+      )}
+      <Button variant="secondary" onClick={() => deleteRule.mutate()} disabled={deleteRule.isPending}>
+        {deleteRule.isPending ? 'Eliminando…' : 'Eliminar regla'}
+      </Button>
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+    </Card>
+  )
+}
+
 export function AIFeedbackEvents() {
   const currentUser = useAuthStore((s) => s.user)
   const isAdmin = currentUser?.role === 'admin'
   const [projectId, setProjectId] = useState('')
+  const [handledAccessoryKeys, setHandledAccessoryKeys] = useState<Set<string>>(new Set())
+  const [handledRuleIds, setHandledRuleIds] = useState<Set<number>>(new Set())
+
+  const analyze = useMutation({
+    mutationFn: async () => (await api.post<LearningAnalysisOut>('/ai-feedback-events/analyze')).data,
+    onSuccess: () => {
+      setHandledAccessoryKeys(new Set())
+      setHandledRuleIds(new Set())
+    },
+  })
 
   const { data: projects } = useQuery({
     queryKey: ['projects'],
@@ -80,9 +179,68 @@ export function AIFeedbackEvents() {
       <p className="text-sm text-gray-500 dark:text-gray-400">
         Registro de qué corrigió un humano sobre un presupuesto o una ingeniería que generó
         la IA (Motor 7) — solo mientras seguían siendo la sugerencia original, sin editar
-        todavía. Es información cruda: nada la analiza ni propone reglas automáticamente
-        todavía, eso espera a tener volumen suficiente de proyectos.
+        todavía.
       </p>
+
+      <Card className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="font-medium text-gray-900 dark:text-gray-100">Análisis de patrones</p>
+          <Button className="!w-auto shrink-0 px-4" onClick={() => analyze.mutate()} disabled={analyze.isPending}>
+            {analyze.isPending ? 'Analizando…' : 'Analizar ahora'}
+          </Button>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Busca accesorios agregados a mano de forma consistente (candidatos a regla nueva) y reglas existentes
+          cuyo accesorio se quita a mano de forma consistente (candidatas a revisar). No crea ni borra nada por
+          su cuenta — cada resultado enlaza a la acción que ya existe.
+        </p>
+
+        {analyze.isError && (
+          <p className="text-sm text-red-600 dark:text-red-400">No se pudo completar el análisis.</p>
+        )}
+
+        {analyze.data && (
+          <div className="space-y-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Accesorios candidatos a regla nueva
+              </p>
+              {analyze.data.accessory_candidates.filter(
+                (c) => !handledAccessoryKeys.has(`${c.source_product_id}-${c.added_product_id}`),
+              ).length === 0 && <p className="text-xs text-gray-400">Ningún candidato por ahora.</p>}
+              {analyze.data.accessory_candidates
+                .filter((c) => !handledAccessoryKeys.has(`${c.source_product_id}-${c.added_product_id}`))
+                .map((c) => (
+                  <AccessoryCandidateCard
+                    key={`${c.source_product_id}-${c.added_product_id}`}
+                    candidate={c}
+                    onHandled={() =>
+                      setHandledAccessoryKeys(
+                        (prev) => new Set(prev).add(`${c.source_product_id}-${c.added_product_id}`),
+                      )
+                    }
+                  />
+                ))}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Reglas a revisar</p>
+              {analyze.data.stale_rule_candidates.filter((c) => !handledRuleIds.has(c.rule_id)).length === 0 && (
+                <p className="text-xs text-gray-400">Ninguna regla señalada por ahora.</p>
+              )}
+              {analyze.data.stale_rule_candidates
+                .filter((c) => !handledRuleIds.has(c.rule_id))
+                .map((c) => (
+                  <StaleRuleCandidateCard
+                    key={c.rule_id}
+                    candidate={c}
+                    onHandled={() => setHandledRuleIds((prev) => new Set(prev).add(c.rule_id))}
+                  />
+                ))}
+            </div>
+          </div>
+        )}
+      </Card>
 
       <Card className="max-w-sm">
         <Field label="Filtrar por proyecto">
