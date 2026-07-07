@@ -1507,6 +1507,10 @@ function PreInvoiceTab({
   const queryClient = useQueryClient()
   const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const [ncfTypeByPreInvoice, setNcfTypeByPreInvoice] = useState<Record<number, NcfType>>({})
+  const { data: products } = useProducts()
+  const [showForm, setShowForm] = useState(false)
+  const [notes, setNotes] = useState('')
+  const [items, setItems] = useState<LineItemInput[]>([])
 
   const { data: quotes } = useQuery({
     queryKey: ['quotes', projectId],
@@ -1520,6 +1524,16 @@ function PreInvoiceTab({
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['pre-invoices', projectId] })
   }
+
+  const createPreInvoice = useMutation({
+    mutationFn: async () => (await api.post(`/projects/${projectId}/pre-invoices`, { notes, items })).data,
+    onSuccess: () => {
+      invalidate()
+      setShowForm(false)
+      setNotes('')
+      setItems([])
+    },
+  })
 
   function ncfTypeFor(preInvoiceId: number): NcfType {
     return ncfTypeByPreInvoice[preInvoiceId] ?? (clientHasRnc ? 'B01' : 'B02')
@@ -1550,7 +1564,30 @@ function PreInvoiceTab({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-gray-500 dark:text-gray-400">Documento previo generado desde una cotización aprobada.</p>
+      <div className="flex flex-wrap items-center justify-between gap-2 md:max-w-2xl">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Documento previo — normalmente generado desde una cotización aprobada, o creado a mano si hace
+          falta facturar algo sin pasar por ese flujo.
+        </p>
+        <button
+          onClick={() => setShowForm((v) => !v)}
+          className="shrink-0 rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
+        >
+          {showForm ? 'Cancelar' : '+ Nueva'}
+        </button>
+      </div>
+
+      {showForm && (
+        <Card className="space-y-3">
+          <Field label="Notas">
+            <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </Field>
+          <LineItemsEditor items={items} onChange={setItems} products={products ?? []} mode="quote" />
+          <Button onClick={() => createPreInvoice.mutate()} disabled={createPreInvoice.isPending || items.length === 0}>
+            {createPreInvoice.isPending ? 'Guardando…' : 'Guardar prefactura'}
+          </Button>
+        </Card>
+      )}
 
       {approvedWithoutPreInvoice.length > 0 && (
         <div className="space-y-2">
