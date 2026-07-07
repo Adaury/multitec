@@ -86,11 +86,193 @@ function optionalNumber(value: string): number | null {
   return value.trim() === '' ? null : Number(value)
 }
 
+function productFormPayload(form: ProductForm) {
+  return {
+    ...form,
+    category_id: Number(form.category_id),
+    install_minutes: optionalNumber(form.install_minutes),
+    labor_role: form.labor_role.trim() || null,
+    priority: optionalNumber(form.priority),
+    resolution_mp: optionalNumber(form.resolution_mp),
+    storage_capacity_gb: optionalNumber(form.storage_capacity_gb),
+    channel_capacity: optionalNumber(form.channel_capacity),
+    tags: splitTags(form.tags),
+    synonyms: splitTags(form.synonyms),
+  }
+}
+
+function productToForm(product: Product): ProductForm {
+  return {
+    category_id: product.category_id != null ? String(product.category_id) : '',
+    name: product.name,
+    unit: product.unit,
+    price: product.price,
+    cost: product.cost,
+    notes: product.notes ?? '',
+    brand: product.brand ?? '',
+    model: product.model ?? '',
+    commercial_description: product.commercial_description ?? '',
+    technical_description: product.technical_description ?? '',
+    install_minutes: product.install_minutes != null ? String(product.install_minutes) : '',
+    labor_role: product.labor_role ?? '',
+    priority: product.priority != null ? String(product.priority) : '',
+    resolution_mp: product.resolution_mp != null ? String(product.resolution_mp) : '',
+    storage_capacity_gb: product.storage_capacity_gb != null ? String(product.storage_capacity_gb) : '',
+    channel_capacity: product.channel_capacity != null ? String(product.channel_capacity) : '',
+    tags: product.tags.join(', '),
+    synonyms: product.synonyms.join(', '),
+  }
+}
+
 function splitTags(value: string): string[] {
   return value
     .split(',')
     .map((t) => t.trim())
     .filter(Boolean)
+}
+
+function ProductFormFields({
+  form,
+  setForm,
+  categoryOptions,
+}: {
+  form: ProductForm
+  setForm: (form: ProductForm) => void
+  categoryOptions: CategoryOption[]
+}) {
+  return (
+    <>
+      <div className="grid gap-3 md:grid-cols-2">
+        <Field label="Categoría">
+          <select
+            required
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            value={form.category_id}
+            onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+          >
+            <option value="" disabled>
+              Selecciona una categoría…
+            </option>
+            {categoryOptions.map(({ category, depth }) => (
+              <option key={category.id} value={category.id}>
+                {'  '.repeat(depth)}
+                {depth > 0 ? '– ' : ''}
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Nombre">
+          <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        </Field>
+        <Field label="Unidad">
+          <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+        </Field>
+        <Field label="Precio (RD$)">
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
+          />
+        </Field>
+        <Field label="Costo (RD$)">
+          <Input
+            type="number"
+            step="0.01"
+            min="0"
+            value={form.cost}
+            onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })}
+          />
+        </Field>
+        <Field label="Marca">
+          <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+        </Field>
+        <Field label="Modelo">
+          <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+        </Field>
+      </div>
+      <Field label="Descripción comercial">
+        <Textarea
+          value={form.commercial_description}
+          onChange={(e) => setForm({ ...form, commercial_description: e.target.value })}
+        />
+      </Field>
+      <Field label="Descripción técnica">
+        <Textarea
+          value={form.technical_description}
+          onChange={(e) => setForm({ ...form, technical_description: e.target.value })}
+        />
+      </Field>
+      <Field label="Etiquetas (separadas por coma) — ej: camara, domo, ip, cctv">
+        <Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
+      </Field>
+      <Field label="Sinónimos (separados por coma) — ej: camarita, ojo">
+        <Input value={form.synonyms} onChange={(e) => setForm({ ...form, synonyms: e.target.value })} />
+      </Field>
+      <Field label="Notas">
+        <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
+      </Field>
+
+      <div className="border-t border-gray-100 pt-3 dark:border-gray-800">
+        <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+          Datos para el Motor de IA (opcionales) — los usan las calculadoras de presupuesto al generar
+          sugerencias automáticas; un producto sin estos datos igual funciona, solo queda fuera de esos
+          cálculos.
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <Field label="Minutos de instalación (por unidad)">
+            <Input
+              type="number"
+              step="1"
+              min="0"
+              value={form.install_minutes}
+              onChange={(e) => setForm({ ...form, install_minutes: e.target.value })}
+            />
+          </Field>
+          <Field label="Rol de mano de obra — ej: técnico eléctrico">
+            <Input value={form.labor_role} onChange={(e) => setForm({ ...form, labor_role: e.target.value })} />
+          </Field>
+          <Field label="Prioridad">
+            <Input
+              type="number"
+              step="1"
+              value={form.priority}
+              onChange={(e) => setForm({ ...form, priority: e.target.value })}
+            />
+          </Field>
+          <Field label="Resolución en megapíxeles (cámaras)">
+            <Input
+              type="number"
+              step="0.1"
+              min="0"
+              value={form.resolution_mp}
+              onChange={(e) => setForm({ ...form, resolution_mp: e.target.value })}
+            />
+          </Field>
+          <Field label="Capacidad de almacenamiento en GB (discos/NVR)">
+            <Input
+              type="number"
+              step="1"
+              min="0"
+              value={form.storage_capacity_gb}
+              onChange={(e) => setForm({ ...form, storage_capacity_gb: e.target.value })}
+            />
+          </Field>
+          <Field label="Capacidad de canales/puertos (NVR/switch PoE)">
+            <Input
+              type="number"
+              step="1"
+              min="0"
+              value={form.channel_capacity}
+              onChange={(e) => setForm({ ...form, channel_capacity: e.target.value })}
+            />
+          </Field>
+        </div>
+      </div>
+    </>
+  )
 }
 
 export function Catalog() {
@@ -111,21 +293,7 @@ export function Catalog() {
   const categoryOptions = categories ? flattenCategories(categories) : []
 
   const createProduct = useMutation({
-    mutationFn: async (payload: ProductForm) =>
-      (
-        await api.post('/catalog', {
-          ...payload,
-          category_id: Number(payload.category_id),
-          install_minutes: optionalNumber(payload.install_minutes),
-          labor_role: payload.labor_role.trim() || null,
-          priority: optionalNumber(payload.priority),
-          resolution_mp: optionalNumber(payload.resolution_mp),
-          storage_capacity_gb: optionalNumber(payload.storage_capacity_gb),
-          channel_capacity: optionalNumber(payload.channel_capacity),
-          tags: splitTags(payload.tags),
-          synonyms: splitTags(payload.synonyms),
-        })
-      ).data,
+    mutationFn: async (payload: ProductForm) => (await api.post('/catalog', productFormPayload(payload))).data,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['catalog'] })
       setShowForm(false)
@@ -154,138 +322,7 @@ export function Catalog() {
               createProduct.mutate(form)
             }}
           >
-            <div className="grid gap-3 md:grid-cols-2">
-              <Field label="Categoría">
-                <select
-                  required
-                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                  value={form.category_id}
-                  onChange={(e) => setForm({ ...form, category_id: e.target.value })}
-                >
-                  <option value="" disabled>
-                    Selecciona una categoría…
-                  </option>
-                  {categoryOptions.map(({ category, depth }) => (
-                    <option key={category.id} value={category.id}>
-                      {'  '.repeat(depth)}
-                      {depth > 0 ? '– ' : ''}
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Nombre">
-                <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </Field>
-              <Field label="Unidad">
-                <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
-              </Field>
-              <Field label="Precio (RD$)">
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Costo (RD$)">
-                <Input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={form.cost}
-                  onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })}
-                />
-              </Field>
-              <Field label="Marca">
-                <Input value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
-              </Field>
-              <Field label="Modelo">
-                <Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-              </Field>
-            </div>
-            <Field label="Descripción comercial">
-              <Textarea
-                value={form.commercial_description}
-                onChange={(e) => setForm({ ...form, commercial_description: e.target.value })}
-              />
-            </Field>
-            <Field label="Descripción técnica">
-              <Textarea
-                value={form.technical_description}
-                onChange={(e) => setForm({ ...form, technical_description: e.target.value })}
-              />
-            </Field>
-            <Field label="Etiquetas (separadas por coma) — ej: camara, domo, ip, cctv">
-              <Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} />
-            </Field>
-            <Field label="Sinónimos (separados por coma) — ej: camarita, ojo">
-              <Input value={form.synonyms} onChange={(e) => setForm({ ...form, synonyms: e.target.value })} />
-            </Field>
-            <Field label="Notas">
-              <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-            </Field>
-
-            <div className="border-t border-gray-100 pt-3 dark:border-gray-800">
-              <p className="mb-2 text-xs font-medium text-gray-500 dark:text-gray-400">
-                Datos para el Motor de IA (opcionales) — los usan las calculadoras de presupuesto al generar
-                sugerencias automáticas; un producto sin estos datos igual funciona, solo queda fuera de esos
-                cálculos.
-              </p>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Field label="Minutos de instalación (por unidad)">
-                  <Input
-                    type="number"
-                    step="1"
-                    min="0"
-                    value={form.install_minutes}
-                    onChange={(e) => setForm({ ...form, install_minutes: e.target.value })}
-                  />
-                </Field>
-                <Field label="Rol de mano de obra — ej: técnico eléctrico">
-                  <Input
-                    value={form.labor_role}
-                    onChange={(e) => setForm({ ...form, labor_role: e.target.value })}
-                  />
-                </Field>
-                <Field label="Prioridad">
-                  <Input
-                    type="number"
-                    step="1"
-                    value={form.priority}
-                    onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                  />
-                </Field>
-                <Field label="Resolución en megapíxeles (cámaras)">
-                  <Input
-                    type="number"
-                    step="0.1"
-                    min="0"
-                    value={form.resolution_mp}
-                    onChange={(e) => setForm({ ...form, resolution_mp: e.target.value })}
-                  />
-                </Field>
-                <Field label="Capacidad de almacenamiento en GB (discos/NVR)">
-                  <Input
-                    type="number"
-                    step="1"
-                    min="0"
-                    value={form.storage_capacity_gb}
-                    onChange={(e) => setForm({ ...form, storage_capacity_gb: e.target.value })}
-                  />
-                </Field>
-                <Field label="Capacidad de canales/puertos (NVR/switch PoE)">
-                  <Input
-                    type="number"
-                    step="1"
-                    min="0"
-                    value={form.channel_capacity}
-                    onChange={(e) => setForm({ ...form, channel_capacity: e.target.value })}
-                  />
-                </Field>
-              </div>
-            </div>
+            <ProductFormFields form={form} setForm={setForm} categoryOptions={categoryOptions} />
             <Button type="submit" disabled={createProduct.isPending}>
               {createProduct.isPending ? 'Guardando…' : 'Guardar producto'}
             </Button>
@@ -302,6 +339,7 @@ export function Catalog() {
             product={product}
             expanded={expandedId === product.id}
             onToggle={() => setExpandedId(expandedId === product.id ? null : product.id)}
+            categoryOptions={categoryOptions}
           />
         ))}
         {products?.length === 0 && <p className="text-sm text-gray-500">Aún no hay productos en el catálogo.</p>}
@@ -341,16 +379,20 @@ function ProductCard({
   product,
   expanded,
   onToggle,
+  categoryOptions,
 }: {
   product: Product
   expanded: boolean
   onToggle: () => void
+  categoryOptions: CategoryOption[]
 }) {
   const queryClient = useQueryClient()
   const [movementType, setMovementType] = useState<StockMovementType>('entrada')
   const [quantity, setQuantity] = useState('')
   const [reason, setReason] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editForm, setEditForm] = useState<ProductForm>(() => productToForm(product))
 
   const { data: movements } = useQuery({
     queryKey: ['stock-movements', product.id],
@@ -376,6 +418,19 @@ function ProductCard({
     },
     onError: (err: any) => setError(err?.response?.data?.detail ?? 'Error al registrar el movimiento'),
   })
+
+  const updateProduct = useMutation({
+    mutationFn: async () => (await api.put(`/catalog/${product.id}`, productFormPayload(editForm))).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['catalog'] })
+      setIsEditing(false)
+    },
+  })
+
+  function startEditing() {
+    setEditForm(productToForm(product))
+    setIsEditing(true)
+  }
 
   return (
     <Card>
@@ -412,8 +467,42 @@ function ProductCard({
         </div>
       </button>
 
-      {expanded && (
+      {expanded && isEditing && (
+        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              updateProduct.mutate()
+            }}
+          >
+            <ProductFormFields form={editForm} setForm={setEditForm} categoryOptions={categoryOptions} />
+            {updateProduct.isError && (
+              <p className="text-sm text-red-600 dark:text-red-400">No se pudo guardar el producto.</p>
+            )}
+            <div className="flex gap-2">
+              <Button className="!w-auto flex-1" type="submit" disabled={updateProduct.isPending}>
+                {updateProduct.isPending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+              <Button
+                className="!w-auto flex-1"
+                type="button"
+                variant="secondary"
+                onClick={() => setIsEditing(false)}
+                disabled={updateProduct.isPending}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {expanded && !isEditing && (
         <div className="mt-3 space-y-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <Button variant="secondary" className="!w-auto px-4" type="button" onClick={startEditing}>
+            Editar producto
+          </Button>
           <AiFieldsSummary product={product} />
           <form
             className="space-y-2"
