@@ -574,7 +574,7 @@ function IngenieriaTab({ projectId }: { projectId: number }) {
         </div>
         <Button
           variant="secondary"
-          className="w-auto shrink-0 px-4"
+          className="!w-auto shrink-0 px-4"
           onClick={() => aiDraft.mutate()}
           disabled={aiDraft.isPending}
         >
