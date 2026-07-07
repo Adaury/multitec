@@ -188,43 +188,163 @@ export function Calendario() {
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {visits?.map((visit) => (
-          <Card key={visit.id} className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Link to={`/proyectos/${visit.project_id}`} className="font-medium text-brand-blue">
-                {visit.project_code}
-              </Link>
-              <Badge tone={STATUS_TONE[visit.status]}>{VISIT_STATUS_LABELS[visit.status]}</Badge>
-            </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400">{visit.client_name}</p>
-            <div className="flex gap-3 text-xs text-gray-400">
-              {visit.scheduled_time && <span>🕐 {visit.scheduled_time.slice(0, 5)}</span>}
-              <span>👤 {visit.technician_name ?? 'Sin asignar'}</span>
-            </div>
-            {visit.notes && <p className="text-sm text-gray-600 dark:text-gray-400">{visit.notes}</p>}
-            {visit.status === 'programada' && (
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  className="!w-auto px-4"
-                  onClick={() => updateStatus.mutate({ id: visit.id, status: 'completada' })}
-                  disabled={updateStatus.isPending}
-                >
-                  Marcar completada
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="!w-auto px-4"
-                  onClick={() => updateStatus.mutate({ id: visit.id, status: 'cancelada' })}
-                  disabled={updateStatus.isPending}
-                >
-                  Cancelar
-                </Button>
-              </div>
-            )}
-          </Card>
+          <VisitCard
+            key={visit.id}
+            visit={visit}
+            onStatusChange={(status) => updateStatus.mutate({ id: visit.id, status })}
+            statusPending={updateStatus.isPending}
+            onSaved={invalidate}
+          />
         ))}
         {visits?.length === 0 && <p className="text-sm text-gray-500">No hay visitas agendadas este día.</p>}
       </div>
     </div>
+  )
+}
+
+function VisitCard({
+  visit,
+  onStatusChange,
+  statusPending,
+  onSaved,
+}: {
+  visit: Visit
+  onStatusChange: (status: VisitStatus) => void
+  statusPending: boolean
+  onSaved: () => void
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [technicianId, setTechnicianId] = useState('')
+  const [scheduledDate, setScheduledDate] = useState('')
+  const [scheduledTime, setScheduledTime] = useState('')
+  const [notes, setNotes] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  const { data: technicians } = useQuery({
+    queryKey: ['technicians'],
+    queryFn: async () => (await api.get<Technician[]>('/users/technicians')).data,
+    enabled: isEditing,
+  })
+
+  function startEditing() {
+    setTechnicianId(visit.technician_id != null ? String(visit.technician_id) : '')
+    setScheduledDate(visit.scheduled_date)
+    setScheduledTime(visit.scheduled_time ? visit.scheduled_time.slice(0, 5) : '')
+    setNotes(visit.notes ?? '')
+    setError(null)
+    setIsEditing(true)
+  }
+
+  const updateVisit = useMutation({
+    mutationFn: async () =>
+      (
+        await api.put(`/visits/${visit.id}`, {
+          technician_id: technicianId ? Number(technicianId) : null,
+          scheduled_date: scheduledDate,
+          scheduled_time: scheduledTime || null,
+          notes: notes || null,
+        })
+      ).data,
+    onSuccess: () => {
+      onSaved()
+      setIsEditing(false)
+    },
+    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo guardar la visita'),
+  })
+
+  if (isEditing) {
+    return (
+      <Card className="space-y-2">
+        <p className="font-medium text-brand-blue">{visit.project_code}</p>
+        <form
+          className="space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            updateVisit.mutate()
+          }}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Fecha">
+              <Input
+                type="date"
+                required
+                value={scheduledDate}
+                onChange={(e) => setScheduledDate(e.target.value)}
+              />
+            </Field>
+            <Field label="Hora (opcional)">
+              <Input type="time" value={scheduledTime} onChange={(e) => setScheduledTime(e.target.value)} />
+            </Field>
+          </div>
+          <Field label="Técnico (opcional)">
+            <select
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              value={technicianId}
+              onChange={(e) => setTechnicianId(e.target.value)}
+            >
+              <option value="">Sin asignar</option>
+              {technicians?.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Notas">
+            <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </Field>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <div className="flex gap-2">
+            <Button className="!w-auto flex-1" type="submit" disabled={updateVisit.isPending}>
+              {updateVisit.isPending ? 'Guardando…' : 'Guardar cambios'}
+            </Button>
+            <Button
+              className="!w-auto flex-1"
+              type="button"
+              variant="secondary"
+              onClick={() => setIsEditing(false)}
+              disabled={updateVisit.isPending}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      </Card>
+    )
+  }
+
+  return (
+    <Card className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Link to={`/proyectos/${visit.project_id}`} className="font-medium text-brand-blue">
+          {visit.project_code}
+        </Link>
+        <Badge tone={STATUS_TONE[visit.status]}>{VISIT_STATUS_LABELS[visit.status]}</Badge>
+      </div>
+      <p className="text-sm text-gray-500 dark:text-gray-400">{visit.client_name}</p>
+      <div className="flex gap-3 text-xs text-gray-400">
+        {visit.scheduled_time && <span>🕐 {visit.scheduled_time.slice(0, 5)}</span>}
+        <span>👤 {visit.technician_name ?? 'Sin asignar'}</span>
+      </div>
+      {visit.notes && <p className="text-sm text-gray-600 dark:text-gray-400">{visit.notes}</p>}
+      {visit.status === 'programada' && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            className="!w-auto px-4"
+            onClick={() => onStatusChange('completada')}
+            disabled={statusPending}
+          >
+            Marcar completada
+          </Button>
+          <Button variant="ghost" className="!w-auto px-4" onClick={() => onStatusChange('cancelada')} disabled={statusPending}>
+            Cancelar
+          </Button>
+          <Button variant="ghost" className="!w-auto px-4" onClick={startEditing}>
+            Reprogramar
+          </Button>
+        </div>
+      )}
+    </Card>
   )
 }

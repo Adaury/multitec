@@ -25,6 +25,7 @@ export function Users() {
   const [error, setError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
   const [resetPasswordValue, setResetPasswordValue] = useState('')
+  const [editName, setEditName] = useState('')
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
@@ -153,6 +154,7 @@ export function Users() {
                     onClick={() => {
                       setEditingId(u.id)
                       setResetPasswordValue('')
+                      setEditName(u.name)
                     }}
                   >
                     Editar
@@ -170,6 +172,9 @@ export function Users() {
 
               {isEditing && (
                 <div className="space-y-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+                  <Field label="Nombre">
+                    <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  </Field>
                   <Field label="Rol">
                     <select
                       className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
@@ -201,13 +206,16 @@ export function Users() {
                       variant="secondary"
                       className="!w-auto px-4"
                       onClick={() => {
-                        if (resetPasswordValue) {
-                          updateUser.mutate({ id: u.id, data: { password: resetPasswordValue } })
+                        const data: Partial<ManagedUser> & { password?: string } = {}
+                        if (editName.trim() && editName !== u.name) data.name = editName.trim()
+                        if (resetPasswordValue) data.password = resetPasswordValue
+                        if (Object.keys(data).length > 0) {
+                          updateUser.mutate({ id: u.id, data })
                         }
                         setEditingId(null)
                       }}
                     >
-                      Guardar contraseña
+                      Guardar cambios
                     </Button>
                     <Button variant="ghost" className="!w-auto px-4" onClick={() => setEditingId(null)}>
                       Listo
