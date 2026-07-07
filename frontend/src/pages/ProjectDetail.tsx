@@ -885,6 +885,7 @@ function QuoteTab({ projectId }: { projectId: number }) {
             expanded={expandedId === quote.id}
             onToggle={() => setExpandedId(expandedId === quote.id ? null : quote.id)}
             projectId={projectId}
+            products={products ?? []}
           />
         ))}
         {quotes?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay cotizaciones.</p>}
@@ -905,16 +906,21 @@ function QuoteCard({
   expanded,
   onToggle,
   projectId,
+  products,
 }: {
   quote: Quote
   expanded: boolean
   onToggle: () => void
   projectId: number
+  products: Product[]
 }) {
   const queryClient = useQueryClient()
   const [reason, setReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [showPurchaseList, setShowPurchaseList] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editNotes, setEditNotes] = useState('')
+  const [editItems, setEditItems] = useState<LineItemInput[]>([])
 
   const { data: history } = useQuery({
     queryKey: ['quote-history', quote.id],
@@ -955,6 +961,27 @@ function QuoteCard({
     onSuccess: invalidate,
   })
 
+  const updateQuote = useMutation({
+    mutationFn: async () => (await api.put(`/quotes/${quote.id}`, { notes: editNotes, items: editItems })).data,
+    onSuccess: () => {
+      invalidate()
+      setIsEditing(false)
+    },
+  })
+
+  function startEditing() {
+    setEditNotes(quote.notes ?? '')
+    setEditItems(
+      quote.items.map((item) => ({
+        product_id: item.product_id,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      })),
+    )
+    setIsEditing(true)
+  }
+
   return (
     <Card>
       <button className="w-full text-left" onClick={onToggle}>
@@ -965,7 +992,36 @@ function QuoteCard({
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{formatDOP(quote.total)}</p>
       </button>
 
-      {expanded && (
+      {expanded && isEditing && (
+        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+          <Field label="Notas">
+            <Textarea rows={2} value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
+          </Field>
+          <LineItemsEditor items={editItems} onChange={setEditItems} products={products} mode="quote" />
+          {updateQuote.isError && (
+            <p className="text-sm text-red-600 dark:text-red-400">No se pudo guardar la cotización.</p>
+          )}
+          <div className="flex gap-2">
+            <Button
+              className="!w-auto flex-1"
+              onClick={() => updateQuote.mutate()}
+              disabled={updateQuote.isPending || editItems.length === 0}
+            >
+              {updateQuote.isPending ? 'Guardando…' : 'Guardar cambios'}
+            </Button>
+            <Button
+              className="!w-auto flex-1"
+              variant="secondary"
+              onClick={() => setIsEditing(false)}
+              disabled={updateQuote.isPending}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {expanded && !isEditing && (
         <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
           <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
             {quote.items.map((item) => (
@@ -1071,11 +1127,18 @@ function QuoteCard({
 
           {quote.status === 'pendiente' && (
             <div className="flex gap-2">
-              <Button onClick={() => approve.mutate()} disabled={approve.isPending}>
+              <Button className="!w-auto flex-1" onClick={() => approve.mutate()} disabled={approve.isPending}>
                 Aprobar
               </Button>
-              <Button variant="secondary" onClick={() => setShowRejectForm((v) => !v)}>
+              <Button
+                className="!w-auto flex-1"
+                variant="secondary"
+                onClick={() => setShowRejectForm((v) => !v)}
+              >
                 Rechazar
+              </Button>
+              <Button className="!w-auto flex-1" variant="ghost" onClick={startEditing}>
+                Editar
               </Button>
             </div>
           )}
