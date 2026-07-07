@@ -23,6 +23,18 @@ function buildTree(categories: Category[]): CategoryNode[] {
   return (byParent.get(null) ?? []).map(toNode)
 }
 
+function collectDescendantIds(node: CategoryNode): Set<number> {
+  const ids = new Set<number>()
+  const walk = (n: CategoryNode) => {
+    for (const child of n.children) {
+      ids.add(child.category.id)
+      walk(child)
+    }
+  }
+  walk(node)
+  return ids
+}
+
 export function Categorias() {
   const queryClient = useQueryClient()
   const [newParentId, setNewParentId] = useState<number | null>(null)
@@ -123,6 +135,7 @@ export function Categorias() {
             node={node}
             depth={0}
             onDelete={(id) => deleteCategory.mutate(id)}
+            allCategories={categories ?? []}
           />
         ))}
       </div>
@@ -134,13 +147,107 @@ function CategoryTreeItem({
   node,
   depth,
   onDelete,
+  allCategories,
 }: {
   node: CategoryNode
   depth: number
   onDelete: (id: number) => void
+  allCategories: Category[]
 }) {
+  const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState(depth === 0)
+  const [isEditing, setIsEditing] = useState(false)
+  const [name, setName] = useState(node.category.name)
+  const [prefix, setPrefix] = useState(node.category.code_prefix ?? '')
+  const [parentId, setParentId] = useState<number | null>(node.category.parent_id)
+  const [error, setError] = useState<string | null>(null)
   const hasChildren = node.children.length > 0
+
+  const updateCategory = useMutation({
+    mutationFn: async () =>
+      (
+        await api.put(`/categories/${node.category.id}`, {
+          name,
+          code_prefix: prefix || null,
+          parent_id: parentId,
+        })
+      ).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+      setIsEditing(false)
+      setError(null)
+    },
+    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo guardar la categoría'),
+  })
+
+  function startEditing() {
+    setName(node.category.name)
+    setPrefix(node.category.code_prefix ?? '')
+    setParentId(node.category.parent_id)
+    setIsEditing(true)
+  }
+
+  if (isEditing) {
+    const descendantIds = collectDescendantIds(node)
+    const parentOptions = allCategories.filter((c) => c.id !== node.category.id && !descendantIds.has(c.id))
+
+    return (
+      <div style={{ marginLeft: depth * 16 }}>
+        <Card className="space-y-2">
+          <form
+            className="space-y-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              updateCategory.mutate()
+            }}
+          >
+            <div className="grid gap-2 md:grid-cols-2">
+              <Field label="Nombre">
+                <Input required value={name} onChange={(e) => setName(e.target.value)} />
+              </Field>
+              <Field label="Prefijo de código (opcional)">
+                <Input
+                  value={prefix}
+                  onChange={(e) => setPrefix(e.target.value.toUpperCase())}
+                  maxLength={10}
+                  placeholder="ej: CAM"
+                />
+              </Field>
+            </div>
+            <Field label="Categoría padre (vacío = categoría raíz)">
+              <select
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                value={parentId ?? ''}
+                onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : null)}
+              >
+                <option value="">(raíz)</option>
+                {parentOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            <div className="flex gap-2">
+              <Button className="!w-auto flex-1" type="submit" disabled={updateCategory.isPending || !name}>
+                {updateCategory.isPending ? 'Guardando…' : 'Guardar'}
+              </Button>
+              <Button
+                className="!w-auto flex-1"
+                type="button"
+                variant="secondary"
+                onClick={() => setIsEditing(false)}
+                disabled={updateCategory.isPending}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div style={{ marginLeft: depth * 16 }}>
@@ -157,19 +264,30 @@ function CategoryTreeItem({
             </span>
           )}
         </button>
-        <button
-          className="text-xs text-red-600 hover:underline dark:text-red-400"
-          onClick={() => {
-            if (confirm(`¿Eliminar "${node.category.name}"?`)) onDelete(node.category.id)
-          }}
-        >
-          Eliminar
-        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          <button className="text-xs text-brand-blue hover:underline" onClick={startEditing}>
+            Editar
+          </button>
+          <button
+            className="text-xs text-red-600 hover:underline dark:text-red-400"
+            onClick={() => {
+              if (confirm(`¿Eliminar "${node.category.name}"?`)) onDelete(node.category.id)
+            }}
+          >
+            Eliminar
+          </button>
+        </div>
       </Card>
       {expanded && hasChildren && (
         <div className="mt-2 space-y-2">
           {node.children.map((child) => (
-            <CategoryTreeItem key={child.category.id} node={child} depth={depth + 1} onDelete={onDelete} />
+            <CategoryTreeItem
+              key={child.category.id}
+              node={child}
+              depth={depth + 1}
+              onDelete={onDelete}
+              allCategories={allCategories}
+            />
           ))}
         </div>
       )}
