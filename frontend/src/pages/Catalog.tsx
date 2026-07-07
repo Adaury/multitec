@@ -723,15 +723,15 @@ function RulesEditor({ productId }: { productId: number }) {
             </li>
           ))}
           {technicalRules?.map((r) => (
-            <li key={`technical-${r.id}`} className="flex items-center justify-between">
-              <span>{describeTechnicalRule(r)}</span>
-              <button
-                className="text-red-600 hover:underline dark:text-red-400"
-                onClick={() => deleteTechnicalRule.mutate(r.id)}
-              >
-                Eliminar
-              </button>
-            </li>
+            <TechnicalRuleRow
+              key={`technical-${r.id}`}
+              rule={r}
+              description={describeTechnicalRule(r)}
+              calculationParameters={calculationParameters}
+              onSaved={invalidate}
+              onDelete={() => deleteTechnicalRule.mutate(r.id)}
+              deletePending={deleteTechnicalRule.isPending}
+            />
           ))}
         </ul>
       )}
@@ -856,6 +856,193 @@ function RulesEditor({ productId }: { productId: number }) {
         </Button>
       </form>
     </div>
+  )
+}
+
+function TechnicalRuleRow({
+  rule,
+  description,
+  calculationParameters,
+  onSaved,
+  onDelete,
+  deletePending,
+}: {
+  rule: TechnicalRule
+  description: string
+  calculationParameters: CalculationParameter[] | undefined
+  onSaved: () => void
+  onDelete: () => void
+  deletePending: boolean
+}) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [targetTag, setTargetTag] = useState('')
+  const [proportional, setProportional] = useState(false)
+  const [perSourceUnits, setPerSourceUnits] = useState('1')
+  const [quantity, setQuantity] = useState('1')
+  const [parameterKey, setParameterKey] = useState('')
+  const [parameterValue, setParameterValue] = useState('')
+  const [engineeringNote, setEngineeringNote] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  function startEditing() {
+    setTargetTag(rule.target_tag ?? '')
+    setProportional(rule.per_source_units != null)
+    setPerSourceUnits(rule.per_source_units != null ? String(rule.per_source_units) : '1')
+    setQuantity(String(rule.quantity))
+    setParameterKey(rule.parameter_key ?? '')
+    setParameterValue(rule.value != null ? String(rule.value) : '')
+    setEngineeringNote(rule.engineering_note ?? '')
+    setError(null)
+    setIsEditing(true)
+  }
+
+  const updateRule = useMutation({
+    mutationFn: async () => {
+      const payload =
+        rule.action_type === 'add_accessory'
+          ? {
+              target_tag: targetTag,
+              per_source_units: proportional ? Number(perSourceUnits) : null,
+              quantity: Number(quantity),
+            }
+          : rule.action_type === 'set_calculation_parameter'
+            ? { parameter_key: parameterKey, value: Number(parameterValue) }
+            : { engineering_note: engineeringNote }
+      return (await api.put(`/catalog/technical-rules/${rule.id}`, payload)).data
+    },
+    onSuccess: () => {
+      onSaved()
+      setIsEditing(false)
+    },
+    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo guardar la regla'),
+  })
+
+  if (isEditing) {
+    return (
+      <li className="space-y-2 rounded-xl bg-brand-gray p-2 dark:bg-gray-800">
+        {rule.action_type === 'add_accessory' && (
+          <>
+            <Field label="Etiqueta del accesorio">
+              <Input required value={targetTag} onChange={(e) => setTargetTag(e.target.value)} />
+            </Field>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setProportional(false)}
+                className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
+                  !proportional
+                    ? 'bg-brand-blue text-white'
+                    : 'bg-white text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                }`}
+              >
+                Fijo
+              </button>
+              <button
+                type="button"
+                onClick={() => setProportional(true)}
+                className={`flex-1 rounded-xl px-3 py-2 text-sm font-medium ${
+                  proportional
+                    ? 'bg-brand-blue text-white'
+                    : 'bg-white text-gray-500 dark:bg-gray-700 dark:text-gray-400'
+                }`}
+              >
+                Proporcional
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {proportional && (
+                <Field label="Por cada X de este producto">
+                  <Input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={perSourceUnits}
+                    onChange={(e) => setPerSourceUnits(e.target.value)}
+                  />
+                </Field>
+              )}
+              <Field label="Cantidad">
+                <Input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                />
+              </Field>
+            </div>
+          </>
+        )}
+        {rule.action_type === 'set_calculation_parameter' && (
+          <>
+            <Field label="Parámetro">
+              <select
+                required
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                value={parameterKey}
+                onChange={(e) => setParameterKey(e.target.value)}
+              >
+                <option value="" disabled>
+                  Selecciona un parámetro…
+                </option>
+                {calculationParameters?.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.description ?? p.key}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Nuevo valor">
+              <Input
+                type="number"
+                step="0.0001"
+                required
+                value={parameterValue}
+                onChange={(e) => setParameterValue(e.target.value)}
+              />
+            </Field>
+          </>
+        )}
+        {rule.action_type === 'flag_engineering_note' && (
+          <Field label="Nota">
+            <Textarea
+              required
+              rows={2}
+              value={engineeringNote}
+              onChange={(e) => setEngineeringNote(e.target.value)}
+            />
+          </Field>
+        )}
+        {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+        <div className="flex gap-2">
+          <Button className="!w-auto flex-1" onClick={() => updateRule.mutate()} disabled={updateRule.isPending}>
+            {updateRule.isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
+          <Button
+            className="!w-auto flex-1"
+            variant="secondary"
+            onClick={() => setIsEditing(false)}
+            disabled={updateRule.isPending}
+          >
+            Cancelar
+          </Button>
+        </div>
+      </li>
+    )
+  }
+
+  return (
+    <li className="flex items-center justify-between">
+      <span>{description}</span>
+      <div className="flex items-center gap-2 text-xs">
+        <button className="text-brand-blue hover:underline" onClick={startEditing}>
+          Editar
+        </button>
+        <button className="text-red-600 hover:underline dark:text-red-400" onClick={onDelete} disabled={deletePending}>
+          Eliminar
+        </button>
+      </div>
+    </li>
   )
 }
 
