@@ -2,10 +2,12 @@
 
 [![GitHub repo](https://img.shields.io/badge/GitHub-Adaury%2Fmultitec-blue?logo=github)](https://github.com/Adaury/multitec)
 [![CI](https://github.com/Adaury/multitec/actions/workflows/ci.yml/badge.svg)](https://github.com/Adaury/multitec/actions/workflows/ci.yml)
+[![Latest release](https://img.shields.io/github/v/release/Adaury/multitec)](https://github.com/Adaury/multitec/releases/tag/v1.0.0)
 [![Stars](https://img.shields.io/github/stars/Adaury/multitec?style=flat)](https://github.com/Adaury/multitec/stargazers)
 [![Forks](https://img.shields.io/github/forks/Adaury/multitec?style=flat)](https://github.com/Adaury/multitec/forks)
 
 **Repositorio:** https://github.com/Adaury/multitec
+**Última versión:** [v1.0.0](https://github.com/Adaury/multitec/releases/tag/v1.0.0) — Motor de IA completo, frontend totalmente conectado
 
 ERP especializado en seguridad electrónica (CCTV, redes LAN, fibra óptica, control de
 acceso, videoporteros, barreras vehiculares, automatización y soporte técnico). El
