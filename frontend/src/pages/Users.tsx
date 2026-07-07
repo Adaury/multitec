@@ -199,7 +199,7 @@ export function Users() {
                   <div className="flex gap-2">
                     <Button
                       variant="secondary"
-                      className="w-auto px-4"
+                      className="!w-auto px-4"
                       onClick={() => {
                         if (resetPasswordValue) {
                           updateUser.mutate({ id: u.id, data: { password: resetPasswordValue } })
@@ -209,7 +209,7 @@ export function Users() {
                     >
                       Guardar contraseña
                     </Button>
-                    <Button variant="ghost" className="w-auto px-4" onClick={() => setEditingId(null)}>
+                    <Button variant="ghost" className="!w-auto px-4" onClick={() => setEditingId(null)}>
                       Listo
                     </Button>
                   </div>

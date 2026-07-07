@@ -205,7 +205,7 @@ export function Calendario() {
               <div className="flex gap-2">
                 <Button
                   variant="secondary"
-                  className="w-auto px-4"
+                  className="!w-auto px-4"
                   onClick={() => updateStatus.mutate({ id: visit.id, status: 'completada' })}
                   disabled={updateStatus.isPending}
                 >
@@ -213,7 +213,7 @@ export function Calendario() {
                 </Button>
                 <Button
                   variant="ghost"
-                  className="w-auto px-4"
+                  className="!w-auto px-4"
                   onClick={() => updateStatus.mutate({ id: visit.id, status: 'cancelada' })}
                   disabled={updateStatus.isPending}
                 >

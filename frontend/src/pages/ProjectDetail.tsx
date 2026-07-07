@@ -498,7 +498,7 @@ function LevantamientoTab({
           <p className="font-medium text-gray-800 dark:text-gray-200">Resumen con IA</p>
           <Button
             variant="secondary"
-            className="w-auto px-4"
+            className="!w-auto px-4"
             onClick={() => aiSummarize.mutate()}
             disabled={aiSummarize.isPending}
           >
@@ -901,14 +901,14 @@ function QuoteCard({
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
-                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  className="!w-auto flex-1 px-3 py-2 text-sm"
                   onClick={() => viewFile(`/quotes/${quote.id}/pdf`)}
                 >
                   Ver
                 </Button>
                 <Button
                   variant="secondary"
-                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  className="!w-auto flex-1 px-3 py-2 text-sm"
                   onClick={() => downloadFile(`/quotes/${quote.id}/pdf`, `${quote.code}.pdf`)}
                 >
                   Descargar
@@ -922,14 +922,14 @@ function QuoteCard({
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
-                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  className="!w-auto flex-1 px-3 py-2 text-sm"
                   onClick={() => viewFile(`/quotes/${quote.id}/pdf?variant=ejecutiva`)}
                 >
                   Ver
                 </Button>
                 <Button
                   variant="secondary"
-                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  className="!w-auto flex-1 px-3 py-2 text-sm"
                   onClick={() =>
                     downloadFile(`/quotes/${quote.id}/pdf?variant=ejecutiva`, `${quote.code}-ejecutiva.pdf`)
                   }
@@ -1403,7 +1403,7 @@ function PreInvoiceTab({
               </div>
               <Button
                 variant="secondary"
-                className="w-auto px-4"
+                className="!w-auto px-4"
                 onClick={() => generate.mutate(quote.id)}
                 disabled={generate.isPending}
               >
@@ -1588,14 +1588,14 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
-                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  className="!w-auto flex-1 px-3 py-2 text-sm"
                   onClick={() => viewFile(`/invoices/${invoice.id}/pdf`)}
                 >
                   Ver
                 </Button>
                 <Button
                   variant="secondary"
-                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  className="!w-auto flex-1 px-3 py-2 text-sm"
                   onClick={() => downloadFile(`/invoices/${invoice.id}/pdf`, `${invoice.code}.pdf`)}
                 >
                   Descargar
@@ -1607,14 +1607,14 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
               <div className="flex gap-2">
                 <Button
                   variant="ghost"
-                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  className="!w-auto flex-1 px-3 py-2 text-sm"
                   onClick={() => viewFile(`/invoices/${invoice.id}/pdf?variant=global`)}
                 >
                   Ver
                 </Button>
                 <Button
                   variant="secondary"
-                  className="w-auto flex-1 px-3 py-2 text-sm"
+                  className="!w-auto flex-1 px-3 py-2 text-sm"
                   onClick={() =>
                     downloadFile(`/invoices/${invoice.id}/pdf?variant=global`, `${invoice.code}-global.pdf`)
                   }
@@ -1956,7 +1956,7 @@ function TicketCard({
                 {ticket.status === 'abierto' && (
                   <Button
                     variant="secondary"
-                    className="w-auto px-4"
+                    className="!w-auto px-4"
                     onClick={() => updateTicket.mutate({ status: 'en_proceso' })}
                     disabled={updateTicket.isPending}
                   >
@@ -1964,7 +1964,7 @@ function TicketCard({
                   </Button>
                 )}
                 <Button
-                  className="w-auto px-4"
+                  className="!w-auto px-4"
                   onClick={() => updateTicket.mutate({ solution, status: 'resuelto' })}
                   disabled={updateTicket.isPending || !solution}
                 >
@@ -1973,7 +1973,7 @@ function TicketCard({
                 {ticket.status === 'resuelto' && (
                   <Button
                     variant="ghost"
-                    className="w-auto px-4"
+                    className="!w-auto px-4"
                     onClick={() => updateTicket.mutate({ status: 'cerrado' })}
                     disabled={updateTicket.isPending}
                   >
