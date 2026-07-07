@@ -1304,6 +1304,7 @@ function PurchasesTab({ projectId }: { projectId: number }) {
   const [productId, setProductId] = useState('')
   const [description, setDescription] = useState('')
   const [quantity, setQuantity] = useState(1)
+  const [notes, setNotes] = useState('')
 
   const createMaterial = useMutation({
     mutationFn: async () =>
@@ -1312,6 +1313,7 @@ function PurchasesTab({ projectId }: { projectId: number }) {
           product_id: productId ? Number(productId) : null,
           description,
           quantity,
+          notes: notes || null,
         })
       ).data,
     onSuccess: () => {
@@ -1320,6 +1322,7 @@ function PurchasesTab({ projectId }: { projectId: number }) {
       setProductId('')
       setDescription('')
       setQuantity(1)
+      setNotes('')
     },
   })
 
@@ -1383,6 +1386,13 @@ function PurchasesTab({ projectId }: { projectId: number }) {
               onChange={(e) => setQuantity(Number(e.target.value))}
             />
           </Field>
+          <Field label="Notas (opcional)">
+            <input
+              className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </Field>
           <Button onClick={() => createMaterial.mutate()} disabled={createMaterial.isPending || !description}>
             {createMaterial.isPending ? 'Guardando…' : 'Agregar material'}
           </Button>
@@ -1422,6 +1432,7 @@ function MaterialRow({ material, onStatusChange }: { material: Material; onStatu
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
           {material.quantity} × {material.description}
         </p>
+        {material.notes && <p className="text-xs text-gray-500 dark:text-gray-400">{material.notes}</p>}
         <Badge tone={material.status === 'pendiente_compra' ? 'amber' : material.status === 'instalado' ? 'green' : 'gray'}>
           {MATERIAL_STATUS_LABELS[material.status]}
         </Badge>
@@ -1521,6 +1532,10 @@ function LogbookTab({ projectId }: { projectId: number }) {
     queryKey: ['logbook', projectId],
     queryFn: async () => (await api.get<LogEntry[]>(`/projects/${projectId}/logbook`)).data,
   })
+  const { data: technicians } = useQuery({
+    queryKey: ['technicians'],
+    queryFn: async () => (await api.get<Technician[]>('/users/technicians')).data,
+  })
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['logbook', projectId] })
@@ -1571,7 +1586,14 @@ function LogbookTab({ projectId }: { projectId: number }) {
       <div className="space-y-3 md:max-w-2xl">
         {entries?.map((entry) => (
           <Card key={entry.id}>
-            <p className="text-xs text-gray-400">{entry.entry_date}</p>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-gray-400">{entry.entry_date}</p>
+              {technicians?.find((t) => t.id === entry.responsible_id) && (
+                <p className="text-xs text-gray-400">
+                  {technicians.find((t) => t.id === entry.responsible_id)?.name}
+                </p>
+              )}
+            </div>
             <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">{entry.comment}</p>
             {entry.assets.length > 0 && (
               <div className="mt-2 grid grid-cols-3 gap-2">
@@ -1728,6 +1750,7 @@ function PreInvoiceTab({
                 {pfc.status === 'facturada' ? 'Facturada' : 'Pendiente'}
               </Badge>
             </div>
+            {pfc.notes && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{pfc.notes}</p>}
             <ul className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
               {pfc.items.map((item) => (
                 <li key={item.id} className="flex justify-between">
