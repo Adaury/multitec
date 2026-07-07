@@ -701,35 +701,132 @@ function BudgetTab({ projectId, onConverted }: { projectId: number; onConverted:
 
       <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {budgets?.map((budget) => (
-          <Card key={budget.id}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <p className="font-medium text-gray-900 dark:text-gray-100">{budget.code}</p>
-                {budget.ai_generated && <Badge tone="blue">🤖 IA</Badge>}
-              </div>
-              <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{formatDOP(budget.total)}</p>
-            </div>
-            {budget.notes && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{budget.notes}</p>}
-            <ul className="mt-2 list-inside list-disc text-sm text-gray-600 dark:text-gray-400">
-              {budget.items.map((item) => (
-                <li key={item.id}>
-                  {item.quantity} × {item.description}
-                </li>
-              ))}
-            </ul>
-            <Button
-              variant="secondary"
-              className="mt-3"
-              onClick={() => convertToQuote.mutate(budget.id)}
-              disabled={convertToQuote.isPending}
-            >
-              {convertToQuote.isPending ? 'Convirtiendo…' : 'Convertir a cotización →'}
-            </Button>
-          </Card>
+          <BudgetCard
+            key={budget.id}
+            budget={budget}
+            projectId={projectId}
+            products={products ?? []}
+            onConvert={() => convertToQuote.mutate(budget.id)}
+            isConverting={convertToQuote.isPending}
+          />
         ))}
         {budgets?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay presupuestos.</p>}
       </div>
     </div>
+  )
+}
+
+function BudgetCard({
+  budget,
+  projectId,
+  products,
+  onConvert,
+  isConverting,
+}: {
+  budget: Budget
+  projectId: number
+  products: Product[]
+  onConvert: () => void
+  isConverting: boolean
+}) {
+  const queryClient = useQueryClient()
+  const [isEditing, setIsEditing] = useState(false)
+  const [notes, setNotes] = useState(budget.notes ?? '')
+  const [items, setItems] = useState<LineItemInput[]>([])
+
+  function startEditing() {
+    setNotes(budget.notes ?? '')
+    setItems(
+      budget.items.map((item) => {
+        const product = item.product_id ? products.find((p) => p.id === item.product_id) : undefined
+        return {
+          product_id: item.product_id,
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: product?.price ?? 0,
+        }
+      }),
+    )
+    setIsEditing(true)
+  }
+
+  const updateBudget = useMutation({
+    mutationFn: async () => (await api.put(`/budgets/${budget.id}`, { notes, items })).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['budgets', projectId] })
+      setIsEditing(false)
+    },
+  })
+
+  const hasUnpricedFreeTextItems = items.some((item) => !item.product_id && item.unit_price === 0)
+
+  if (isEditing) {
+    return (
+      <Card className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="font-medium text-gray-900 dark:text-gray-100">{budget.code}</p>
+          <Badge tone="gray">Editando</Badge>
+        </div>
+        <Field label="Notas">
+          <Textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
+        </Field>
+        <LineItemsEditor items={items} onChange={setItems} products={products} mode="budget" />
+        {hasUnpricedFreeTextItems && (
+          <p className="text-xs text-amber-600 dark:text-amber-400">
+            Las líneas sin producto de catálogo no guardan su precio unitario — revisa el precio de las líneas de
+            texto libre antes de guardar, o el total puede quedar incompleto.
+          </p>
+        )}
+        {updateBudget.isError && (
+          <p className="text-sm text-red-600 dark:text-red-400">No se pudo guardar el presupuesto.</p>
+        )}
+        <div className="flex gap-2">
+          <Button
+            className="!w-auto flex-1"
+            onClick={() => updateBudget.mutate()}
+            disabled={updateBudget.isPending || items.length === 0}
+          >
+            {updateBudget.isPending ? 'Guardando…' : 'Guardar cambios'}
+          </Button>
+          <Button
+            variant="secondary"
+            className="!w-auto flex-1"
+            onClick={() => setIsEditing(false)}
+            disabled={updateBudget.isPending}
+          >
+            Cancelar
+          </Button>
+        </div>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <p className="font-medium text-gray-900 dark:text-gray-100">{budget.code}</p>
+          {budget.ai_generated && <Badge tone="blue">🤖 IA</Badge>}
+        </div>
+        <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{formatDOP(budget.total)}</p>
+      </div>
+      {budget.notes && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{budget.notes}</p>}
+      <ul className="mt-2 list-inside list-disc text-sm text-gray-600 dark:text-gray-400">
+        {budget.items.map((item) => (
+          <li key={item.id}>
+            {item.quantity} × {item.description}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-3 flex gap-2">
+        <Button variant="secondary" className="!w-auto flex-1" onClick={startEditing}>
+          Editar
+        </Button>
+        <Button variant="secondary" className="!w-auto flex-1" onClick={onConvert} disabled={isConverting}>
+          {isConverting ? 'Convirtiendo…' : 'Convertir a cotización →'}
+        </Button>
+      </div>
+    </Card>
   )
 }
 
