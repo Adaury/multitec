@@ -212,11 +212,23 @@ export function ProjectDetail() {
   )
 }
 
+const PROJECT_STATUS_KEYS = Object.keys(PROJECT_STATUS_LABELS)
+
 function InfoTab({ project }: { project: ProjectDetailType }) {
   const queryClient = useQueryClient()
   const role = useAuthStore((s) => s.user?.role)
   const canManagePortal = role === 'admin' || role === 'oficina'
+  const canEditProject = role === 'admin' || role === 'oficina'
   const [copied, setCopied] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [status, setStatus] = useState(project.status)
+  const [responsibleId, setResponsibleId] = useState<number | ''>(project.responsible_id ?? '')
+  const [description, setDescription] = useState(project.description ?? '')
+
+  const { data: technicians } = useQuery({
+    queryKey: ['technicians'],
+    queryFn: async () => (await api.get<Technician[]>('/users/technicians')).data,
+  })
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -231,6 +243,28 @@ function InfoTab({ project }: { project: ProjectDetailType }) {
     onSuccess: invalidate,
   })
 
+  const updateProject = useMutation({
+    mutationFn: async () =>
+      (
+        await api.put(`/projects/${project.id}`, {
+          status,
+          responsible_id: responsibleId === '' ? null : responsibleId,
+          description: description || null,
+        })
+      ).data,
+    onSuccess: () => {
+      invalidate()
+      setIsEditing(false)
+    },
+  })
+
+  function startEditing() {
+    setStatus(project.status)
+    setResponsibleId(project.responsible_id ?? '')
+    setDescription(project.description ?? '')
+    setIsEditing(true)
+  }
+
   const portalUrl = project.public_token
     ? `${window.location.origin}/portal/${project.public_token}`
     : null
@@ -238,20 +272,94 @@ function InfoTab({ project }: { project: ProjectDetailType }) {
   return (
     <div className="space-y-4">
       <Card className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
-        <p>
-          <span className="font-medium text-gray-800 dark:text-gray-200">Cliente:</span> {project.client.name}
-          {project.client.company ? ` (${project.client.company})` : ''}
-        </p>
-        <p>
-          <span className="font-medium text-gray-800 dark:text-gray-200">Fecha:</span> {project.date}
-        </p>
-        <p>
-          <span className="font-medium text-gray-800 dark:text-gray-200">Estado:</span> {PROJECT_STATUS_LABELS[project.status] ?? project.status}
-        </p>
-        {project.description && (
-          <p>
-            <span className="font-medium text-gray-800 dark:text-gray-200">Descripción:</span> {project.description}
-          </p>
+        {isEditing ? (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault()
+              updateProject.mutate()
+            }}
+          >
+            <Field label="Estado">
+              <select
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                {PROJECT_STATUS_KEYS.map((key) => (
+                  <option key={key} value={key}>
+                    {PROJECT_STATUS_LABELS[key]}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Técnico responsable">
+              <select
+                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                value={responsibleId}
+                onChange={(e) => setResponsibleId(e.target.value ? Number(e.target.value) : '')}
+              >
+                <option value="">Sin asignar</option>
+                {technicians?.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Descripción">
+              <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+            </Field>
+            {updateProject.isError && (
+              <p className="text-sm text-red-600 dark:text-red-400">No se pudo guardar el proyecto.</p>
+            )}
+            <div className="flex gap-2">
+              <Button className="!w-auto flex-1" type="submit" disabled={updateProject.isPending}>
+                {updateProject.isPending ? 'Guardando…' : 'Guardar cambios'}
+              </Button>
+              <Button
+                className="!w-auto flex-1"
+                type="button"
+                variant="secondary"
+                onClick={() => setIsEditing(false)}
+                disabled={updateProject.isPending}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </form>
+        ) : (
+          <>
+            <div className="flex items-center justify-between gap-2">
+              <p>
+                <span className="font-medium text-gray-800 dark:text-gray-200">Cliente:</span> {project.client.name}
+                {project.client.company ? ` (${project.client.company})` : ''}
+              </p>
+              {canEditProject && (
+                <button
+                  onClick={startEditing}
+                  className="shrink-0 rounded-full bg-brand-gray px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  Editar
+                </button>
+              )}
+            </div>
+            <p>
+              <span className="font-medium text-gray-800 dark:text-gray-200">Fecha:</span> {project.date}
+            </p>
+            <p>
+              <span className="font-medium text-gray-800 dark:text-gray-200">Estado:</span> {PROJECT_STATUS_LABELS[project.status] ?? project.status}
+            </p>
+            <p>
+              <span className="font-medium text-gray-800 dark:text-gray-200">Técnico responsable:</span>{' '}
+              {technicians?.find((t) => t.id === project.responsible_id)?.name ?? 'Sin asignar'}
+            </p>
+            {project.description && (
+              <p>
+                <span className="font-medium text-gray-800 dark:text-gray-200">Descripción:</span> {project.description}
+              </p>
+            )}
+          </>
         )}
       </Card>
 
