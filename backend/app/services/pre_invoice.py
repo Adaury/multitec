@@ -34,6 +34,7 @@ def build_pre_invoice_from_quote(db: Session, quote: Quote, created_by: int | No
                 quantity=item.quantity,
                 unit_price=item.unit_price,
                 subtotal=item.subtotal,
+                note=item.note,
             )
         )
 

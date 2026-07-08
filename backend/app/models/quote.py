@@ -44,6 +44,9 @@ class QuoteItem(Base):
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=1)
     unit_price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    # Nota corta por línea (§ editor de ítems) — a diferencia del resto de la fila, esta sí
+    # se guarda: el usuario la escribe para que salga impresa en el PDF, no como scratchpad.
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     quote: Mapped["Quote"] = relationship(back_populates="items")
 

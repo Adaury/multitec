@@ -8,6 +8,7 @@ class QuoteItemIn(BaseModel):
     description: str = Field(max_length=500)
     quantity: float = 1
     unit_price: float = 0
+    note: str | None = Field(default=None, max_length=500)
 
 
 class QuoteCreate(BaseModel):
@@ -26,6 +27,7 @@ class QuoteItemOut(BaseModel):
     quantity: float
     unit_price: float
     subtotal: float
+    note: str | None = None
 
     class Config:
         from_attributes = True

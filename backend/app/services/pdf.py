@@ -1,5 +1,6 @@
 from datetime import datetime
 from io import BytesIO
+from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -14,14 +15,41 @@ from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.quote import Quote
 
+# Paleta alineada a frontend/src/index.css (--color-brand-*) para que los PDF se vean
+# consistentes con el resto de la app en vez de usar grises genéricos de reportlab.
+BRAND_BLUE = colors.HexColor("#0a63e2")
+BRAND_BLUE_DARK = colors.HexColor("#0850b8")
+BRAND_GRAY = colors.HexColor("#eceef1")
+TEXT_DARK = colors.HexColor("#1c1e21")
+TEXT_MUTED = colors.HexColor("#6b7280")  # ~ tailwind gray-500, igual que text-gray-500 en la UI
+TEXT_FAINT = colors.HexColor("#9ca3af")  # ~ tailwind gray-400, igual que text-gray-400 en la UI
+BORDER_GRAY = colors.HexColor("#e5e7eb")  # ~ tailwind gray-200, igual que border-gray-200 en la UI
+
+# Ancho utilizable de una página Letter con 20mm de margen a cada lado.
+CONTENT_WIDTH = 175 * mm
+
 styles = getSampleStyleSheet()
-_title_style = ParagraphStyle("DocTitle", parent=styles["Heading1"], fontSize=18, spaceAfter=2)
-_meta_style = ParagraphStyle("Meta", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#555555"))
-_label_style = ParagraphStyle("Label", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#888888"))
+_title_style = ParagraphStyle("DocTitle", parent=styles["Heading1"], fontSize=18, spaceAfter=2, textColor=TEXT_DARK)
+_meta_style = ParagraphStyle("Meta", parent=styles["Normal"], fontSize=9, textColor=TEXT_MUTED)
+_label_style = ParagraphStyle("Label", parent=styles["Normal"], fontSize=9, textColor=TEXT_FAINT)
+_item_desc_style = ParagraphStyle("ItemDesc", parent=styles["Normal"], fontSize=9, leading=12, textColor=TEXT_DARK)
 
 
 def _money(value: float) -> str:
     return f"RD$ {value:,.2f}"
+
+
+def _description_cell(description: str, note: str | None):
+    """Celda de descripción de una línea: texto plano si no hay nota, o un Paragraph de
+    dos renglones (descripción + nota en gris/cursiva) si el usuario le puso una en el
+    editor de ítems. `note` puede faltar del todo si `item` no es un tipo con esa columna
+    (ej. BudgetItem) — el resumen de presupuesto nunca imprime notas."""
+    if not note:
+        return description
+    return Paragraph(
+        f"{_xml_escape(description)}<br/><font size=7.5 color='#9ca3af'><i>{_xml_escape(note)}</i></font>",
+        _item_desc_style,
+    )
 
 
 def _build_pdf(
@@ -74,7 +102,7 @@ def _build_pdf(
             ),
         ],
     ]
-    header_table = Table(header_data, colWidths=[95 * mm, 75 * mm])
+    header_table = Table(header_data, colWidths=[0.55 * CONTENT_WIDTH, 0.45 * CONTENT_WIDTH])
     header_table.setStyle(
         TableStyle(
             [
@@ -93,38 +121,43 @@ def _build_pdf(
         rows = [["Categoría", "Subtotal"]]
         for category_name, amount in category_totals:
             rows.append([category_name, _money(amount)])
-        col_widths = [130 * mm, 40 * mm]
+        col_widths = [0.77 * CONTENT_WIDTH, 0.23 * CONTENT_WIDTH]
     elif show_line_prices:
         rows = [["Descripción", "Cant.", "Precio unit.", "Subtotal"]]
         for item in items:
             rows.append(
-                [item.description, f"{item.quantity:g}", _money(float(item.unit_price)), _money(float(item.subtotal))]
+                [
+                    _description_cell(item.description, getattr(item, "note", None)),
+                    f"{item.quantity:g}",
+                    _money(float(item.unit_price)),
+                    _money(float(item.subtotal)),
+                ]
             )
-        col_widths = [85 * mm, 20 * mm, 30 * mm, 35 * mm]
+        col_widths = [0.51 * CONTENT_WIDTH, 0.11 * CONTENT_WIDTH, 0.17 * CONTENT_WIDTH, 0.21 * CONTENT_WIDTH]
     elif show_quantities:
         rows = [["Descripción", "Cant."]]
         for item in items:
-            rows.append([item.description, f"{item.quantity:g}"])
-        col_widths = [150 * mm, 20 * mm]
+            rows.append([_description_cell(item.description, getattr(item, "note", None)), f"{item.quantity:g}"])
+        col_widths = [0.88 * CONTENT_WIDTH, 0.12 * CONTENT_WIDTH]
     else:
-        # Resumen mínimo (§ presupuesto): solo nombres, sin cantidades ni precios por línea
-        # — para compartir con el cliente un vistazo del alcance sin el desglose comercial.
+        # Resumen mínimo: solo nombres, sin cantidades ni precios por línea — para
+        # compartir con el cliente un vistazo del alcance sin el desglose comercial.
         rows = [["Descripción"]]
         for item in items:
-            rows.append([item.description])
-        col_widths = [170 * mm]
+            rows.append([_description_cell(item.description, getattr(item, "note", None))])
+        col_widths = [CONTENT_WIDTH]
 
     items_table = Table(rows, colWidths=col_widths)
     items_table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0a63e2")),
+                ("BACKGROUND", (0, 0), (-1, 0), BRAND_BLUE),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTSIZE", (0, 0), (-1, -1), 9),
                 ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
                 ("ALIGN", (0, 0), (0, -1), "LEFT"),
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#dddddd")),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f6f8")]),
+                ("GRID", (0, 0), (-1, -1), 0.5, BORDER_GRAY),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, BRAND_GRAY]),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
                 ("TOPPADDING", (0, 0), (-1, -1), 5),
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
@@ -145,14 +178,16 @@ def _build_pdf(
             # Sin desglose por línea ni por categoría: solo el precio global del servicio.
             totals_rows = [["Total del servicio", _money(total)]]
         bold_row = len(totals_rows) - 1
-        totals_table = Table(totals_rows, colWidths=[140 * mm, 30 * mm])
+        totals_table = Table(totals_rows, colWidths=[0.8 * CONTENT_WIDTH, 0.2 * CONTENT_WIDTH])
         totals_table.setStyle(
             TableStyle(
                 [
                     ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
                     ("FONTSIZE", (0, 0), (-1, -1), 9),
+                    ("TEXTCOLOR", (0, 0), (-1, -1), TEXT_MUTED),
                     ("FONTNAME", (0, bold_row), (-1, bold_row), "Helvetica-Bold"),
-                    ("LINEABOVE", (0, bold_row), (-1, bold_row), 0.75, colors.black),
+                    ("TEXTCOLOR", (0, bold_row), (-1, bold_row), BRAND_BLUE_DARK),
+                    ("LINEABOVE", (0, bold_row), (-1, bold_row), 0.75, BRAND_BLUE_DARK),
                     ("TOPPADDING", (0, 0), (-1, -1), 3),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
                 ]
@@ -226,9 +261,9 @@ def build_invoice_pdf(invoice: Invoice, variant: str = "detallada") -> bytes:
 
 
 def build_budget_summary_pdf(budget: Budget) -> bytes:
-    """Resumen para compartir con el cliente: solo los nombres de lo incluido y el total
-    final — sin cantidades, precios unitarios ni desglose de ITBIS (eso vive en la
-    Cotización, un documento aparte)."""
+    """Resumen para compartir con el cliente: nombres y cantidad de lo incluido, y el
+    total final — sin precios unitarios ni desglose de ITBIS (eso vive en la Cotización,
+    un documento aparte)."""
     return _build_pdf(
         doc_title="Presupuesto — Resumen",
         code=budget.code,
@@ -242,5 +277,5 @@ def build_budget_summary_pdf(budget: Budget) -> bytes:
         notes=budget.notes,
         show_line_prices=False,
         show_breakdown=True,
-        show_quantities=False,
+        show_quantities=True,
     )

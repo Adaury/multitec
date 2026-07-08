@@ -82,6 +82,7 @@ def create_pre_invoice(
                 quantity=item.quantity,
                 unit_price=unit_price,
                 subtotal=round(item.quantity * unit_price, 2),
+                note=item.note,
             )
         )
 
@@ -150,6 +151,7 @@ def convert_to_invoice(
                 quantity=item.quantity,
                 unit_price=item.unit_price,
                 subtotal=item.subtotal,
+                note=item.note,
             )
         )
 

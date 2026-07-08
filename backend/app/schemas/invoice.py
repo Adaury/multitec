@@ -8,6 +8,7 @@ class PreInvoiceItemIn(BaseModel):
     description: str = Field(max_length=500)
     quantity: float = 1
     unit_price: float = 0
+    note: str | None = Field(default=None, max_length=500)
 
 
 class PreInvoiceCreate(BaseModel):
@@ -22,6 +23,7 @@ class PreInvoiceItemOut(BaseModel):
     quantity: float
     unit_price: float
     subtotal: float
+    note: str | None = None
 
     class Config:
         from_attributes = True
@@ -53,6 +55,7 @@ class InvoiceItemOut(BaseModel):
     quantity: float
     unit_price: float
     subtotal: float
+    note: str | None = None
 
     class Config:
         from_attributes = True

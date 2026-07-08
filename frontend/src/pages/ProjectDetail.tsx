@@ -1106,6 +1106,7 @@ function QuoteCard({
         description: item.description,
         quantity: item.quantity,
         unit_price: item.unit_price,
+        note: item.note,
       })),
     )
     setIsEditing(true)
@@ -1154,11 +1155,14 @@ function QuoteCard({
         <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
           <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
             {quote.items.map((item) => (
-              <li key={item.id} className="flex justify-between">
-                <span>
-                  {item.quantity} × {item.description}
-                </span>
-                <span>{formatDOP(item.subtotal)}</span>
+              <li key={item.id}>
+                <div className="flex justify-between">
+                  <span>
+                    {item.quantity} × {item.description}
+                  </span>
+                  <span>{formatDOP(item.subtotal)}</span>
+                </div>
+                {item.note && <p className="text-xs italic text-gray-400 dark:text-gray-500">{item.note}</p>}
               </li>
             ))}
           </ul>
@@ -1774,11 +1778,14 @@ function PreInvoiceTab({
             {pfc.notes && <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{pfc.notes}</p>}
             <ul className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
               {pfc.items.map((item) => (
-                <li key={item.id} className="flex justify-between">
-                  <span>
-                    {item.quantity} × {item.description}
-                  </span>
-                  <span>{formatDOP(item.subtotal)}</span>
+                <li key={item.id}>
+                  <div className="flex justify-between">
+                    <span>
+                      {item.quantity} × {item.description}
+                    </span>
+                    <span>{formatDOP(item.subtotal)}</span>
+                  </div>
+                  {item.note && <p className="text-xs italic text-gray-400 dark:text-gray-500">{item.note}</p>}
                 </li>
               ))}
             </ul>
@@ -1909,11 +1916,14 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
         <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
           <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
             {invoice.items.map((item) => (
-              <li key={item.id} className="flex justify-between">
-                <span>
-                  {item.quantity} × {item.description}
-                </span>
-                <span>{formatDOP(item.subtotal)}</span>
+              <li key={item.id}>
+                <div className="flex justify-between">
+                  <span>
+                    {item.quantity} × {item.description}
+                  </span>
+                  <span>{formatDOP(item.subtotal)}</span>
+                </div>
+                {item.note && <p className="text-xs italic text-gray-400 dark:text-gray-500">{item.note}</p>}
               </li>
             ))}
           </ul>

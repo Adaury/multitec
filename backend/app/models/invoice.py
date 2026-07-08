@@ -39,6 +39,7 @@ class PreInvoiceItem(Base):
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=1)
     unit_price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     pre_invoice: Mapped["PreInvoice"] = relationship(back_populates="items")
 
@@ -78,6 +79,7 @@ class InvoiceItem(Base):
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=1)
     unit_price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     invoice: Mapped["Invoice"] = relationship(back_populates="items")
 

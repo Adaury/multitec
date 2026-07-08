@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { LineItemInput, Product } from '../lib/types'
 import { ITBIS_RATE, formatDOP } from '../lib/format'
 import { Button, IconButton, Input } from './ui'
@@ -11,14 +10,10 @@ interface Props {
 }
 
 function emptyLine(): LineItemInput {
-  return { product_id: null, description: '', quantity: 1, unit_price: 0 }
+  return { product_id: null, description: '', quantity: 1, unit_price: 0, note: '' }
 }
 
 export function LineItemsEditor({ items, onChange, products, mode }: Props) {
-  // Notas al vuelo, solo para recordar algo mientras se arma el documento — nunca se
-  // mandan al backend (no forman parte de LineItemInput), así que no hace falta guardarlas.
-  const [quickNotes, setQuickNotes] = useState<string[]>(() => items.map(() => ''))
-
   const subtotal = round2(items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0))
   const itbis = round2(subtotal * ITBIS_RATE)
   const total = mode === 'quote' ? round2(subtotal + itbis) : subtotal
@@ -27,12 +22,6 @@ export function LineItemsEditor({ items, onChange, products, mode }: Props) {
     const next = items.slice()
     next[index] = { ...next[index], ...patch }
     onChange(next)
-  }
-
-  function updateQuickNote(index: number, value: string) {
-    const next = quickNotes.slice()
-    next[index] = value
-    setQuickNotes(next)
   }
 
   function selectProduct(index: number, productId: string) {
@@ -45,14 +34,8 @@ export function LineItemsEditor({ items, onChange, products, mode }: Props) {
     updateItem(index, { product_id: product.id, description: product.name, unit_price: product.price })
   }
 
-  function addItem() {
-    onChange([...items, emptyLine()])
-    setQuickNotes([...quickNotes, ''])
-  }
-
   function removeItem(index: number) {
     onChange(items.filter((_, i) => i !== index))
-    setQuickNotes(quickNotes.filter((_, i) => i !== index))
   }
 
   return (
@@ -100,15 +83,17 @@ export function LineItemsEditor({ items, onChange, products, mode }: Props) {
             />
           </div>
           <p className="text-right text-xs text-gray-500">{formatDOP(round2(item.quantity * item.unit_price))}</p>
-          <Input
-            placeholder="Nota rápida (no se guarda)"
-            value={quickNotes[index] ?? ''}
-            onChange={(e) => updateQuickNote(index, e.target.value)}
-          />
+          {mode === 'quote' && (
+            <Input
+              placeholder="Nota rápida (sale impresa en el PDF)"
+              value={item.note ?? ''}
+              onChange={(e) => updateItem(index, { note: e.target.value })}
+            />
+          )}
         </div>
       ))}
 
-      <Button type="button" variant="secondary" onClick={addItem}>
+      <Button type="button" variant="secondary" onClick={() => onChange([...items, emptyLine()])}>
         + Agregar línea
       </Button>
 

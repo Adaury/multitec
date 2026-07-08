@@ -289,6 +289,7 @@ export interface LineItemInput {
   description: string
   quantity: number
   unit_price: number
+  note?: string | null
 }
 
 export interface QuoteItem {
@@ -298,6 +299,7 @@ export interface QuoteItem {
   quantity: number
   unit_price: number
   subtotal: number
+  note: string | null
 }
 
 export type QuoteStatus = 'pendiente' | 'aprobada' | 'no_aprobada' | 'archivada'
@@ -436,6 +438,7 @@ export interface PreInvoiceItem {
   quantity: number
   unit_price: number
   subtotal: number
+  note: string | null
 }
 
 export interface PreInvoice {
@@ -459,6 +462,7 @@ export interface InvoiceItem {
   quantity: number
   unit_price: number
   subtotal: number
+  note: string | null
 }
 
 export interface Invoice {

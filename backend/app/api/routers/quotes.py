@@ -61,6 +61,7 @@ def _build_quote_items(db: Session, quote: Quote, items_in) -> None:
                 quantity=item.quantity,
                 unit_price=unit_price,
                 subtotal=round(item.quantity * unit_price, 2),
+                note=item.note,
             )
         )
     lines = [LineInput(item.quantity, item.unit_price) for item in quote.items]
