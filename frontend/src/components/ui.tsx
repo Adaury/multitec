@@ -22,6 +22,41 @@ export function Button({
   return <button className={`${base} ${styles[variant]} ${className}`} {...props} />
 }
 
+export function Modal({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean
+  onClose: () => void
+  title: string
+  children: ReactNode
+}) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:items-center md:p-4">
+      <div
+        className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-xl ring-1 ring-black/5 md:max-w-lg md:rounded-3xl dark:bg-gray-900 dark:ring-white/10"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full px-2 py-1 text-gray-400 hover:bg-brand-gray hover:text-gray-600 dark:hover:bg-gray-800"
+            aria-label="Cerrar"
+          >
+            ✕
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block text-left">

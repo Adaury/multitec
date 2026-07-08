@@ -2,16 +2,23 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { api, downloadFile } from '../lib/api'
-import type { Client, Project } from '../lib/types'
+import type { Client, ClientInput, Project } from '../lib/types'
 import { PROJECT_STATUS_LABELS } from '../lib/types'
 import { useAuthStore } from '../lib/authStore'
-import { Badge, Button, Card, Field, Textarea } from '../components/ui'
+import { Badge, Button, Card, Field, Modal, Textarea } from '../components/ui'
+import { ClientFormFields } from '../components/ClientFormFields'
+
+function emptyClient(): ClientInput {
+  return { name: '', company: '', rnc: '', phone: '', email: '', address: '', notes: '' }
+}
 
 export function Projects() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [showForm, setShowForm] = useState(searchParams.get('nuevo') === '1')
   const [clientId, setClientId] = useState('')
   const [description, setDescription] = useState('')
+  const [showClientModal, setShowClientModal] = useState(false)
+  const [newClient, setNewClient] = useState<ClientInput>(emptyClient())
   const queryClient = useQueryClient()
   const role = useAuthStore((s) => s.user?.role)
   const canExport = role === 'admin' || role === 'oficina'
@@ -35,6 +42,16 @@ export function Projects() {
       setClientId('')
       setDescription('')
       setSearchParams({})
+    },
+  })
+
+  const createClient = useMutation({
+    mutationFn: async (payload: ClientInput) => (await api.post<Client>('/clients', payload)).data,
+    onSuccess: (client) => {
+      queryClient.invalidateQueries({ queryKey: ['clients'] })
+      setClientId(String(client.id))
+      setShowClientModal(false)
+      setNewClient(emptyClient())
     },
   })
 
@@ -71,19 +88,28 @@ export function Projects() {
             }}
           >
             <Field label="Cliente">
-              <select
-                required
-                className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-              >
-                <option value="">Selecciona un cliente…</option>
-                {clients?.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  required
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                >
+                  <option value="">Selecciona un cliente…</option>
+                  {clients?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => setShowClientModal(true)}
+                  className="shrink-0 rounded-xl bg-brand-gray px-4 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  + Nuevo
+                </button>
+              </div>
             </Field>
             <Field label="Descripción">
               <Textarea value={description} onChange={(e) => setDescription(e.target.value)} />
@@ -97,6 +123,24 @@ export function Projects() {
           </form>
         </Card>
       )}
+
+      <Modal open={showClientModal} onClose={() => setShowClientModal(false)} title="Nuevo cliente">
+        <form
+          className="space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault()
+            createClient.mutate(newClient)
+          }}
+        >
+          <ClientFormFields form={newClient} setForm={setNewClient} />
+          {createClient.isError && (
+            <p className="text-sm text-red-600 dark:text-red-400">No se pudo crear el cliente.</p>
+          )}
+          <Button type="submit" disabled={createClient.isPending}>
+            {createClient.isPending ? 'Guardando…' : 'Guardar cliente'}
+          </Button>
+        </form>
+      </Modal>
 
       {isLoading && <p className="text-sm text-gray-500">Cargando…</p>}
 
