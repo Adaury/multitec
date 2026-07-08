@@ -41,10 +41,10 @@ export function LineItemsEditor({ items, onChange, products, mode }: Props) {
   return (
     <div className="space-y-3">
       {items.map((item, index) => (
-        <div key={index} className="space-y-2 rounded-2xl bg-brand-gray p-3">
+        <div key={index} className="space-y-2 rounded-2xl bg-brand-gray p-3 dark:bg-gray-800">
           <div className="flex items-center gap-2">
             <select
-              className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm"
+              className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
               value={item.product_id ?? ''}
               onChange={(e) => selectProduct(index, e.target.value)}
             >
@@ -82,14 +82,14 @@ export function LineItemsEditor({ items, onChange, products, mode }: Props) {
               onChange={(e) => updateItem(index, { unit_price: Number(e.target.value) })}
             />
           </div>
-          <p className="text-right text-xs text-gray-500">{formatDOP(round2(item.quantity * item.unit_price))}</p>
-          {mode === 'quote' && (
-            <Input
-              placeholder="Nota rápida (sale impresa en el PDF)"
-              value={item.note ?? ''}
-              onChange={(e) => updateItem(index, { note: e.target.value })}
-            />
-          )}
+          <p className="text-right text-xs text-gray-500 dark:text-gray-400">
+            {formatDOP(round2(item.quantity * item.unit_price))}
+          </p>
+          <Input
+            placeholder="Nota rápida (sale impresa en el PDF)"
+            value={item.note ?? ''}
+            onChange={(e) => updateItem(index, { note: e.target.value })}
+          />
         </div>
       ))}
 
@@ -97,7 +97,7 @@ export function LineItemsEditor({ items, onChange, products, mode }: Props) {
         + Agregar línea
       </Button>
 
-      <div className="space-y-1 rounded-2xl bg-white p-4 ring-1 ring-black/5">
+      <div className="space-y-1 rounded-2xl bg-white p-4 ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
         {mode === 'quote' ? (
           <>
             <Row label="Subtotal" value={subtotal} />
@@ -114,7 +114,13 @@ export function LineItemsEditor({ items, onChange, products, mode }: Props) {
 
 function Row({ label, value, strong = false }: { label: string; value: number; strong?: boolean }) {
   return (
-    <div className={`flex justify-between ${strong ? 'text-base font-semibold text-gray-900' : 'text-sm text-gray-500'}`}>
+    <div
+      className={
+        strong
+          ? 'flex justify-between text-base font-semibold text-gray-900 dark:text-gray-100'
+          : 'flex justify-between text-sm text-gray-500 dark:text-gray-400'
+      }
+    >
       <span>{label}</span>
       <span>{formatDOP(value)}</span>
     </div>

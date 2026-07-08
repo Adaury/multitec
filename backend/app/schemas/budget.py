@@ -8,6 +8,7 @@ class BudgetItemIn(BaseModel):
     description: str = Field(max_length=500)
     quantity: float = 1
     unit_price: float = 0  # usado solo para calcular el total; no se expone en la salida
+    note: str | None = Field(default=None, max_length=500)
 
 
 class BudgetCreate(BaseModel):
@@ -26,6 +27,7 @@ class BudgetItemOut(BaseModel):
     description: str
     quantity: float
     product_id: int | None
+    note: str | None = None
 
     class Config:
         from_attributes = True

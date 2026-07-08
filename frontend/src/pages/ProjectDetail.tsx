@@ -807,7 +807,7 @@ function BudgetTab({ projectId, onConverted }: { projectId: number; onConverted:
         </Card>
       )}
 
-      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {budgets?.map((budget) => (
           <BudgetCard
             key={budget.id}
@@ -852,6 +852,7 @@ function BudgetCard({
           description: item.description,
           quantity: item.quantity,
           unit_price: product?.price ?? 0,
+          note: item.note,
         }
       }),
     )
@@ -923,6 +924,7 @@ function BudgetCard({
         {budget.items.map((item) => (
           <li key={item.id}>
             {item.quantity} × {item.description}
+            {item.note && <span className="block pl-4 text-xs italic text-gray-400 dark:text-gray-500">{item.note}</span>}
           </li>
         ))}
       </ul>
@@ -1006,7 +1008,7 @@ function QuoteTab({ projectId }: { projectId: number }) {
         </Card>
       )}
 
-      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {quotes?.map((quote) => (
           <QuoteCard
             key={quote.id}
@@ -1766,7 +1768,7 @@ function PreInvoiceTab({
         </div>
       )}
 
-      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {preInvoices?.map((pfc) => (
           <Card key={pfc.id}>
             <div className="flex items-center justify-between">
@@ -1879,7 +1881,7 @@ function InvoiceTab({ projectId }: { projectId: number }) {
         </Card>
       )}
 
-      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {invoices?.map((invoice) => (
           <InvoiceCard
             key={invoice.id}
@@ -2090,7 +2092,7 @@ function ExtensionsTab({ projectId }: { projectId: number }) {
         </Card>
       )}
 
-      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {extensions?.map((ext) => (
           <Card key={ext.id}>
             <div className="flex items-center justify-between">
@@ -2207,7 +2209,7 @@ function TicketsTab({ projectId }: { projectId: number }) {
         </Card>
       )}
 
-      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
         {tickets?.map((ticket) => (
           <TicketCard
             key={ticket.id}

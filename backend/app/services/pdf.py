@@ -42,8 +42,7 @@ def _money(value: float) -> str:
 def _description_cell(description: str, note: str | None):
     """Celda de descripción de una línea: texto plano si no hay nota, o un Paragraph de
     dos renglones (descripción + nota en gris/cursiva) si el usuario le puso una en el
-    editor de ítems. `note` puede faltar del todo si `item` no es un tipo con esa columna
-    (ej. BudgetItem) — el resumen de presupuesto nunca imprime notas."""
+    editor de ítems."""
     if not note:
         return description
     return Paragraph(
@@ -69,6 +68,8 @@ def _build_pdf(
     show_line_prices: bool = True,
     show_breakdown: bool = True,
     show_quantities: bool = True,
+    quantity_first: bool = False,
+    integer_quantities: bool = False,
     category_totals: list[tuple[str, float]] | None = None,
 ) -> bytes:
     settings = get_settings()
@@ -115,6 +116,8 @@ def _build_pdf(
     story.append(header_table)
     story.append(Spacer(1, 8 * mm))
 
+    desc_col = 0  # columna que va alineada a la izquierda (todas las demás, a la derecha)
+
     if category_totals is not None:
         # Resumen ejecutivo (§ Motor 6): totales por categoría, sin línea por línea — no
         # es un registro financiero aparte, solo otra vista del mismo Quote.
@@ -135,10 +138,24 @@ def _build_pdf(
             )
         col_widths = [0.51 * CONTENT_WIDTH, 0.11 * CONTENT_WIDTH, 0.17 * CONTENT_WIDTH, 0.21 * CONTENT_WIDTH]
     elif show_quantities:
-        rows = [["Descripción", "Cant."]]
-        for item in items:
-            rows.append([_description_cell(item.description, getattr(item, "note", None)), f"{item.quantity:g}"])
-        col_widths = [0.88 * CONTENT_WIDTH, 0.12 * CONTENT_WIDTH]
+
+        def _qty(item) -> str:
+            # § presupuesto: cantidades enteras, sin decimales, para el resumen que ve el
+            # cliente — el valor exacto (con el margen de desperdicio de cable, etc.) sigue
+            # viviendo en la Cotización.
+            return str(round(float(item.quantity))) if integer_quantities else f"{item.quantity:g}"
+
+        if quantity_first:
+            rows = [["Cant.", "Descripción"]]
+            for item in items:
+                rows.append([_qty(item), _description_cell(item.description, getattr(item, "note", None))])
+            col_widths = [0.12 * CONTENT_WIDTH, 0.88 * CONTENT_WIDTH]
+            desc_col = 1
+        else:
+            rows = [["Descripción", "Cant."]]
+            for item in items:
+                rows.append([_description_cell(item.description, getattr(item, "note", None)), _qty(item)])
+            col_widths = [0.88 * CONTENT_WIDTH, 0.12 * CONTENT_WIDTH]
     else:
         # Resumen mínimo: solo nombres, sin cantidades ni precios por línea — para
         # compartir con el cliente un vistazo del alcance sin el desglose comercial.
@@ -154,8 +171,8 @@ def _build_pdf(
                 ("BACKGROUND", (0, 0), (-1, 0), BRAND_BLUE),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-                ("ALIGN", (0, 0), (0, -1), "LEFT"),
+                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+                ("ALIGN", (desc_col, 0), (desc_col, -1), "LEFT"),
                 ("GRID", (0, 0), (-1, -1), 0.5, BORDER_GRAY),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, BRAND_GRAY]),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -278,4 +295,6 @@ def build_budget_summary_pdf(budget: Budget) -> bytes:
         show_line_prices=False,
         show_breakdown=True,
         show_quantities=True,
+        quantity_first=True,
+        integer_quantities=True,
     )

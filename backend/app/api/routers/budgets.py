@@ -43,6 +43,7 @@ def _build_budget_items(db: Session, budget: Budget, items_in) -> None:
                 description=description,
                 quantity=item.quantity,
                 unit_price=unit_price,
+                note=item.note,
             )
         )
 
@@ -166,6 +167,7 @@ def build_quote_from_budget(db: Session, budget: Budget, created_by: int | None)
                 quantity=item.quantity,
                 unit_price=item.unit_price,
                 subtotal=subtotal,
+                note=item.note,
             )
         )
 

@@ -271,6 +271,7 @@ export interface BudgetItem {
   description: string
   quantity: number
   product_id: number | null
+  note: string | null
 }
 
 export interface Budget {

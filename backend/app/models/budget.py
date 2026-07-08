@@ -38,5 +38,6 @@ class BudgetItem(Base):
     description: Mapped[str] = mapped_column(String(255))
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=1)
     unit_price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)  # usado solo para calcular el total
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     budget: Mapped["Budget"] = relationship(back_populates="items")
