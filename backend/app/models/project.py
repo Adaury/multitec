@@ -29,6 +29,12 @@ class Project(Base):
     # api/routers/public.py. No usar el id numérico como identificador público: sería
     # trivial enumerar todos los proyectos de la empresa.
     public_token: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    # Tracking del portal de cliente — se actualizan en cada GET público (ver
+    # api/routers/public.py). `portal_first_viewed_at` dispara una notificación única a
+    # los admins (§ notify_portal_first_viewed); `portal_last_viewed_at` solo se muestra
+    # en la ficha del proyecto, sin generar ruido en cada refresco.
+    portal_first_viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    portal_last_viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)

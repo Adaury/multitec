@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, downloadFile } from '../lib/api'
 import { Card } from '../components/ui'
@@ -130,6 +130,31 @@ function DashboardKpis() {
               <span className="text-gray-700 dark:text-gray-300">{row.technician}</span>
               <span className="font-medium text-gray-900 dark:text-gray-100">{row.count}</span>
             </div>
+          ))}
+        </Card>
+      )}
+
+      {data.stale_quotes.length > 0 && (
+        <Card className="mt-3 space-y-2 md:mt-4">
+          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            Cotizaciones esperando respuesta hace días
+          </p>
+          {data.stale_quotes.map((row) => (
+            <Link
+              key={row.id}
+              to={`/proyectos/${row.project_id}?tab=cotizacion`}
+              className="flex items-center justify-between rounded-xl px-2 py-1.5 text-sm hover:bg-brand-gray dark:hover:bg-gray-800"
+            >
+              <span className="text-gray-700 dark:text-gray-300">
+                {row.code} — {row.client_name}
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="text-gray-500 dark:text-gray-400">{formatDOP(row.total)}</span>
+                <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                  {row.days_pending}d
+                </span>
+              </span>
+            </Link>
           ))}
         </Card>
       )}

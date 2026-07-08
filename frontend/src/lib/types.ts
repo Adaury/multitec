@@ -45,6 +45,8 @@ export interface Project {
 export interface ProjectDetail extends Project {
   client: Client
   public_token: string | null
+  portal_first_viewed_at: string | null
+  portal_last_viewed_at: string | null
 }
 
 export interface PublicQuoteItem {
@@ -510,12 +512,23 @@ export interface NcfSequence {
   created_at: string
 }
 
+export interface StaleQuote {
+  id: number
+  code: string
+  project_id: number
+  project_code: string
+  client_name: string
+  total: number
+  days_pending: number
+}
+
 export interface DashboardSummary {
   projects_by_status: { status: string; count: number }[]
   monthly_invoicing: { month: string; total: number }[]
   quotes_pending: number
   open_tickets_by_technician: { technician: string; count: number }[]
   open_tickets_total: number
+  stale_quotes: StaleQuote[]
 }
 
 export interface SearchResults {

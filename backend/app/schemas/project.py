@@ -38,6 +38,8 @@ class ProjectOut(BaseModel):
 class ProjectDetailOut(ProjectOut):
     client: ClientOut
     public_token: str | None = None
+    portal_first_viewed_at: datetime | None = None
+    portal_last_viewed_at: datetime | None = None
 
     class Config:
         from_attributes = True

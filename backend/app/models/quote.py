@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -26,6 +26,11 @@ class Quote(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # § recordatorio de cotización estancada (Motor de notificaciones): True una vez que ya
+    # se avisó a los admins que esta cotización lleva demasiado tiempo en "pendiente", para
+    # no volver a notificar en cada carga del dashboard. Se resetea a False si se edita
+    # (nueva espera, nuevo plazo).
+    stale_notified: Mapped[bool] = mapped_column(Boolean, default=False)
 
     project: Mapped["Project"] = relationship(back_populates="quotes")
     items: Mapped[list["QuoteItem"]] = relationship(back_populates="quote", cascade="all, delete-orphan")

@@ -1,4 +1,5 @@
 import secrets
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
@@ -12,7 +13,7 @@ from app.models.project import Project
 from app.models.quote import Quote
 from app.models.ticket import Ticket
 from app.schemas.public import PublicLinkOut, PublicProjectOut
-from app.services.notifications import notify_quote_approved_by_client
+from app.services.notifications import notify_portal_first_viewed, notify_quote_approved_by_client
 from app.services.pdf import build_invoice_pdf
 from app.services.quote_approval import mark_quote_approved
 
@@ -89,6 +90,14 @@ def _serialize_public_project(project: Project) -> dict:
 @limiter.limit("30/minute")
 def get_public_project(request: Request, token: str, db: Session = Depends(get_db)):
     project = _get_project_by_token(db, token)
+    is_first_view = project.portal_first_viewed_at is None
+    now = datetime.now(timezone.utc)
+    if is_first_view:
+        project.portal_first_viewed_at = now
+    project.portal_last_viewed_at = now
+    db.commit()
+    if is_first_view:
+        notify_portal_first_viewed(db, project)
     return _serialize_public_project(project)
 
 

@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.models.invoice import Invoice
 from app.models.notification import Notification
+from app.models.project import Project
 from app.models.quote import Quote
 from app.models.ticket import Ticket
 from app.models.user import User
@@ -86,3 +87,39 @@ def notify_invoice_issued(invoice: Invoice) -> None:
     email.send_email(
         client.email, subject, body, attachment=(f"{invoice.code}.pdf", pdf_bytes, "application/pdf")
     )
+
+
+def notify_portal_first_viewed(db: Session, project: Project) -> None:
+    """Avisa a los admins la primera vez que el cliente abre el enlace del portal de
+    seguimiento — no en cada refresco (eso solo actualiza portal_last_viewed_at, sin
+    notificación), para no generar ruido."""
+    admins = db.query(User).filter(User.role == "admin", User.is_active.is_(True)).all()
+    subject = f"El cliente abrió el portal — {project.code}"
+    body = (
+        "El cliente abrió por primera vez el enlace de seguimiento de su proyecto.\n\n"
+        f"Proyecto: {project.code} — {project.client.name}\n"
+    )
+    link = f"/proyectos/{project.id}"
+    for admin in admins:
+        email.send_email(admin.email, subject, body)
+        _notify_user(db, admin.id, subject, body, link)
+
+
+def notify_quote_stale(db: Session, quote: Quote, days_pending: int) -> None:
+    """Recordatorio: la cotización lleva `days_pending` días en 'pendiente' sin que el
+    cliente decida. Se dispara una sola vez por cotización (ver Quote.stale_notified) la
+    primera vez que alguien carga el dashboard después de vencer el plazo — no hay un
+    scheduler en este proyecto, así que el chequeo es oportunista en vez de por reloj."""
+    admins = db.query(User).filter(User.role == "admin", User.is_active.is_(True)).all()
+    subject = f"Cotización {quote.code} lleva {days_pending} días sin respuesta"
+    body = (
+        f"La cotización sigue 'pendiente' desde hace {days_pending} días — puede valer la pena "
+        "darle seguimiento al cliente.\n\n"
+        f"Código: {quote.code}\n"
+        f"Proyecto: {quote.project.code} — {quote.project.client.name}\n"
+        f"Total: RD$ {float(quote.total):,.2f}\n"
+    )
+    link = f"/proyectos/{quote.project_id}?tab=cotizacion"
+    for admin in admins:
+        email.send_email(admin.email, subject, body)
+        _notify_user(db, admin.id, subject, body, link)

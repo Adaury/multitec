@@ -370,6 +370,31 @@ function InfoTab({ project }: { project: ProjectDetailType }) {
             Enlace de solo lectura, sin necesidad de iniciar sesión, para que el cliente vea el estado de su
             proyecto, sus cotizaciones y sus facturas (con PDF descargable).
           </p>
+          {portalUrl && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {project.portal_first_viewed_at ? (
+                <>
+                  👁️ Visto por el cliente — primera vez{' '}
+                  {new Date(project.portal_first_viewed_at).toLocaleString('es-DO', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                  {project.portal_last_viewed_at &&
+                    project.portal_last_viewed_at !== project.portal_first_viewed_at && (
+                      <>
+                        , última vez{' '}
+                        {new Date(project.portal_last_viewed_at).toLocaleString('es-DO', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </>
+                    )}
+                </>
+              ) : (
+                'El cliente todavía no ha abierto este enlace.'
+              )}
+            </p>
+          )}
           {portalUrl ? (
             <div className="space-y-2">
               <div className="rounded-xl bg-brand-gray px-3 py-2 text-xs text-gray-600 break-all dark:bg-gray-800 dark:text-gray-400">

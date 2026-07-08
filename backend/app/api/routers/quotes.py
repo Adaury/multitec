@@ -159,6 +159,7 @@ def update_quote(quote_id: int, payload: QuoteUpdate, db: Session = Depends(get_
 
     quote.notes = payload.notes
     quote.items.clear()
+    quote.stale_notified = False
     db.flush()
     _build_quote_items(db, quote, payload.items)
     db.add(QuoteHistory(quote_id=quote.id, action="editada"))

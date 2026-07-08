@@ -1,15 +1,20 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.quote import Quote
 from app.models.ticket import Ticket
 from app.models.user import User
+from app.services.notifications import notify_quote_stale
 
 OPEN_TICKET_STATUSES = ("abierto", "en_proceso")
+# § recordatorio de cotización estancada — sin scheduler en este proyecto, el chequeo es
+# oportunista: se dispara la primera vez que alguien carga el dashboard después de que una
+# cotización "pendiente" cruza este umbral (ver Quote.stale_notified).
+STALE_QUOTE_DAYS = 3
 
 
 def _last_n_months(n: int) -> list[str]:
@@ -23,6 +28,48 @@ def _last_n_months(n: int) -> list[str]:
             month = 12
             year -= 1
     return list(reversed(months))
+
+
+def _stale_quotes(db: Session) -> list[dict]:
+    """Cotizaciones 'pendiente' hace más de STALE_QUOTE_DAYS días. Notifica (una sola vez
+    por cotización, vía Quote.stale_notified) las que recién cruzan el umbral, y siempre
+    devuelve la lista completa para mostrar en el dashboard."""
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=STALE_QUOTE_DAYS)
+    quotes = (
+        db.query(Quote)
+        .options(joinedload(Quote.project).joinedload(Project.client))
+        .filter(Quote.status == "pendiente", Quote.created_at <= cutoff)
+        .order_by(Quote.created_at)
+        .all()
+    )
+
+    rows = []
+    newly_stale = []
+    for quote in quotes:
+        days_pending = (now - quote.created_at).days
+        rows.append(
+            {
+                "id": quote.id,
+                "code": quote.code,
+                "project_id": quote.project_id,
+                "project_code": quote.project.code,
+                "client_name": quote.project.client.name,
+                "total": float(quote.total),
+                "days_pending": days_pending,
+            }
+        )
+        if not quote.stale_notified:
+            newly_stale.append((quote, days_pending))
+
+    for quote, days_pending in newly_stale:
+        quote.stale_notified = True
+    if newly_stale:
+        db.commit()
+    for quote, days_pending in newly_stale:
+        notify_quote_stale(db, quote, days_pending)
+
+    return rows
 
 
 def dashboard_summary(db: Session) -> dict:
@@ -58,4 +105,5 @@ def dashboard_summary(db: Session) -> dict:
             for tid, count in ticket_rows
         ],
         "open_tickets_total": sum(count for _, count in ticket_rows),
+        "stale_quotes": _stale_quotes(db),
     }
