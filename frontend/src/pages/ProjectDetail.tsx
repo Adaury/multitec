@@ -926,6 +926,27 @@ function BudgetCard({
           </li>
         ))}
       </ul>
+      <div className="mt-3 space-y-1.5">
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+          Resumen para el cliente (solo nombres y total)
+        </p>
+        <div className="flex gap-2">
+          <Button
+            variant="ghost"
+            className="!w-auto flex-1 px-3 py-2 text-sm"
+            onClick={() => viewFile(`/budgets/${budget.id}/pdf`)}
+          >
+            Ver
+          </Button>
+          <Button
+            variant="secondary"
+            className="!w-auto flex-1 px-3 py-2 text-sm"
+            onClick={() => downloadFile(`/budgets/${budget.id}/pdf`, `${budget.code}-resumen.pdf`)}
+          >
+            Descargar
+          </Button>
+        </div>
+      </div>
       <div className="mt-3 flex gap-2">
         <Button variant="secondary" className="!w-auto flex-1" onClick={startEditing}>
           Editar

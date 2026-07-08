@@ -15,7 +15,7 @@ function useClients() {
 }
 
 function emptyClient(): ClientInput {
-  return { name: '', company: '', rnc: '', phone: '', email: '', address: '', notes: '' }
+  return { name: '', company: '', rnc: '', phone: '', email: '', address: '', location_url: '', notes: '' }
 }
 
 export function Clients() {

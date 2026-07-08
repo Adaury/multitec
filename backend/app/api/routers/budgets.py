@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.ai_engine.learning import record_budget_edit_feedback
@@ -7,12 +7,14 @@ from app.core.security import require_role
 from app.db.session import get_db
 from app.models.budget import Budget, BudgetItem
 from app.models.product import Product
+from app.models.project import Project
 from app.models.quote import Quote, QuoteHistory, QuoteItem
 from app.models.user import User
 from app.schemas.budget import BudgetCreate, BudgetOut, BudgetUpdate
 from app.schemas.quote import QuoteOut
 from app.services.code_generator import next_code
 from app.services.notifications import notify_quote_pending
+from app.services.pdf import build_budget_summary_pdf
 from app.services.totals import LineInput, compute_totals, line_subtotal
 
 router = APIRouter(tags=["budgets"])
@@ -96,6 +98,25 @@ def get_budget(budget_id: int, db: Session = Depends(get_db), _=Depends(allowed_
     if budget is None:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
     return budget
+
+
+@router.get("/api/budgets/{budget_id}/pdf")
+def get_budget_pdf(budget_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    budget = (
+        db.query(Budget)
+        .options(joinedload(Budget.items), joinedload(Budget.project).joinedload(Project.client))
+        .filter(Budget.id == budget_id)
+        .one_or_none()
+    )
+    if budget is None:
+        raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
+
+    pdf_bytes = build_budget_summary_pdf(budget)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{budget.code}-resumen.pdf"'},
+    )
 
 
 @router.put("/api/budgets/{budget_id}", response_model=BudgetOut)

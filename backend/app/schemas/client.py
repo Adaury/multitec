@@ -10,6 +10,7 @@ class ClientBase(BaseModel):
     phone: str | None = Field(default=None, max_length=30)
     email: str | None = Field(default=None, max_length=255)
     address: str | None = Field(default=None, max_length=5000)
+    location_url: str | None = Field(default=None, max_length=2048)
     notes: str | None = Field(default=None, max_length=5000)
 
 

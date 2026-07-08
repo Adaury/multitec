@@ -25,6 +25,7 @@ export interface Client {
   phone: string | null
   email: string | null
   address: string | null
+  location_url: string | null
   notes: string | null
 }
 

@@ -15,6 +15,7 @@ function clientToForm(client: Client): ClientInput {
     phone: client.phone,
     email: client.email,
     address: client.address,
+    location_url: client.location_url,
     notes: client.notes,
   }
 }
@@ -108,6 +109,16 @@ export function ClientDetail() {
                 {client.address && <p>Dirección: {client.address}</p>}
                 {client.notes && <p>Notas: {client.notes}</p>}
               </div>
+              {client.location_url && (
+                <a
+                  href={client.location_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-block rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
+                >
+                  🧭 Iniciar trayecto
+                </a>
+              )}
             </>
           )}
         </Card>

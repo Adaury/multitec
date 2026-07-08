@@ -9,7 +9,7 @@ import { Badge, Button, Card, Field, Modal, Textarea } from '../components/ui'
 import { ClientFormFields } from '../components/ClientFormFields'
 
 function emptyClient(): ClientInput {
-  return { name: '', company: '', rnc: '', phone: '', email: '', address: '', notes: '' }
+  return { name: '', company: '', rnc: '', phone: '', email: '', address: '', location_url: '', notes: '' }
 }
 
 export function Projects() {

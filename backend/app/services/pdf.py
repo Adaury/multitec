@@ -8,6 +8,7 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 
 from app.core.config import get_settings
+from app.models.budget import Budget
 from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.project import Project
@@ -39,6 +40,7 @@ def _build_pdf(
     notes: str | None = None,
     show_line_prices: bool = True,
     show_breakdown: bool = True,
+    show_quantities: bool = True,
     category_totals: list[tuple[str, float]] | None = None,
 ) -> bytes:
     settings = get_settings()
@@ -99,11 +101,18 @@ def _build_pdf(
                 [item.description, f"{item.quantity:g}", _money(float(item.unit_price)), _money(float(item.subtotal))]
             )
         col_widths = [85 * mm, 20 * mm, 30 * mm, 35 * mm]
-    else:
+    elif show_quantities:
         rows = [["Descripción", "Cant."]]
         for item in items:
             rows.append([item.description, f"{item.quantity:g}"])
         col_widths = [150 * mm, 20 * mm]
+    else:
+        # Resumen mínimo (§ presupuesto): solo nombres, sin cantidades ni precios por línea
+        # — para compartir con el cliente un vistazo del alcance sin el desglose comercial.
+        rows = [["Descripción"]]
+        for item in items:
+            rows.append([item.description])
+        col_widths = [170 * mm]
 
     items_table = Table(rows, colWidths=col_widths)
     items_table.setStyle(
@@ -213,4 +222,25 @@ def build_invoice_pdf(invoice: Invoice, variant: str = "detallada") -> bytes:
         ncf=invoice.ncf if show_line_prices else None,
         show_line_prices=show_line_prices,
         show_breakdown=True,
+    )
+
+
+def build_budget_summary_pdf(budget: Budget) -> bytes:
+    """Resumen para compartir con el cliente: solo los nombres de lo incluido y el total
+    final — sin cantidades, precios unitarios ni desglose de ITBIS (eso vive en la
+    Cotización, un documento aparte)."""
+    return _build_pdf(
+        doc_title="Presupuesto — Resumen",
+        code=budget.code,
+        created_at=budget.created_at,
+        client=budget.project.client,
+        project=budget.project,
+        items=budget.items,
+        subtotal=0,
+        itbis=0,
+        total=float(budget.total),
+        notes=budget.notes,
+        show_line_prices=False,
+        show_breakdown=True,
+        show_quantities=False,
     )

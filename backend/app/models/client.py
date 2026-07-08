@@ -16,6 +16,10 @@ class Client(Base):
     phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
     email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Enlace de Google Maps (place/coordenadas) pegado a mano por el usuario tras marcar la
+    # ubicación en Maps — no hay integración con la API de Maps (tiene costo), así que esto
+    # es solo el link que el propio Maps genera al compartir un lugar.
+    location_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
