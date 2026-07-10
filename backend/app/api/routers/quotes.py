@@ -12,6 +12,7 @@ from app.models.material import Material
 from app.models.product import Product
 from app.models.quote import Quote, QuoteHistory, QuoteItem
 from app.models.user import User
+from app.schemas.margin import MarginSummary
 from app.schemas.quote import (
     PurchaseListPreviewOut,
     QuoteCreate,
@@ -21,6 +22,7 @@ from app.schemas.quote import (
     RejectIn,
 )
 from app.services.code_generator import next_code
+from app.services.margin import compute_margin
 from app.services.notifications import notify_quote_pending
 from app.services.pdf import build_quote_pdf
 from app.services.quote_approval import build_material_rows_from_quote, mark_quote_approved
@@ -30,6 +32,7 @@ from app.services.totals import LineInput, compute_totals
 router = APIRouter(tags=["quotes"])
 
 allowed_roles = require_role("admin", "oficina")
+admin_only = require_role("admin")
 
 
 def _get_quote(db: Session, quote_id: int) -> Quote:
@@ -134,6 +137,12 @@ def get_quote_pdf(
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="{quote.code}{suffix}.pdf"'},
     )
+
+
+@router.get("/api/quotes/{quote_id}/margin", response_model=MarginSummary)
+def get_quote_margin(quote_id: int, db: Session = Depends(get_db), _=Depends(admin_only)):
+    quote = _get_quote(db, quote_id)
+    return compute_margin(db, quote.items, basis="cotizado")
 
 
 @router.get("/api/quotes/{quote_id}/purchase-list-preview", response_model=PurchaseListPreviewOut)

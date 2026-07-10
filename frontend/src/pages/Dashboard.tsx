@@ -4,7 +4,7 @@ import { api, downloadFile } from '../lib/api'
 import { Card } from '../components/ui'
 import { useAuthStore } from '../lib/authStore'
 import { formatDOP } from '../lib/format'
-import { PROJECT_STATUS_LABELS, type DashboardSummary } from '../lib/types'
+import { PROJECT_STATUS_LABELS, type DashboardSummary, type MarginSummary } from '../lib/types'
 
 const quickActions = [
   { label: 'Nuevo Proyecto', icon: '➕', to: '/proyectos?nuevo=1' },
@@ -51,7 +51,35 @@ function MonthlyInvoicingChart({ data }: { data: DashboardSummary['monthly_invoi
   )
 }
 
+/** Margen agregado de la empresa (últimos 6 meses, facturado) — admin-only, ver
+ * GET /reports/margin. Endpoint separado del resto del dashboard (admin+oficina) para
+ * mantener el costo de compra fuera del alcance de oficina. */
+function MarginKpiCard() {
+  const { data } = useQuery({
+    queryKey: ['margin', '/reports/margin'],
+    queryFn: async () => (await api.get<MarginSummary>('/reports/margin')).data,
+  })
+
+  if (!data) return null
+
+  return (
+    <Card>
+      <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Margen (facturado, 6 meses)</p>
+      <p className="mt-1 text-2xl font-semibold text-emerald-700 dark:text-emerald-400">
+        {formatDOP(data.margin)}
+        {data.margin_pct != null && (
+          <span className="ml-1 text-base font-medium text-gray-500 dark:text-gray-400">
+            ({(data.margin_pct * 100).toFixed(1)}%)
+          </span>
+        )}
+      </p>
+    </Card>
+  )
+}
+
 function DashboardKpis() {
+  const role = useAuthStore((s) => s.user?.role)
+  const isAdmin = role === 'admin'
   const { data } = useQuery({
     queryKey: ['reports', 'dashboard'],
     queryFn: async () => (await api.get<DashboardSummary>('/reports/dashboard')).data,
@@ -121,6 +149,12 @@ function DashboardKpis() {
           {data.projects_by_status.length === 0 && <p className="text-sm text-gray-400">Sin proyectos aún.</p>}
         </Card>
       </div>
+
+      {isAdmin && (
+        <div className="mt-3 grid grid-cols-2 gap-3 md:mt-4 md:grid-cols-4 md:gap-4">
+          <MarginKpiCard />
+        </div>
+      )}
 
       {data.open_tickets_total > 0 && (
         <Card className="mt-3 space-y-2 md:mt-4">

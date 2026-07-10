@@ -4,14 +4,17 @@ from sqlalchemy.orm import Session
 
 from app.core.security import require_role
 from app.db.session import get_db
+from app.schemas.margin import MarginSummary
 from app.schemas.reports import DashboardSummary
 from app.services.csv_export import build_csv
 from app.services.dgii_607 import build_607_report
+from app.services.margin import company_margin_last_months
 from app.services.reports import dashboard_summary
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 allowed_roles = require_role("admin", "oficina")
+admin_only = require_role("admin")
 
 
 @router.get("/dashboard", response_model=DashboardSummary)
@@ -37,6 +40,11 @@ def export_dashboard_csv(db: Session = Depends(get_db), _=Depends(allowed_roles)
         media_type="text/csv",
         headers={"Content-Disposition": 'attachment; filename="dashboard.csv"'},
     )
+
+
+@router.get("/margin", response_model=MarginSummary)
+def get_margin_report(db: Session = Depends(get_db), _=Depends(admin_only)):
+    return company_margin_last_months(db)
 
 
 @router.get("/dgii-607")

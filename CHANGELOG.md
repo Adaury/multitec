@@ -8,6 +8,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Rentabilidad / margen por proyecto** (`GET /quotes/{id}/margin`, `/invoices/{id}/margin`,
+  `/projects/{id}/margin`, `/reports/margin` — todos **admin-only**): el sistema ya
+  guardaba el costo de adquisición de cada producto (`Product.cost`) pero nada lo usaba;
+  ahora se calcula el margen (venta − costo, %) en vivo cruzando cada línea de
+  cotización/factura contra el costo actual del catálogo, sin snapshot histórico por
+  línea. Se muestra en la caja de totales de Cotización y Factura, en un resumen nuevo por
+  proyecto (prioriza lo facturado; si aún no hay factura, proyecta sobre la cotización
+  aprobada) y como KPI en el Dashboard (agregado de los últimos 6 meses). Una línea sin
+  producto de catálogo (mano de obra, texto libre) o con costo sin cargar cuenta como
+  venta pero no como costo — se avisa en la UI cuando el margen es parcial. Gateado a
+  `admin` únicamente (no `oficina`, no `tecnico`) porque revela el poder de compra de la
+  empresa; nunca aparece en los PDFs de cotización/factura ni en el portal de cliente. 8
+  tests nuevos.
 - **Portal de cliente** (`/portal/{token}`, sin login): enlace de solo lectura para que
   un cliente vea el estado de su proyecto, sus cotizaciones (con líneas y totales) y sus
   facturas (con NCF y PDF descargable). Se activa por proyecto desde la pestaña

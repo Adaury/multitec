@@ -14,9 +14,11 @@ from app.models.project import Project
 from app.models.quote import Quote
 from app.models.user import User
 from app.schemas.invoice import InvoiceHistoryOut, InvoiceOut, PreInvoiceCreate, PreInvoiceOut
+from app.schemas.margin import MarginSummary
 from app.schemas.ncf import ConvertToInvoiceRequest
 from app.services.code_generator import next_code
 from app.services.csv_export import build_csv
+from app.services.margin import compute_margin
 from app.services.ncf import assign_ncf, default_ncf_type
 from app.services.notifications import notify_invoice_issued
 from app.services.pdf import build_invoice_pdf
@@ -224,6 +226,14 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), _=Depends(allowe
     if invoice is None:
         raise HTTPException(status_code=404, detail="Factura no encontrada")
     return invoice
+
+
+@router.get("/api/invoices/{invoice_id}/margin", response_model=MarginSummary)
+def get_invoice_margin(invoice_id: int, db: Session = Depends(get_db), _=Depends(admin_only)):
+    invoice = db.query(Invoice).options(joinedload(Invoice.items)).filter(Invoice.id == invoice_id).one_or_none()
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
+    return compute_margin(db, invoice.items, basis="facturado")
 
 
 @router.get("/api/invoices/{invoice_id}/pdf")

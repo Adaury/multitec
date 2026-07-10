@@ -8,10 +8,12 @@ from app.models.engineering import Engineering
 from app.models.project import Project
 from app.models.survey import Survey
 from app.models.user import User
+from app.schemas.margin import MarginSummary
 from app.schemas.project import ProjectCreate, ProjectDetailOut, ProjectOut, ProjectUpdate
 from app.services.code_generator import next_code
 from app.services.csv_export import build_csv
 from app.services.execution import ensure_stages
+from app.services.margin import project_margin
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -19,6 +21,7 @@ router = APIRouter(prefix="/api/projects", tags=["projects"])
 # eso es responsabilidad de oficina/admin.
 allowed_roles = require_role("admin", "oficina", "tecnico")
 write_roles = require_role("admin", "oficina")
+admin_only = require_role("admin")
 
 
 @router.get("", response_model=list[ProjectOut])
@@ -76,6 +79,14 @@ def get_project(project_id: int, db: Session = Depends(get_db), _=Depends(allowe
     if project is None:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
     return project
+
+
+@router.get("/{project_id}/margin", response_model=MarginSummary)
+def get_project_margin(project_id: int, db: Session = Depends(get_db), _=Depends(admin_only)):
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    return project_margin(db, project_id)
 
 
 @router.put("/{project_id}", response_model=ProjectOut)

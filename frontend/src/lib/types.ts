@@ -531,6 +531,18 @@ export interface DashboardSummary {
   stale_quotes: StaleQuote[]
 }
 
+// Venta/costo/margen calculados en vivo contra el costo actual del catálogo — sin
+// snapshot histórico por línea. Solo admin (ver GET .../margin en el backend).
+export interface MarginSummary {
+  revenue: number
+  cost: number
+  margin: number
+  margin_pct: number | null
+  lines_total: number
+  lines_costed: number
+  basis: 'facturado' | 'cotizado' | 'ninguno'
+}
+
 export interface SearchResults {
   clients: { id: number; name: string; company: string | null }[]
   projects: { id: number; code: string; client_name: string; status: string }[]

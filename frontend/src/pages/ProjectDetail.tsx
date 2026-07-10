@@ -14,6 +14,7 @@ import type {
   InvoiceHistoryEntry,
   LineItemInput,
   LogEntry,
+  MarginSummary,
   Material,
   MaterialStatus,
   NcfType,
@@ -85,6 +86,33 @@ function DictationField({
   )
 }
 
+/** Fila de margen (venta − costo) para la caja de totales de cotización/factura —
+ * admin-only, ver GET .../margin en el backend. No se dispara si `enabled` es false
+ * (colapsado), igual que el resto de queries de detalle en esta pantalla. */
+function MarginRow({ endpoint, enabled }: { endpoint: string; enabled: boolean }) {
+  const { data } = useQuery({
+    queryKey: ['margin', endpoint],
+    queryFn: async () => (await api.get<MarginSummary>(endpoint)).data,
+    enabled,
+  })
+
+  if (!data || data.basis === 'ninguno') return null
+
+  return (
+    <>
+      <div className="flex justify-between border-t border-gray-200 pt-1 text-emerald-700 dark:border-gray-700 dark:text-emerald-400">
+        <span>Margen{data.margin_pct != null ? ` (${(data.margin_pct * 100).toFixed(1)}%)` : ''}</span>
+        <span>{formatDOP(data.margin)}</span>
+      </div>
+      {data.lines_costed < data.lines_total && (
+        <p className="text-xs text-gray-400 dark:text-gray-500">
+          Basado en {data.lines_costed} de {data.lines_total} líneas con costo registrado en el catálogo
+        </p>
+      )}
+    </>
+  )
+}
+
 type Tab =
   | 'info'
   | 'levantamiento'
@@ -114,6 +142,47 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'tickets', label: 'Tickets' },
 ]
 
+const MARGIN_BASIS_LABELS: Record<MarginSummary['basis'], string> = {
+  facturado: 'Según lo facturado',
+  cotizado: 'Proyectado según cotización aprobada',
+  ninguno: 'Sin datos aún',
+}
+
+/** Resumen de rentabilidad del proyecto — admin-only. Prioriza lo facturado; si aún no
+ * hay factura, cae a un margen proyectado sobre la cotización aprobada (ver `basis`,
+ * calculado en el backend por `project_margin`). */
+function ProjectMarginCard({ projectId }: { projectId: number }) {
+  const { data } = useQuery({
+    queryKey: ['margin', `/projects/${projectId}/margin`],
+    queryFn: async () => (await api.get<MarginSummary>(`/projects/${projectId}/margin`)).data,
+  })
+
+  if (!data || data.basis === 'ninguno') return null
+
+  return (
+    <Card>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Rentabilidad</p>
+        <span className="text-xs text-gray-400 dark:text-gray-500">{MARGIN_BASIS_LABELS[data.basis]}</span>
+      </div>
+      <div className="mt-2 flex items-center justify-between">
+        <span className="text-sm text-gray-500 dark:text-gray-400">
+          Venta {formatDOP(data.revenue)} − Costo {formatDOP(data.cost)}
+        </span>
+        <span className="text-lg font-semibold text-emerald-700 dark:text-emerald-400">
+          {formatDOP(data.margin)}
+          {data.margin_pct != null && ` (${(data.margin_pct * 100).toFixed(1)}%)`}
+        </span>
+      </div>
+      {data.lines_costed < data.lines_total && (
+        <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+          Basado en {data.lines_costed} de {data.lines_total} líneas con costo registrado en el catálogo
+        </p>
+      )}
+    </Card>
+  )
+}
+
 export function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -122,6 +191,8 @@ export function ProjectDetail() {
   const initialTab = TABS.some((t) => t.key === tabParam) ? (tabParam as Tab) : 'info'
   const [tab, setTab] = useState<Tab>(initialTab)
   const [generateWarnings, setGenerateWarnings] = useState<string[]>([])
+  const role = useAuthStore((s) => s.user?.role)
+  const isAdmin = role === 'admin'
 
   const { data: project } = useQuery({
     queryKey: ['projects', id],
@@ -143,6 +214,8 @@ export function ProjectDetail() {
         </div>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{project.client.name}</p>
       </Card>
+
+      {isAdmin && <ProjectMarginCard projectId={project.id} />}
 
       <div className="flex gap-2 overflow-x-auto rounded-2xl bg-brand-gray p-1 dark:bg-gray-800">
         {TABS.map((t) => (
@@ -1071,6 +1144,8 @@ function QuoteCard({
   products: Product[]
 }) {
   const queryClient = useQueryClient()
+  const role = useAuthStore((s) => s.user?.role)
+  const isAdmin = role === 'admin'
   const [reason, setReason] = useState('')
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [showPurchaseList, setShowPurchaseList] = useState(false)
@@ -1206,6 +1281,7 @@ function QuoteCard({
               <span>Total</span>
               <span>{formatDOP(quote.total)}</span>
             </div>
+            {isAdmin && <MarginRow endpoint={`/quotes/${quote.id}/margin`} enabled={expanded} />}
           </div>
 
           <div className="space-y-3">
@@ -1922,6 +1998,8 @@ function InvoiceTab({ projectId }: { projectId: number }) {
 }
 
 function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expanded: boolean; onToggle: () => void }) {
+  const role = useAuthStore((s) => s.user?.role)
+  const isAdmin = role === 'admin'
   const { data: history } = useQuery({
     queryKey: ['invoice-history', invoice.id],
     queryFn: async () => (await api.get<InvoiceHistoryEntry[]>(`/invoices/${invoice.id}/history`)).data,
@@ -1967,6 +2045,7 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
               <span>Total</span>
               <span>{formatDOP(invoice.total)}</span>
             </div>
+            {isAdmin && <MarginRow endpoint={`/invoices/${invoice.id}/margin`} enabled={expanded} />}
           </div>
           <div className="space-y-3">
             <div className="space-y-1.5">

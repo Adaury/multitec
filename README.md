@@ -99,6 +99,9 @@ Construido después del brief original:
 - **Portal de cliente** (`/portal/{token}`, sin login) — el cliente ve el estado de su
   proyecto, cotizaciones y facturas (con PDF), a través de un enlace con token opaco
   activable/regenerable/desactivable desde la pestaña Información del proyecto.
+- **Rentabilidad / margen** (solo `admin`) — venta vs. costo del catálogo en Cotización,
+  Factura, un resumen por proyecto y un KPI en el Dashboard, calculado en vivo, sin exponer
+  el costo a `oficina`/`tecnico` ni en PDFs.
 
 ## Capturas
 
