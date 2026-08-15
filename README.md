@@ -102,6 +102,8 @@ Construido después del brief original:
 - **Rentabilidad / margen** (solo `admin`) — venta vs. costo del catálogo en Cotización,
   Factura, un resumen por proyecto y un KPI en el Dashboard, calculado en vivo, sin exponer
   el costo a `oficina`/`tecnico` ni en PDFs.
+- **Proveedores y compras reales** (`/proveedores`) — a quién se le compra cada material y
+  a qué precio real, con historial de compras por proveedor.
 
 ## Capturas
 

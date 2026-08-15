@@ -27,6 +27,7 @@ const sidebarBaseItems: NavItem[] = [
   { to: '/proyectos', label: 'Proyectos', icon: '📁' },
   { to: '/calendario', label: 'Calendario', icon: '📅' },
   { to: '/catalogo', label: 'Catálogo', icon: '📦' },
+  { to: '/proveedores', label: 'Proveedores', icon: '🏢' },
   { to: '/presupuestos', label: 'Presupuestos', icon: '💰' },
   { to: '/cotizaciones', label: 'Cotizaciones', icon: '🧾' },
   { to: '/preguntar', label: 'Preguntar IA', icon: '🤖' },

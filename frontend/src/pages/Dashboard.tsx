@@ -17,6 +17,7 @@ const baseMenu = [
   { label: 'Proyectos', icon: '📁', to: '/proyectos' },
   { label: 'Calendario', icon: '📅', to: '/calendario' },
   { label: 'Catálogo', icon: '📦', to: '/catalogo' },
+  { label: 'Proveedores', icon: '🏢', to: '/proveedores' },
   { label: 'Presupuestos', icon: '💰', to: '/presupuestos' },
   { label: 'Cotizaciones', icon: '🧾', to: '/cotizaciones' },
   { label: 'Compras', icon: '🛒', to: '/proyectos' },

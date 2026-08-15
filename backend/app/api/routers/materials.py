@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.material import MATERIAL_STATUSES, Material
 from app.models.product import Product
+from app.models.supplier import Supplier
 from app.models.user import User
 from app.schemas.material import MaterialCreate, MaterialOut, MaterialStatusUpdate
 
@@ -17,6 +18,7 @@ allowed_roles = require_role("admin", "oficina")
 def list_materials(project_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
     return (
         db.query(Material)
+        .options(joinedload(Material.supplier))
         .filter(Material.project_id == project_id)
         .order_by(Material.created_at.desc())
         .all()
@@ -28,6 +30,7 @@ def purchase_list(project_id: int, db: Session = Depends(get_db), _=Depends(allo
     """Lista inteligente de compras (§10) — materiales pendientes de comprar."""
     return (
         db.query(Material)
+        .options(joinedload(Material.supplier))
         .filter(Material.project_id == project_id, Material.status == "pendiente_compra")
         .order_by(Material.created_at)
         .all()
@@ -73,6 +76,14 @@ def update_material_status(
     if material is None:
         raise HTTPException(status_code=404, detail="Material no encontrado")
     material.status = payload.status
+    # Opcionales — solo se aplican si vienen en el payload, para no borrar un
+    # proveedor/precio ya cargado cuando el caller solo quiere cambiar el estado.
+    if payload.supplier_id is not None:
+        if db.get(Supplier, payload.supplier_id) is None:
+            raise HTTPException(status_code=400, detail=f"Proveedor {payload.supplier_id} no encontrado")
+        material.supplier_id = payload.supplier_id
+    if payload.purchase_price is not None:
+        material.purchase_price = payload.purchase_price
     db.commit()
     db.refresh(material)
     return material

@@ -18,6 +18,7 @@ import { CalculationParameters } from './pages/CalculationParameters'
 import { AIFeedbackEvents } from './pages/AIFeedbackEvents'
 import { Calendario } from './pages/Calendario'
 import { PortalCliente } from './pages/PortalCliente'
+import { Proveedores } from './pages/Proveedores'
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
           <Route path="/parametros-calculo" element={<CalculationParameters />} />
           <Route path="/aprendizaje-ia" element={<AIFeedbackEvents />} />
           <Route path="/calendario" element={<Calendario />} />
+          <Route path="/proveedores" element={<Proveedores />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

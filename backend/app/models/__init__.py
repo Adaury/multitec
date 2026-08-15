@@ -20,6 +20,7 @@ from app.models.quote import Quote, QuoteHistory, QuoteItem
 from app.models.refresh_token import RefreshToken
 from app.models.sequence import CodeSequence
 from app.models.stock_movement import StockMovement
+from app.models.supplier import Supplier
 from app.models.survey import Survey, SurveyAsset
 from app.models.technical_rule import TechnicalRule
 from app.models.ticket import Ticket, TicketAsset, TicketHistory
@@ -57,6 +58,7 @@ __all__ = [
     "RefreshToken",
     "CodeSequence",
     "StockMovement",
+    "Supplier",
     "Survey",
     "SurveyAsset",
     "TechnicalRule",

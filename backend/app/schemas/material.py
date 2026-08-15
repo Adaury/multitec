@@ -12,6 +12,11 @@ class MaterialCreate(BaseModel):
 
 class MaterialStatusUpdate(BaseModel):
     status: str = Field(max_length=30)
+    # Quién lo vendió y a qué precio real (distinto de Product.price/cost, que son
+    # estimados de catálogo) — opcionales, se pueden completar en cualquier transición de
+    # estado, no solo al marcar "comprado".
+    supplier_id: int | None = None
+    purchase_price: float | None = None
 
 
 class MaterialOut(BaseModel):
@@ -23,9 +28,19 @@ class MaterialOut(BaseModel):
     quantity: float
     status: str
     notes: str | None
+    supplier_id: int | None = None
+    purchase_price: float | None = None
+    supplier_name: str | None = None
     created_by: int | None = None
     created_at: datetime
     updated_at: datetime | None = None
 
     class Config:
         from_attributes = True
+
+
+class SupplierPurchaseOut(MaterialOut):
+    """Historial de compras de un proveedor — mismo shape que MaterialOut más el proyecto
+    de origen, ya que un proveedor puede vender a materiales de varios proyectos."""
+
+    project_code: str

@@ -31,6 +31,18 @@ export interface Client {
 
 export type ClientInput = Omit<Client, 'id'>
 
+export interface Supplier {
+  id: number
+  name: string
+  rnc: string | null
+  phone: string | null
+  email: string | null
+  address: string | null
+  notes: string | null
+}
+
+export type SupplierInput = Omit<Supplier, 'id'>
+
 export interface Project {
   id: number
   code: string
@@ -375,7 +387,15 @@ export interface Material {
   quantity: number
   status: MaterialStatus
   notes: string | null
+  supplier_id: number | null
+  purchase_price: number | null
+  supplier_name: string | null
   created_at: string
+}
+
+// Historial de compras de un proveedor — mismo Material más el proyecto de origen.
+export interface SupplierPurchase extends Material {
+  project_code: string
 }
 
 export const MATERIAL_STATUS_LABELS: Record<MaterialStatus, string> = {

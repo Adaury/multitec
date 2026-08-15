@@ -8,6 +8,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Proveedores y compras reales** (`/proveedores`, admin+oficina, sin acceso `tecnico`
+  igual que Catálogo/Compras): maestro simple de proveedores (nombre, RNC, teléfono,
+  correo, dirección, notas — calco de Clientes). Cada `Material` marcado **"Comprado"** en
+  la pestaña Compras de un proyecto puede ahora registrar **a quién se le compró y a qué
+  precio real** (`GET/PUT /api/suppliers`, `PUT /api/materials/{id}/status` extendido con
+  `supplier_id`/`purchase_price` opcionales) — antes solo existía un estado interno sin
+  ningún dato de a quién ni a cuánto. Cada proveedor tiene un **historial de compras**
+  expandible (`GET /api/suppliers/{id}/materials`) con el proyecto, producto, cantidad y
+  precio de cada compra, cruzando todos los proyectos donde se le ha comprado. Deliberadamente
+  **no** alimenta el cálculo de rentabilidad/margen ya existente (que sigue usando el costo
+  estimado de catálogo, no el precio real pagado) ni la bodega general
+  (`StockMovement`/entradas-salidas) — quedan como posibles extensiones futuras. 6 tests
+  nuevos.
 - **Rentabilidad / margen por proyecto** (`GET /quotes/{id}/margin`, `/invoices/{id}/margin`,
   `/projects/{id}/margin`, `/reports/margin` — todos **admin-only**): el sistema ya
   guardaba el costo de adquisición de cada producto (`Product.cost`) pero nada lo usaba;

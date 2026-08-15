@@ -25,6 +25,7 @@ import type {
   Quote,
   QuoteHistoryEntry,
   StageName,
+  Supplier,
   Survey,
   Technician,
   Ticket,
@@ -1423,6 +1424,10 @@ const MATERIAL_STATUS_OPTIONS: MaterialStatus[] = ['disponible', 'pendiente_comp
 function PurchasesTab({ projectId }: { projectId: number }) {
   const queryClient = useQueryClient()
   const { data: products } = useProducts()
+  const { data: suppliers } = useQuery({
+    queryKey: ['suppliers'],
+    queryFn: async () => (await api.get<Supplier[]>('/suppliers')).data,
+  })
   const { data: materials } = useQuery({
     queryKey: ['materials', projectId],
     queryFn: async () => (await api.get<Material[]>(`/projects/${projectId}/materials`)).data,
@@ -1455,8 +1460,24 @@ function PurchasesTab({ projectId }: { projectId: number }) {
   })
 
   const updateStatus = useMutation({
-    mutationFn: async ({ id, status }: { id: number; status: MaterialStatus }) =>
-      (await api.put(`/materials/${id}/status`, { status })).data,
+    mutationFn: async ({
+      id,
+      status,
+      supplierId,
+      purchasePrice,
+    }: {
+      id: number
+      status: MaterialStatus
+      supplierId?: number
+      purchasePrice?: number
+    }) =>
+      (
+        await api.put(`/materials/${id}/status`, {
+          status,
+          supplier_id: supplierId ?? null,
+          purchase_price: purchasePrice ?? null,
+        })
+      ).data,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['materials', projectId] }),
   })
 
@@ -1533,7 +1554,14 @@ function PurchasesTab({ projectId }: { projectId: number }) {
         </p>
         <div className="grid items-start gap-2 md:grid-cols-2 xl:grid-cols-3">
           {purchaseList.map((m) => (
-            <MaterialRow key={m.id} material={m} onStatusChange={(status) => updateStatus.mutate({ id: m.id, status })} />
+            <MaterialRow
+              key={m.id}
+              material={m}
+              suppliers={suppliers}
+              onStatusChange={(status, supplierId, purchasePrice) =>
+                updateStatus.mutate({ id: m.id, status, supplierId, purchasePrice })
+              }
+            />
           ))}
           {purchaseList.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Nada pendiente de comprar.</p>}
         </div>
@@ -1544,7 +1572,14 @@ function PurchasesTab({ projectId }: { projectId: number }) {
           <p className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">Otros materiales</p>
           <div className="grid items-start gap-2 md:grid-cols-2 xl:grid-cols-3">
             {others.map((m) => (
-              <MaterialRow key={m.id} material={m} onStatusChange={(status) => updateStatus.mutate({ id: m.id, status })} />
+              <MaterialRow
+                key={m.id}
+                material={m}
+                suppliers={suppliers}
+                onStatusChange={(status, supplierId, purchasePrice) =>
+                  updateStatus.mutate({ id: m.id, status, supplierId, purchasePrice })
+                }
+              />
             ))}
           </div>
         </div>
@@ -1553,29 +1588,109 @@ function PurchasesTab({ projectId }: { projectId: number }) {
   )
 }
 
-function MaterialRow({ material, onStatusChange }: { material: Material; onStatusChange: (status: MaterialStatus) => void }) {
+function MaterialRow({
+  material,
+  suppliers,
+  onStatusChange,
+}: {
+  material: Material
+  suppliers: Supplier[] | undefined
+  onStatusChange: (status: MaterialStatus, supplierId?: number, purchasePrice?: number) => void
+}) {
+  const [confirmingPurchase, setConfirmingPurchase] = useState(false)
+  const [supplierId, setSupplierId] = useState('')
+  const [purchasePrice, setPurchasePrice] = useState('')
+
+  function handleStatusChange(status: MaterialStatus) {
+    // Marcar "comprado" sin proveedor/precio cargados todavía pide esos datos antes de
+    // aplicar el cambio; cualquier otra transición (o si ya tiene ambos) se aplica de
+    // inmediato, igual que antes.
+    if (status === 'comprado' && (!material.supplier_id || !material.purchase_price)) {
+      setConfirmingPurchase(true)
+      return
+    }
+    onStatusChange(status)
+  }
+
+  function confirmPurchase() {
+    onStatusChange('comprado', supplierId ? Number(supplierId) : undefined, purchasePrice ? Number(purchasePrice) : undefined)
+    setConfirmingPurchase(false)
+    setSupplierId('')
+    setPurchasePrice('')
+  }
+
   return (
-    <Card className="flex items-center justify-between gap-3">
-      <div>
-        <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-          {material.quantity} × {material.description}
-        </p>
-        {material.notes && <p className="text-xs text-gray-500 dark:text-gray-400">{material.notes}</p>}
-        <Badge tone={material.status === 'pendiente_compra' ? 'amber' : material.status === 'instalado' ? 'green' : 'gray'}>
-          {MATERIAL_STATUS_LABELS[material.status]}
-        </Badge>
+    <Card className="space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+            {material.quantity} × {material.description}
+          </p>
+          {material.notes && <p className="text-xs text-gray-500 dark:text-gray-400">{material.notes}</p>}
+          {(material.supplier_name || material.purchase_price != null) && (
+            <p className="text-xs text-gray-400 dark:text-gray-500">
+              Comprado a {material.supplier_name ?? 'proveedor sin registrar'}
+              {material.purchase_price != null && ` — ${formatDOP(material.purchase_price)}`}
+            </p>
+          )}
+          <Badge tone={material.status === 'pendiente_compra' ? 'amber' : material.status === 'instalado' ? 'green' : 'gray'}>
+            {MATERIAL_STATUS_LABELS[material.status]}
+          </Badge>
+        </div>
+        <select
+          className="rounded-xl border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          value={material.status}
+          onChange={(e) => handleStatusChange(e.target.value as MaterialStatus)}
+        >
+          {MATERIAL_STATUS_OPTIONS.map((status) => (
+            <option key={status} value={status}>
+              {MATERIAL_STATUS_LABELS[status]}
+            </option>
+          ))}
+        </select>
       </div>
-      <select
-        className="rounded-xl border border-gray-200 bg-white px-2 py-2 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        value={material.status}
-        onChange={(e) => onStatusChange(e.target.value as MaterialStatus)}
-      >
-        {MATERIAL_STATUS_OPTIONS.map((status) => (
-          <option key={status} value={status}>
-            {MATERIAL_STATUS_LABELS[status]}
-          </option>
-        ))}
-      </select>
+
+      {confirmingPurchase && (
+        <div className="space-y-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+          <select
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            value={supplierId}
+            onChange={(e) => setSupplierId(e.target.value)}
+          >
+            <option value="">Proveedor (opcional)…</option>
+            {suppliers?.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </select>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Precio pagado (opcional)"
+            className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2 text-xs text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+            value={purchasePrice}
+            onChange={(e) => setPurchasePrice(e.target.value)}
+          />
+          <div className="flex gap-2">
+            <Button className="!w-auto flex-1 px-3 py-2 text-xs" onClick={confirmPurchase}>
+              Confirmar
+            </Button>
+            <Button
+              className="!w-auto flex-1 px-3 py-2 text-xs"
+              variant="secondary"
+              onClick={() => {
+                setConfirmingPurchase(false)
+                setSupplierId('')
+                setPurchasePrice('')
+              }}
+            >
+              Cancelar
+            </Button>
+          </div>
+        </div>
+      )}
     </Card>
   )
 }
