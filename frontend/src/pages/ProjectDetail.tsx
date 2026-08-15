@@ -1605,7 +1605,7 @@ function MaterialRow({
     // Marcar "comprado" sin proveedor/precio cargados todavía pide esos datos antes de
     // aplicar el cambio; cualquier otra transición (o si ya tiene ambos) se aplica de
     // inmediato, igual que antes.
-    if (status === 'comprado' && (!material.supplier_id || !material.purchase_price)) {
+    if (status === 'comprado' && (!material.supplier_id || material.purchase_price == null)) {
       setConfirmingPurchase(true)
       return
     }

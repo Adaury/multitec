@@ -57,7 +57,7 @@ def list_supplier_purchases(supplier_id: int, db: Session = Depends(get_db), _=D
         raise HTTPException(status_code=404, detail="Proveedor no encontrado")
     return (
         db.query(Material)
-        .options(joinedload(Material.project))
+        .options(joinedload(Material.project), joinedload(Material.supplier))
         .filter(Material.supplier_id == supplier_id)
         .order_by(Material.updated_at.desc(), Material.created_at.desc())
         .all()
