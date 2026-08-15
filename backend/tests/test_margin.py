@@ -46,6 +46,23 @@ def test_quote_margin_computes_cost_and_flags_uncosted_lines(client, admin_token
     assert data["basis"] == "cotizado"
 
 
+def test_quote_margin_counts_zero_cost_product_as_costed(client, admin_token):
+    """Un producto con cost=0 (ej. artículo de regalo) es un costo real y conocido —
+    distinto de un producto sin costo cargado (cost NULL) — así que debe contar en
+    `lines_costed`, no quedar marcado como dato faltante."""
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    product = _make_product(client, headers, price=100, cost=0)
+    quote = _quote_with_mixed_items(client, headers, project, product)
+
+    resp = client.get(f"/api/quotes/{quote['id']}/margin", headers=headers)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["cost"] == 0
+    assert data["lines_total"] == 2
+    assert data["lines_costed"] == 1
+
+
 def test_quote_margin_forbidden_for_non_admin(client, oficina_token, tecnico_token):
     for token in (oficina_token, tecnico_token):
         resp = client.get("/api/quotes/1/margin", headers=auth_headers(token))

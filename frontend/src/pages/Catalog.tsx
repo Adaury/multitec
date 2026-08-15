@@ -43,7 +43,7 @@ interface ProductForm {
   name: string
   unit: string
   price: number
-  cost: number
+  cost: string
   notes: string
   brand: string
   model: string
@@ -65,7 +65,7 @@ function emptyForm(): ProductForm {
     name: '',
     unit: 'unidad',
     price: 0,
-    cost: 0,
+    cost: '',
     notes: '',
     brand: '',
     model: '',
@@ -90,6 +90,7 @@ function productFormPayload(form: ProductForm) {
   return {
     ...form,
     category_id: Number(form.category_id),
+    cost: optionalNumber(form.cost),
     install_minutes: optionalNumber(form.install_minutes),
     labor_role: form.labor_role.trim() || null,
     priority: optionalNumber(form.priority),
@@ -107,7 +108,7 @@ function productToForm(product: Product): ProductForm {
     name: product.name,
     unit: product.unit,
     price: product.price,
-    cost: product.cost,
+    cost: product.cost != null ? String(product.cost) : '',
     notes: product.notes ?? '',
     brand: product.brand ?? '',
     model: product.model ?? '',
@@ -183,7 +184,7 @@ function ProductFormFields({
             step="0.01"
             min="0"
             value={form.cost}
-            onChange={(e) => setForm({ ...form, cost: Number(e.target.value) })}
+            onChange={(e) => setForm({ ...form, cost: e.target.value })}
           />
         </Field>
         <Field label="Marca">
@@ -350,7 +351,7 @@ export function Catalog() {
 
 function AiFieldsSummary({ product }: { product: Product }) {
   const entries: [string, string][] = []
-  if (product.cost > 0) entries.push(['Costo', `RD$ ${product.cost.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`])
+  if (product.cost != null) entries.push(['Costo', `RD$ ${product.cost.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`])
   if (product.install_minutes != null) entries.push(['Minutos de instalación', String(product.install_minutes)])
   if (product.labor_role) entries.push(['Rol de mano de obra', product.labor_role])
   if (product.priority != null) entries.push(['Prioridad', String(product.priority)])

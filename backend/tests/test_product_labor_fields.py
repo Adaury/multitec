@@ -40,7 +40,7 @@ def test_create_product_defaults_new_fields_when_omitted(client, admin_token):
 
     assert resp.status_code == 201, resp.text
     body = resp.json()
-    assert body["cost"] == 0
+    assert body["cost"] is None
     assert body["install_minutes"] is None
     assert body["labor_role"] is None
     assert body["priority"] is None
@@ -66,4 +66,4 @@ def test_update_product_sets_labor_fields_without_touching_others(client, admin_
     assert body["install_minutes"] == 60
     assert body["labor_role"] == "técnico CCTV senior"
     assert body["price"] == 400  # sin tocar por la actualización parcial
-    assert body["cost"] == 0
+    assert body["cost"] is None

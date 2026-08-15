@@ -149,7 +149,7 @@ export interface Product {
   name: string
   unit: string
   price: number
-  cost: number
+  cost: number | null
   stock_quantity: number
   notes: string | null
   brand: string | null

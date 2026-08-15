@@ -32,8 +32,10 @@ class Product(Base):
     unit: Mapped[str] = mapped_column(String(20), default="unidad")
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     # Costo de adquisición, distinto de `price` (precio de venta) — § catálogo inteligente,
-    # Motor 2. Ningún cálculo lo usa todavía; existe para cuando Motor 5 estime márgenes.
-    cost: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    # Motor 2. Nulo por defecto: sin costo cargado (distinto de un costo real de $0, ej. un
+    # artículo de regalo) — ver services/margin.py, que usa NULL para excluir la línea de
+    # `lines_costed`.
+    cost: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True, default=None)
     stock_quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     brand: Mapped[str | None] = mapped_column(String(80), nullable=True)

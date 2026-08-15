@@ -29,14 +29,14 @@ def compute_margin(db: Session, items: Sequence[MarginLine], basis: str) -> dict
     contra el `Product.cost` *actual* del catálogo — no hay snapshot de costo por línea,
     así que el margen de documentos viejos se recalcula con el costo de hoy (ver plan de
     rentabilidad, "sin snapshot"). Una línea sin `product_id`, o cuyo producto no tiene
-    costo cargado (`cost == 0`), aporta a `revenue` pero no a `cost`: se cuenta en
+    costo cargado (`cost` NULL), aporta a `revenue` pero no a `cost`: se cuenta en
     `lines_total` sin sumar a `lines_costed`, para que el consumidor pueda advertir que el
-    margen es parcial."""
+    margen es parcial. Un costo real de $0 (ej. artículo de regalo) sí cuenta como costeado."""
     product_ids = {item.product_id for item in items if item.product_id is not None}
-    costs_by_id: dict[int, float] = {}
+    costs_by_id: dict[int, float | None] = {}
     if product_ids:
         costs_by_id = {
-            row.id: float(row.cost)
+            row.id: (float(row.cost) if row.cost is not None else None)
             for row in db.query(Product.id, Product.cost).filter(Product.id.in_(product_ids))
         }
 
@@ -48,7 +48,7 @@ def compute_margin(db: Session, items: Sequence[MarginLine], basis: str) -> dict
         lines_total += 1
         revenue += float(item.subtotal)
         unit_cost = costs_by_id.get(item.product_id) if item.product_id is not None else None
-        if unit_cost:
+        if unit_cost is not None:
             cost += float(item.quantity) * unit_cost
             lines_costed += 1
 

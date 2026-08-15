@@ -8,7 +8,7 @@ class ProductCreate(BaseModel):
     name: str = Field(max_length=255)
     unit: str = Field(default="unidad", max_length=30)
     price: float = 0
-    cost: float = 0
+    cost: float | None = None
     notes: str | None = Field(default=None, max_length=2000)
     brand: str | None = Field(default=None, max_length=80)
     model: str | None = Field(default=None, max_length=80)
@@ -54,7 +54,7 @@ class ProductOut(BaseModel):
     name: str
     unit: str
     price: float
-    cost: float
+    cost: float | None
     stock_quantity: float
     notes: str | None
     brand: str | None = None
