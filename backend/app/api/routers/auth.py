@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.limiter import limiter
 from app.core.security import (
+    DUMMY_PASSWORD_HASH,
     create_access_token,
     create_refresh_token,
     get_current_user,
@@ -13,7 +14,7 @@ from app.core.security import (
 )
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import AccessToken, CurrentUser, RefreshRequest, Token
+from app.schemas.auth import CurrentUser, RefreshRequest, Token
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -22,7 +23,10 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 @limiter.limit("10/minute")
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == form_data.username).one_or_none()
-    if user is None or not verify_password(form_data.password, user.hashed_password):
+    # verify_password corre siempre, incluso si el email no existe (contra el hash "dummy"),
+    # para que el tiempo de respuesta no delate si un email está registrado.
+    password_ok = verify_password(form_data.password, user.hashed_password if user else DUMMY_PASSWORD_HASH)
+    if user is None or not password_ok:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo o contraseña incorrectos",
@@ -35,7 +39,7 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
     return Token(access_token=access_token, refresh_token=refresh_token)
 
 
-@router.post("/refresh", response_model=AccessToken)
+@router.post("/refresh", response_model=Token)
 @limiter.limit("30/minute")
 def refresh(request: Request, payload: RefreshRequest, db: Session = Depends(get_db)):
     row = get_valid_refresh_token(db, payload.refresh_token)
@@ -46,8 +50,13 @@ def refresh(request: Request, payload: RefreshRequest, db: Session = Depends(get
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario inactivo")
 
+    # Rotación: este refresh token se revoca y se emite uno nuevo junto con el access
+    # token — un refresh token es de un solo uso. Si alguien lo reusa después (porque lo
+    # robó), get_valid_refresh_token lo detecta y revoca toda la sesión (ver security.py).
+    row.revoked = True
     access_token = create_access_token(subject=str(user.id))
-    return AccessToken(access_token=access_token)
+    refresh_token = create_refresh_token(db, user.id)
+    return Token(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

@@ -23,7 +23,7 @@ async function refreshAccessToken(): Promise<string> {
     refreshPromise = axios
       .post('/api/auth/refresh', { refresh_token: refreshToken })
       .then(({ data }) => {
-        useAuthStore.getState().setAccessToken(data.access_token)
+        useAuthStore.getState().setTokens(data.access_token, data.refresh_token)
         return data.access_token as string
       })
       .finally(() => {

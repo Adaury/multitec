@@ -49,6 +49,8 @@ pip install -r requirements.txt
 Copy-Item .env.example .env
 # Edita backend\.env:
 #   - DATABASE_URL apuntando al Postgres de producción
+#   - ENVIRONMENT=production (la app rechaza arrancar si esto está puesto y JWT_SECRET
+#     sigue en su valor por defecto — red de seguridad si el paso de abajo se olvida)
 #   - JWT_SECRET: genera uno nuevo y único (nunca el de .env.example)
 #   - ADMIN_PASSWORD: cambia el valor por defecto
 #   - CORS_ORIGINS: el dominio real de producción (no localhost)

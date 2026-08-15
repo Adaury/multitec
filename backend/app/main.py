@@ -47,6 +47,14 @@ settings = get_settings()
 
 logger = logging.getLogger("multitec")
 if settings.jwt_secret == INSECURE_DEFAULT_JWT_SECRET:
+    if settings.environment == "production":
+        # El secreto por defecto es público en el código fuente — con ENVIRONMENT=production
+        # y este valor, cualquiera podría forjar un JWT válido para cualquier usuario. Mejor
+        # no arrancar que arrancar inseguro.
+        raise RuntimeError(
+            "JWT_SECRET sigue en su valor por defecto con ENVIRONMENT=production. "
+            "Cambia JWT_SECRET en backend/.env antes de desplegar (ver deploy/README.md)."
+        )
     logger.warning(
         "JWT_SECRET sigue en su valor por defecto. Esto es aceptable para desarrollo "
         "local, pero NUNCA debe usarse en producción — cambia JWT_SECRET en backend/.env "

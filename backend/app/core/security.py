@@ -25,6 +25,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 
+# Hash de un password inventado, fijo por proceso — se usa como stand-in en login cuando
+# el email no existe, para que verify_password() corra siempre y el tiempo de respuesta no
+# delate si un email está o no registrado (ver app/api/routers/auth.py::login).
+DUMMY_PASSWORD_HASH = hash_password("dummy-password-for-timing-normalization")
+
+
 def create_access_token(subject: str) -> str:
     settings = get_settings()
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)
@@ -53,13 +59,23 @@ def get_valid_refresh_token(db: Session, raw_token: str) -> RefreshToken | None:
     if row is None:
         return None
 
+    if row.revoked:
+        # Un token ya revocado (rotado en un /refresh anterior) que vuelve a usarse es la
+        # señal clásica de que fue robado: alguien más lo usó primero. Se revoca toda la
+        # sesión del usuario, no solo este token, para forzar un login limpio.
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == row.user_id, RefreshToken.revoked.is_(False)
+        ).update({"revoked": True})
+        db.commit()
+        return None
+
     # SQLite devuelve datetimes "naive" aunque la columna sea DateTime(timezone=True)
     # (Postgres sí preserva el tzinfo) — se normaliza a UTC antes de comparar.
     expires_at = row.expires_at
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
 
-    if row.revoked or expires_at < datetime.now(timezone.utc):
+    if expires_at < datetime.now(timezone.utc):
         return None
     return row
 

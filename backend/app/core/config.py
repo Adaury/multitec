@@ -10,6 +10,10 @@ class Settings(BaseSettings):
 
     database_url: str = "sqlite:///./multitec.db"
 
+    # "development" (por defecto) o "production" — solo controla si un JWT_SECRET por
+    # defecto es un warning (dev) o impide arrancar la app (producción, ver app/main.py).
+    environment: str = "development"
+
     jwt_secret: str = INSECURE_DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     # Access token corto (se renueva solo via /api/auth/refresh); la sesión real la

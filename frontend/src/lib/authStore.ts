@@ -6,7 +6,7 @@ interface AuthState {
   refreshToken: string | null
   user: CurrentUser | null
   setSession: (token: string, refreshToken: string, user: CurrentUser) => void
-  setAccessToken: (token: string) => void
+  setTokens: (token: string, refreshToken: string) => void
   setUser: (user: CurrentUser) => void
   logout: () => void
 }
@@ -23,9 +23,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.setItem(REFRESH_STORAGE_KEY, refreshToken)
     set({ token, refreshToken, user })
   },
-  setAccessToken: (token) => {
+  setTokens: (token, refreshToken) => {
     localStorage.setItem(STORAGE_KEY, token)
-    set({ token })
+    localStorage.setItem(REFRESH_STORAGE_KEY, refreshToken)
+    set({ token, refreshToken })
   },
   setUser: (user) => set({ user }),
   logout: () => {
