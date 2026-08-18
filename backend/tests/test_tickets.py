@@ -36,6 +36,49 @@ def test_assign_technician_to_ticket(client, admin_token, db_session):
     assert updated.json()["technician_id"] == tecnico.id
 
 
+def test_create_ticket_for_missing_project_fails(client, admin_token):
+    resp = client.post(
+        "/api/projects/999999/tickets", json={"problem": "No enciende"}, headers=auth_headers(admin_token)
+    )
+    assert resp.status_code == 404
+
+
+def test_create_ticket_with_missing_technician_fails(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    resp = client.post(
+        f"/api/projects/{project['id']}/tickets",
+        json={"problem": "No graba", "technician_id": 999999},
+        headers=headers,
+    )
+    assert resp.status_code == 404
+
+
+def test_update_ticket_with_missing_technician_fails(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    created = client.post(
+        f"/api/projects/{project['id']}/tickets", json={"problem": "No enciende"}, headers=headers
+    ).json()
+
+    resp = client.put(f"/api/tickets/{created['id']}", json={"technician_id": 999999}, headers=headers)
+    assert resp.status_code == 404
+
+
+def test_reopening_ticket_clears_resolved_at(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    created = client.post(
+        f"/api/projects/{project['id']}/tickets", json={"problem": "No graba"}, headers=headers
+    ).json()
+
+    resolved = client.put(f"/api/tickets/{created['id']}", json={"status": "resuelto"}, headers=headers).json()
+    assert resolved["resolved_at"] is not None
+
+    reopened = client.put(f"/api/tickets/{created['id']}", json={"status": "abierto"}, headers=headers).json()
+    assert reopened["resolved_at"] is None
+
+
 def test_tecnico_can_create_ticket_preassigned_to_self(client, tecnico_token, admin_token, db_session):
     admin_headers = auth_headers(admin_token)
     tecnico_headers = auth_headers(tecnico_token)

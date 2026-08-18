@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.config import get_settings
 from app.core.security import require_role
 from app.db.session import get_db
+from app.models.project import Project
 from app.models.ticket import TICKET_STATUSES, Ticket, TicketAsset, TicketHistory
 from app.models.user import User
 from app.schemas.ticket import TicketAssetOut, TicketCreate, TicketHistoryOut, TicketOut, TicketUpdate
@@ -29,6 +30,11 @@ def _get_ticket(db: Session, ticket_id: int) -> Ticket:
     return ticket
 
 
+def _check_technician_exists(db: Session, technician_id: int | None) -> None:
+    if technician_id is not None and db.get(User, technician_id) is None:
+        raise HTTPException(status_code=404, detail="Técnico no encontrado")
+
+
 @router.get("/api/projects/{project_id}/tickets", response_model=list[TicketOut])
 def list_tickets(project_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
     return (
@@ -44,6 +50,10 @@ def list_tickets(project_id: int, db: Session = Depends(get_db), _=Depends(allow
 def create_ticket(
     project_id: int, payload: TicketCreate, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)
 ):
+    if db.get(Project, project_id) is None:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    _check_technician_exists(db, payload.technician_id)
+
     code = next_code(db, "TKT")
     ticket = Ticket(
         code=code,
@@ -68,6 +78,9 @@ def update_ticket(ticket_id: int, payload: TicketUpdate, db: Session = Depends(g
     data = payload.model_dump(exclude_unset=True)
     previous_technician_id = ticket.technician_id
 
+    if "technician_id" in data:
+        _check_technician_exists(db, data["technician_id"])
+
     if "status" in data:
         if data["status"] not in TICKET_STATUSES:
             raise HTTPException(status_code=400, detail=f"Estado inválido: {data['status']}")
@@ -75,6 +88,8 @@ def update_ticket(ticket_id: int, payload: TicketUpdate, db: Session = Depends(g
             db.add(TicketHistory(ticket_id=ticket.id, action=data["status"]))
             if data["status"] in ("resuelto", "cerrado"):
                 ticket.resolved_at = datetime.now(timezone.utc)
+            else:
+                ticket.resolved_at = None
 
     for field, value in data.items():
         setattr(ticket, field, value)
@@ -135,7 +150,6 @@ def delete_ticket_photo(ticket_id: int, asset_id: int, db: Session = Depends(get
     if asset is None:
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
 
-    file_path = Path(asset.file_path)
+    Path(asset.file_path).unlink(missing_ok=True)
     db.delete(asset)
     db.commit()
-    file_path.unlink(missing_ok=True)

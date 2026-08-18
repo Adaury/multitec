@@ -23,6 +23,11 @@ def _base_query(db: Session):
     )
 
 
+def _check_technician_exists(db: Session, technician_id: int | None) -> None:
+    if technician_id is not None and db.get(User, technician_id) is None:
+        raise HTTPException(status_code=404, detail="Técnico no encontrado")
+
+
 @router.get("", response_model=list[VisitOut])
 def list_visits(
     start: date | None = None,
@@ -43,6 +48,7 @@ def create_visit(payload: VisitCreate, db: Session = Depends(get_db), current_us
     project = db.get(Project, payload.project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    _check_technician_exists(db, payload.technician_id)
 
     visit = Visit(**payload.model_dump(), created_by=current_user.id)
     db.add(visit)
@@ -60,6 +66,8 @@ def update_visit(visit_id: int, payload: VisitUpdate, db: Session = Depends(get_
     data = payload.model_dump(exclude_unset=True)
     if "status" in data and data["status"] not in VISIT_STATUSES:
         raise HTTPException(status_code=400, detail=f"Estado inválido: {data['status']}")
+    if "technician_id" in data:
+        _check_technician_exists(db, data["technician_id"])
 
     for field, value in data.items():
         setattr(visit, field, value)

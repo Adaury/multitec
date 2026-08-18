@@ -1,4 +1,7 @@
 import io
+from pathlib import Path
+
+import pytest
 
 from tests.conftest import auth_headers, make_project
 
@@ -57,6 +60,27 @@ def test_delete_ticket_photo(client, admin_token):
 
     ticket_after = client.get(f"/api/projects/{project['id']}/tickets", headers=headers).json()[0]
     assert ticket_after["assets"] == []
+
+
+def test_delete_ticket_photo_keeps_db_row_when_disk_delete_fails(client, admin_token, monkeypatch):
+    """Si el borrado del archivo falla (ej. permisos), el registro en BD debe sobrevivir —
+    no queremos un asset "borrado" que apunte a un archivo que nunca se eliminó, ni uno
+    que desaparezca de la BD mientras el archivo queda huérfano en disco."""
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    ticket = _create_ticket(client, headers, project["id"])
+    asset = _upload_photo(client, headers, ticket["id"]).json()
+
+    def _boom(self, missing_ok=False):
+        raise PermissionError("archivo bloqueado")
+
+    monkeypatch.setattr(Path, "unlink", _boom)
+
+    with pytest.raises(PermissionError):
+        client.delete(f"/api/tickets/{ticket['id']}/photos/{asset['id']}", headers=headers)
+
+    ticket_after = client.get(f"/api/projects/{project['id']}/tickets", headers=headers).json()[0]
+    assert len(ticket_after["assets"]) == 1
 
 
 def test_delete_nonexistent_photo_returns_404(client, admin_token):

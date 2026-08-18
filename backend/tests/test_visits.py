@@ -126,3 +126,27 @@ def test_create_visit_for_missing_project_fails(client, admin_token):
         headers=auth_headers(admin_token),
     )
     assert resp.status_code == 404
+
+
+def test_create_visit_with_missing_technician_fails(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    resp = client.post(
+        "/api/visits",
+        json={"project_id": project["id"], "technician_id": 999999, "scheduled_date": date.today().isoformat()},
+        headers=headers,
+    )
+    assert resp.status_code == 404
+
+
+def test_update_visit_with_missing_technician_fails(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    visit = client.post(
+        "/api/visits",
+        json={"project_id": project["id"], "scheduled_date": date.today().isoformat()},
+        headers=headers,
+    ).json()
+
+    resp = client.put(f"/api/visits/{visit['id']}", json={"technician_id": 999999}, headers=headers)
+    assert resp.status_code == 404
