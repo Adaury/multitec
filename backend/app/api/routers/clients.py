@@ -59,7 +59,7 @@ def update_client(client_id: int, payload: ClientUpdate, db: Session = Depends(g
     client = db.get(Client, client_id)
     if client is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    for field, value in payload.model_dump().items():
+    for field, value in payload.model_dump(exclude_unset=True).items():
         setattr(client, field, value)
     db.commit()
     db.refresh(client)

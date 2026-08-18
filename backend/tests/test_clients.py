@@ -32,3 +32,26 @@ def test_create_list_get_update_client(client, admin_token):
 def test_get_unknown_client_404(client, admin_token):
     resp = client.get("/api/clients/999999", headers=auth_headers(admin_token))
     assert resp.status_code == 404
+
+
+def test_update_client_preserves_omitted_fields(client, admin_token):
+    headers = auth_headers(admin_token)
+    created = client.post(
+        "/api/clients",
+        json={
+            "name": "Ferretería Ejemplo",
+            "rnc": "130123456",
+            "phone": "8095551111",
+            "email": "contacto@ferreteria.com",
+        },
+        headers=headers,
+    ).json()
+
+    # Solo se manda el nombre — los demás campos no deben borrarse.
+    updated = client.put(f"/api/clients/{created['id']}", json={"name": "Nuevo Nombre"}, headers=headers)
+    assert updated.status_code == 200
+    body = updated.json()
+    assert body["name"] == "Nuevo Nombre"
+    assert body["rnc"] == "130123456"
+    assert body["phone"] == "8095551111"
+    assert body["email"] == "contacto@ferreteria.com"

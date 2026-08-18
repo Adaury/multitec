@@ -40,3 +40,27 @@ def test_update_project_status(client, admin_token):
     resp = client.put(f"/api/projects/{project['id']}", json={"status": "ingenieria"}, headers=headers)
     assert resp.status_code == 200
     assert resp.json()["status"] == "ingenieria"
+
+
+def test_create_project_for_missing_client_fails(client, admin_token):
+    resp = client.post("/api/projects", json={"client_id": 999999}, headers=auth_headers(admin_token))
+    assert resp.status_code == 404
+
+
+def test_create_project_with_missing_responsible_fails(client, admin_token):
+    headers = auth_headers(admin_token)
+    client_resp = client.post("/api/clients", json={"name": "Cliente de prueba"}, headers=headers)
+    resp = client.post(
+        "/api/projects",
+        json={"client_id": client_resp.json()["id"], "responsible_id": 999999},
+        headers=headers,
+    )
+    assert resp.status_code == 404
+
+
+def test_update_project_with_missing_responsible_fails(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+
+    resp = client.put(f"/api/projects/{project['id']}", json={"responsible_id": 999999}, headers=headers)
+    assert resp.status_code == 404

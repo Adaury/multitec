@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import require_role
 from app.db.session import get_db
+from app.models.client import Client
 from app.models.engineering import Engineering
 from app.models.project import Project
 from app.models.survey import Survey
@@ -31,6 +32,11 @@ def list_projects(db: Session = Depends(get_db), _=Depends(allowed_roles)):
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
 def create_project(payload: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(write_roles)):
+    if db.get(Client, payload.client_id) is None:
+        raise HTTPException(status_code=404, detail="Cliente no encontrado")
+    if payload.responsible_id is not None and db.get(User, payload.responsible_id) is None:
+        raise HTTPException(status_code=404, detail="Responsable no encontrado")
+
     code = next_code(db, "PRY")
     data = payload.model_dump(exclude_unset=True)
     project = Project(code=code, created_by=current_user.id, **data)
@@ -94,7 +100,10 @@ def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depend
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "responsible_id" in data and data["responsible_id"] is not None and db.get(User, data["responsible_id"]) is None:
+        raise HTTPException(status_code=404, detail="Responsable no encontrado")
+    for field, value in data.items():
         setattr(project, field, value)
     db.commit()
     db.refresh(project)
