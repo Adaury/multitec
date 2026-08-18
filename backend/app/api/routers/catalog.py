@@ -98,7 +98,10 @@ def update_rule(rule_id: int, payload: CatalogRuleUpdate, db: Session = Depends(
     rule = db.get(CatalogRule, rule_id)
     if rule is None:
         raise HTTPException(status_code=404, detail="Regla no encontrada")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "target_tag" in data and data["target_tag"] is None:
+        raise HTTPException(status_code=400, detail="target_tag no puede ser nulo")
+    for field, value in data.items():
         setattr(rule, field, value)
     db.commit()
     db.refresh(rule)
@@ -259,7 +262,10 @@ def update_product_relation(
     relation = db.get(ProductRelation, relation_id)
     if relation is None:
         raise HTTPException(status_code=404, detail="Relación no encontrada")
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    data = payload.model_dump(exclude_unset=True)
+    if "relation_type" in data and data["relation_type"] is None:
+        raise HTTPException(status_code=400, detail="relation_type no puede ser nulo")
+    for field, value in data.items():
         setattr(relation, field, value)
     db.commit()
     db.refresh(relation)

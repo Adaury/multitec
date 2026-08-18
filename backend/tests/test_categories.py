@@ -50,6 +50,14 @@ def test_update_category_rename_and_reparent(client, admin_token):
     assert resp2.json()["parent_id"] == root_b["id"]
 
 
+def test_update_category_rejects_explicit_null_name(client, admin_token):
+    headers = auth_headers(admin_token)
+    category = make_category(client, headers, name="Original")
+
+    resp = client.put(f"/api/categories/{category['id']}", json={"name": None}, headers=headers)
+    assert resp.status_code == 400
+
+
 def test_cannot_create_cycle(client, admin_token):
     headers = auth_headers(admin_token)
     root = make_category(client, headers, name="Raíz")

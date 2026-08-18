@@ -42,7 +42,12 @@ def create_stock_movement(
     db: Session = Depends(get_db),
     current_user: User = Depends(allowed_roles),
 ):
-    product = _get_product(db, product_id)
+    # with_for_update: bloquea la fila hasta el commit, para que dos salidas concurrentes
+    # sobre el mismo producto no lean el mismo stock_quantity "viejo" y ambas pasen el
+    # chequeo de abajo (sin esto, el chequeo por sí solo no evita una carrera).
+    product = db.get(Product, product_id, with_for_update=True)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Producto no encontrado")
 
     if payload.movement_type == "salida" and payload.quantity > float(product.stock_quantity):
         raise HTTPException(

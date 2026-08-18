@@ -116,6 +116,20 @@ def test_update_relation_type_and_notes(client, admin_token):
     assert body["notes"] == "Reemplazo directo"
 
 
+def test_update_relation_rejects_explicit_null_relation_type(client, admin_token):
+    headers = auth_headers(admin_token)
+    a = _create_product(client, headers, name="A")
+    b = _create_product(client, headers, name="B")
+    relation = client.post(
+        f"/api/catalog/{a['id']}/relations",
+        json={"related_product_id": b["id"], "relation_type": "compatible_con"},
+        headers=headers,
+    ).json()
+
+    resp = client.put(f"/api/catalog/relations/{relation['id']}", json={"relation_type": None}, headers=headers)
+    assert resp.status_code == 400
+
+
 def test_delete_relation(client, admin_token):
     headers = auth_headers(admin_token)
     a = _create_product(client, headers, name="A")

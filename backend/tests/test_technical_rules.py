@@ -72,6 +72,19 @@ def test_create_catalog_rule_rejects_zero_per_source_units(client, admin_token):
     assert resp.status_code == 422
 
 
+def test_update_catalog_rule_rejects_explicit_null_target_tag(client, admin_token):
+    headers = auth_headers(admin_token)
+    product = _create_product(client, headers)
+    rule = client.post(
+        f"/api/catalog/{product['id']}/rules",
+        json={"target_tag": "nvr", "quantity": 1},
+        headers=headers,
+    ).json()
+
+    resp = client.put(f"/api/catalog/rules/{rule['id']}", json={"target_tag": None}, headers=headers)
+    assert resp.status_code == 400
+
+
 def test_create_set_calculation_parameter_rule(client, admin_token):
     headers = auth_headers(admin_token)
     product = _create_product(client, headers, name="Fibra monomodo")

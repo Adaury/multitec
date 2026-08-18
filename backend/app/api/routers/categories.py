@@ -80,8 +80,11 @@ def update_category(
             node = node.parent
 
     data = payload.model_dump(exclude_unset=True)
-    if "name" in data and data["name"] != category.name:
-        category.slug = _unique_slug(db, _slugify(data["name"]), exclude_id=category.id)
+    if "name" in data:
+        if data["name"] is None:
+            raise HTTPException(status_code=400, detail="El nombre no puede ser nulo")
+        if data["name"] != category.name:
+            category.slug = _unique_slug(db, _slugify(data["name"]), exclude_id=category.id)
     for field, value in data.items():
         setattr(category, field, value)
 
