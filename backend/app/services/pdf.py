@@ -1,11 +1,12 @@
-from datetime import datetime
+import os
+from datetime import datetime, timedelta
 from io import BytesIO
 from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import mm
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 
 from app.core.config import get_settings
@@ -63,6 +64,7 @@ def _build_pdf(
     itbis: float,
     total: float,
     ncf: str | None = None,
+    due_date: datetime | None = None,
     status_label: str | None = None,
     notes: str | None = None,
     show_line_prices: bool = True,
@@ -79,10 +81,37 @@ def _build_pdf(
     )
     story = []
 
-    story.append(Paragraph(settings.company_name, _title_style))
-    company_lines = [line for line in (settings.company_rnc and f"RNC: {settings.company_rnc}", settings.company_address, settings.company_phone) if line]
+    company_block = [Paragraph(settings.company_name, _title_style)]
+    if settings.company_representative:
+        company_block.append(Paragraph(settings.company_representative, _meta_style))
+    company_lines = [
+        line
+        for line in (
+            settings.company_rnc and f"RNC: {settings.company_rnc}",
+            settings.company_cedula and f"Cédula: {settings.company_cedula}",
+            settings.company_address,
+            settings.company_phone,
+        )
+        if line
+    ]
     if company_lines:
-        story.append(Paragraph(" · ".join(company_lines), _meta_style))
+        company_block.append(Paragraph(" · ".join(company_lines), _meta_style))
+
+    logo_path = settings.company_logo_path
+    if logo_path and os.path.isfile(logo_path):
+        # Alto fijo, ancho proporcional — para que un logo panorámico o cuadrado no se
+        # deforme ni se desborde del margen derecho.
+        logo = Image(logo_path)
+        logo_height = 18 * mm
+        logo.drawHeight = logo_height
+        logo.drawWidth = logo.imageWidth * (logo_height / logo.imageHeight)
+        letterhead = Table([[company_block, logo]], colWidths=[0.7 * CONTENT_WIDTH, 0.3 * CONTENT_WIDTH])
+        letterhead.setStyle(
+            TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("ALIGN", (1, 0), (1, 0), "RIGHT")])
+        )
+        story.append(letterhead)
+    else:
+        story.extend(company_block)
     story.append(Spacer(1, 10 * mm))
 
     header_data = [
@@ -97,6 +126,7 @@ def _build_pdf(
             ),
             Paragraph(
                 f"Proyecto: {project.code}<br/>Fecha: {created_at.strftime('%d/%m/%Y')}"
+                + (f"<br/>Vencimiento: {due_date.strftime('%d/%m/%Y')}" if due_date else "")
                 + (f"<br/>NCF: <b>{ncf}</b>" if ncf else "")
                 + (f"<br/>Estado: {status_label}" if status_label else ""),
                 _meta_style,
@@ -217,6 +247,13 @@ def _build_pdf(
         story.append(Paragraph("Notas", _label_style))
         story.append(Paragraph(notes, _meta_style))
 
+    if settings.company_bank_info:
+        story.append(Spacer(1, 8 * mm))
+        story.append(Paragraph("Cuentas para depósito o transferencia", _label_style))
+        for line in settings.company_bank_info.splitlines():
+            if line.strip():
+                story.append(Paragraph(line.strip(), _meta_style))
+
     doc.build(story)
     return buf.getvalue()
 
@@ -260,6 +297,7 @@ def build_quote_pdf(
 
 
 def build_invoice_pdf(invoice: Invoice, variant: str = "detallada") -> bytes:
+    settings = get_settings()
     show_line_prices = variant != "global"
     return _build_pdf(
         doc_title="Factura" if show_line_prices else "Factura — Detalle de trabajo",
@@ -272,6 +310,7 @@ def build_invoice_pdf(invoice: Invoice, variant: str = "detallada") -> bytes:
         itbis=float(invoice.itbis),
         total=float(invoice.total),
         ncf=invoice.ncf if show_line_prices else None,
+        due_date=invoice.created_at + timedelta(days=settings.invoice_due_days),
         show_line_prices=show_line_prices,
         show_breakdown=True,
     )

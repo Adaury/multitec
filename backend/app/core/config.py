@@ -38,6 +38,18 @@ class Settings(BaseSettings):
     company_rnc: str = ""
     company_address: str = ""
     company_phone: str = ""
+    # Cédula del emisor y su nombre (ej. "Ing. Fulano de Tal") — se muestran junto al RNC
+    # en el membrete cuando el negocio factura a nombre de una persona física.
+    company_cedula: str = ""
+    company_representative: str = ""
+    # Ruta a un PNG/JPG de logo (fondo transparente recomendado) — se muestra arriba a la
+    # derecha del membrete. Vacío = sin logo, igual que antes.
+    company_logo_path: str = ""
+    # Texto libre (una cuenta por línea) para depósito/transferencia — se imprime al pie de
+    # cotizaciones y facturas cuando no está vacío.
+    company_bank_info: str = ""
+    # Días entre la emisión de una factura y su fecha de vencimiento impresa en el PDF.
+    invoice_due_days: int = 7
 
     # Notificaciones por correo — ver services/email.py. Sin SMTP_HOST configurado, los
     # correos solo se registran en el log (modo consola), no rompe nada.
