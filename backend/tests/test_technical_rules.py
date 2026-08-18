@@ -44,6 +44,34 @@ def test_create_technical_rule_rejects_unknown_action_type(client, admin_token):
     assert resp.status_code == 422  # ningún miembro de la unión discriminada matchea
 
 
+def test_create_add_accessory_rule_rejects_zero_per_source_units(client, admin_token):
+    """0 no es un modo válido (ni fijo ni proporcional) — dividiría por cero al calcular
+    lotes en ai_engine/rules.py, así que el schema lo rechaza en vez de guardarlo."""
+    headers = auth_headers(admin_token)
+    product = _create_product(client, headers)
+
+    resp = client.post(
+        f"/api/catalog/{product['id']}/technical-rules",
+        json={"action_type": "add_accessory", "target_tag": "nvr", "per_source_units": 0, "quantity": 1},
+        headers=headers,
+    )
+
+    assert resp.status_code == 422
+
+
+def test_create_catalog_rule_rejects_zero_per_source_units(client, admin_token):
+    headers = auth_headers(admin_token)
+    product = _create_product(client, headers)
+
+    resp = client.post(
+        f"/api/catalog/{product['id']}/rules",
+        json={"target_tag": "nvr", "per_source_units": 0, "quantity": 1},
+        headers=headers,
+    )
+
+    assert resp.status_code == 422
+
+
 def test_create_set_calculation_parameter_rule(client, admin_token):
     headers = auth_headers(admin_token)
     product = _create_product(client, headers, name="Fibra monomodo")

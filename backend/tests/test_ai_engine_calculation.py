@@ -242,6 +242,21 @@ def test_calculate_capacity_skips_check_when_capacity_unknown():
     assert warnings == []
 
 
+def test_calculate_capacity_warns_when_nvr_channel_capacity_is_zero():
+    """channel_capacity=0 es un dato real cargado (NVR sin canales disponibles), no un
+    dato ausente — debe advertir igual que cualquier otra capacidad insuficiente."""
+    items = [
+        {"product_id": 1, "description": "Cámara IP", "quantity": 4},
+        {"product_id": 2, "description": "NVR descontinuado", "quantity": 1},
+    ]
+    capacity_by_product_id = {2: 0}
+
+    warnings = calculate_capacity_warnings(items, CAPACITY_CATALOG, capacity_by_product_id)
+
+    assert len(warnings) == 1
+    assert "faltan 4" in warnings[0]
+
+
 def test_calculate_capacity_no_warning_without_any_hub_in_budget():
     items = [{"product_id": 1, "description": "Cámara IP", "quantity": 12}]
 

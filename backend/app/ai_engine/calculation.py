@@ -220,7 +220,7 @@ def _check_hub_capacity(
         if product_id not in hub_ids:
             continue
         capacity = capacity_by_product_id.get(product_id)
-        if capacity:
+        if capacity is not None:
             any_known_capacity = True
             total_capacity += capacity * (item.get("quantity") or 0)
 

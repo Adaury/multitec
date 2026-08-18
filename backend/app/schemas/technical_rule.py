@@ -12,7 +12,9 @@ class AddAccessoryCreate(BaseModel):
 
     action_type: Literal["add_accessory"] = "add_accessory"
     target_tag: str = Field(max_length=60)
-    per_source_units: float | None = None
+    # gt=0: null significa "modo fijo" (§ ai_engine/rules.py expand_with_rules), y 0
+    # rompería el cálculo de lotes (división por cero) — no es un valor válido.
+    per_source_units: float | None = Field(default=None, gt=0)
     quantity: float = 1
     notes: str | None = Field(default=None, max_length=200)
 
@@ -53,7 +55,9 @@ class TechnicalRuleUpdate(BaseModel):
     `action_type` de la fila (igual de permisivo que hoy)."""
 
     target_tag: str | None = Field(default=None, max_length=60)
-    per_source_units: float | None = None
+    # gt=0: null significa "modo fijo" (§ ai_engine/rules.py expand_with_rules), y 0
+    # rompería el cálculo de lotes (división por cero) — no es un valor válido.
+    per_source_units: float | None = Field(default=None, gt=0)
     quantity: float | None = None
     parameter_key: str | None = Field(default=None, max_length=60)
     value: float | None = None

@@ -18,7 +18,10 @@ class ProductCreate(BaseModel):
     labor_role: str | None = Field(default=None, max_length=80)
     priority: int | None = None
     resolution_mp: float | None = None
-    storage_capacity_gb: float | None = None
+    # gt=0: 0 GB no es un valor real de almacenamiento — ver ai_engine/calculation.py
+    # calculate_storage, que depende de que "cargado" implique "> 0" para no dividir por
+    # cero al calcular cuántas unidades hacen falta.
+    storage_capacity_gb: float | None = Field(default=None, gt=0)
     channel_capacity: int | None = None
     tags: list[str] = []
     synonyms: list[str] = []
@@ -39,7 +42,7 @@ class ProductUpdate(BaseModel):
     labor_role: str | None = Field(default=None, max_length=80)
     priority: int | None = None
     resolution_mp: float | None = None
-    storage_capacity_gb: float | None = None
+    storage_capacity_gb: float | None = Field(default=None, gt=0)
     channel_capacity: int | None = None
     tags: list[str] | None = None
     synonyms: list[str] | None = None
