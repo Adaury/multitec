@@ -119,3 +119,44 @@ def test_send_email_without_smtp_configured_does_not_raise():
     from app.services.email import send_email
 
     send_email("someone@example.com", "Asunto de prueba", "Cuerpo de prueba")
+
+
+def test_quote_creation_survives_in_app_notification_failure(client, admin_token, monkeypatch):
+    """Si crear la notificación in-app truena (ej. la fila no se pudo insertar), la
+    cotización ya creada/confirmada no debe volverse un 500 para el caller."""
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("fallo simulado creando la notificación")
+
+    monkeypatch.setattr("app.services.notifications.Notification", boom)
+
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    budget = _approved_budget_items(client, headers, project)
+
+    resp = client.post(f"/api/budgets/{budget['id']}/convert-to-quote", headers=headers)
+    assert resp.status_code == 201
+
+
+def test_invoice_conversion_survives_pdf_generation_failure(client, admin_token, db_session, monkeypatch):
+    """Si generar el PDF adjunto para el correo de "factura emitida" truena, la factura
+    ya creada/confirmada no debe volverse un 500 para el caller."""
+
+    def boom(invoice):
+        raise RuntimeError("fallo simulado generando el PDF")
+
+    monkeypatch.setattr("app.services.notifications.build_invoice_pdf", boom)
+    headers = auth_headers(admin_token)
+    seed_ncf_sequence(db_session, ncf_type="B02")
+
+    client_resp = client.post(
+        "/api/clients", json={"name": "Cliente con correo", "email": "cliente@test.com"}, headers=headers
+    ).json()
+    project = client.post("/api/projects", json={"client_id": client_resp["id"]}, headers=headers).json()
+    budget = _approved_budget_items(client, headers, project)
+    quote = client.post(f"/api/budgets/{budget['id']}/convert-to-quote", headers=headers).json()
+    client.post(f"/api/quotes/{quote['id']}/approve", headers=headers)
+    pre_invoice = client.post(f"/api/quotes/{quote['id']}/generate-pre-invoice", headers=headers).json()
+
+    resp = client.post(f"/api/pre-invoices/{pre_invoice['id']}/convert-to-invoice", headers=headers)
+    assert resp.status_code == 201

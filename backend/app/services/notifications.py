@@ -1,3 +1,5 @@
+import logging
+
 from sqlalchemy.orm import Session
 
 from app.models.invoice import Invoice
@@ -9,13 +11,20 @@ from app.models.user import User
 from app.services import email
 from app.services.pdf import build_invoice_pdf
 
+logger = logging.getLogger("multitec.notifications")
+
 
 def _notify_user(db: Session, user_id: int, title: str, body: str, link: str | None = None) -> None:
     """Crea la notificación dentro de la app. Se hace commit aparte (no forma parte de
     la transacción de negocio que la disparó) para que, si algo raro pasara acá, no se
-    lleve puesta la operación principal."""
-    db.add(Notification(user_id=user_id, title=title, body=body, link=link))
-    db.commit()
+    lleve puesta la operación principal — de ahí el try/except: la operación que llamó a
+    esto (crear cotización, asignar ticket, etc.) ya hizo su propio commit exitoso antes."""
+    try:
+        db.add(Notification(user_id=user_id, title=title, body=body, link=link))
+        db.commit()
+    except Exception:
+        db.rollback()
+        logger.exception("Error creando notificación in-app para user_id=%s (%s)", user_id, title)
 
 
 def notify_quote_pending(db: Session, quote: Quote) -> None:
@@ -71,7 +80,9 @@ def notify_ticket_assigned(db: Session, ticket: Ticket) -> None:
 
 def notify_invoice_issued(invoice: Invoice) -> None:
     """Envía al correo del cliente (si tiene uno registrado) la factura recién emitida,
-    con el PDF adjunto — si no tiene correo, simplemente no hay a quién avisar."""
+    con el PDF adjunto — si no tiene correo, simplemente no hay a quién avisar. La factura
+    ya está creada y confirmada cuando esto se llama, así que un fallo generando el PDF o
+    enviando el correo no debe convertirse en un 500 para una operación que ya tuvo éxito."""
     client = invoice.project.client
     if not client.email:
         return
@@ -83,7 +94,11 @@ def notify_invoice_issued(invoice: Invoice) -> None:
         f"Total: RD$ {float(invoice.total):,.2f}\n\n"
         "Adjuntamos el PDF de la factura."
     )
-    pdf_bytes = build_invoice_pdf(invoice)
+    try:
+        pdf_bytes = build_invoice_pdf(invoice)
+    except Exception:
+        logger.exception("Error generando el PDF de la factura %s para notificación", invoice.code)
+        return
     email.send_email(
         client.email, subject, body, attachment=(f"{invoice.code}.pdf", pdf_bytes, "application/pdf")
     )
