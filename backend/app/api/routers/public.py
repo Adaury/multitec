@@ -105,9 +105,13 @@ def get_public_project(request: Request, token: str, db: Session = Depends(get_d
 @limiter.limit("30/minute")
 def approve_public_quote(request: Request, token: str, quote_id: int, db: Session = Depends(get_db)):
     project = _get_project_by_token(db, token)
-    quote = next((q for q in project.quotes if q.id == quote_id), None)
-    if quote is None:
+    if not any(q.id == quote_id for q in project.quotes):
         raise HTTPException(status_code=404, detail="Cotización no encontrada")
+
+    # Bloquea la fila hasta el commit: dos aprobaciones concurrentes del mismo quote_id
+    # (doble clic, reintento de red) no deben generar Material/prefactura duplicados —
+    # sin esto, ambas requests leerían status='pendiente' antes de que cualquiera confirme.
+    quote = db.get(Quote, quote_id, with_for_update=True)
     if quote.status != "pendiente":
         raise HTTPException(status_code=400, detail=f"No se puede aprobar una cotización '{quote.status}'")
     mark_quote_approved(db, quote, created_by=None, note="Aprobada por el cliente desde el portal")

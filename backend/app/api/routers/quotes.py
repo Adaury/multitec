@@ -169,7 +169,11 @@ def update_quote(quote_id: int, payload: QuoteUpdate, db: Session = Depends(get_
 
 @router.post("/api/quotes/{quote_id}/approve", response_model=QuoteOut)
 def approve_quote(quote_id: int, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
-    quote = _get_quote(db, quote_id)
+    # Bloquea la fila hasta el commit — mismo motivo que en public.py::approve_public_quote:
+    # dos aprobaciones concurrentes no deben generar Material/prefactura duplicados.
+    quote = db.get(Quote, quote_id, with_for_update=True)
+    if quote is None:
+        raise HTTPException(status_code=404, detail="Cotización no encontrada")
     if quote.status not in ("pendiente", "archivada"):
         raise HTTPException(status_code=400, detail=f"No se puede aprobar una cotización '{quote.status}'")
     mark_quote_approved(db, quote, created_by=current_user.id)
