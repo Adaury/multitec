@@ -34,6 +34,8 @@ def get_execution(project_id: int, db: Session = Depends(get_db), _=Depends(allo
 @router.post("/advance", response_model=ExecutionOut)
 def advance_stage(project_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
     stages = _get_stages(db, project_id)
+    if not stages:
+        raise HTTPException(status_code=404, detail="El proyecto no tiene etapas de ejecución")
     next_stage = next((s for s in stages if not s.completed), None)
     if next_stage is None:
         raise HTTPException(status_code=400, detail="Todas las etapas ya están completas")
@@ -47,6 +49,8 @@ def advance_stage(project_id: int, db: Session = Depends(get_db), _=Depends(allo
 @router.post("/undo", response_model=ExecutionOut)
 def undo_stage(project_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
     stages = _get_stages(db, project_id)
+    if not stages:
+        raise HTTPException(status_code=404, detail="El proyecto no tiene etapas de ejecución")
     completed_stages = [s for s in stages if s.completed]
     if not completed_stages:
         raise HTTPException(status_code=400, detail="No hay etapas completadas para deshacer")

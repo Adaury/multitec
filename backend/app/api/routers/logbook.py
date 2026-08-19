@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.logbook import LogEntry, LogEntryAsset
+from app.models.project import Project
 from app.models.user import User
 from app.schemas.logbook import LogEntryAssetOut, LogEntryCreate, LogEntryOut
 from app.services.uploads import enforce_upload_size
@@ -38,6 +39,9 @@ def create_log_entry(
     db: Session = Depends(get_db),
     current_user: User = Depends(allowed_roles),
 ):
+    if db.get(Project, project_id) is None:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+
     entry = LogEntry(
         project_id=project_id,
         comment=payload.comment,

@@ -42,3 +42,9 @@ def test_undo_with_nothing_completed_fails(client, admin_token):
     project = make_project(client, headers)
     resp = client.post(f"/api/projects/{project['id']}/execution/undo", headers=headers)
     assert resp.status_code == 400
+
+
+def test_advance_and_undo_for_missing_project_return_404(client, admin_token):
+    headers = auth_headers(admin_token)
+    assert client.post("/api/projects/999999/execution/advance", headers=headers).status_code == 404
+    assert client.post("/api/projects/999999/execution/undo", headers=headers).status_code == 404
