@@ -72,14 +72,18 @@ def seed() -> None:
         seed_categories(db)
         seed_products(db)
 
-        existing = db.query(User).filter(User.email == settings.admin_email).one_or_none()
+        # Normalizado a minúsculas igual que UserCreate/login (ver schemas/user.py,
+        # api/routers/auth.py) — este seed construye el modelo directo, sin pasar por el
+        # schema, así que hay que normalizar acá también.
+        admin_email = settings.admin_email.lower()
+        existing = db.query(User).filter(User.email == admin_email).one_or_none()
         if existing is not None:
-            print(f"El usuario admin '{settings.admin_email}' ya existe. No se creó de nuevo.")
+            print(f"El usuario admin '{admin_email}' ya existe. No se creó de nuevo.")
             return
 
         admin = User(
             name=settings.admin_name,
-            email=settings.admin_email,
+            email=admin_email,
             hashed_password=hash_password(settings.admin_password),
             role="admin",
             is_active=True,

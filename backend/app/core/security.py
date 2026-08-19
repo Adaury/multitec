@@ -22,6 +22,12 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    # bcrypt.checkpw truena (ValueError) con passwords de más de 72 bytes. El login no
+    # tiene el límite de longitud que sí valida UserCreate/UserUpdate (OAuth2PasswordRequestForm
+    # no lo restringe), así que sin este guard un intento de login con un password larguísimo
+    # tumba el endpoint con un 500 en vez de simplemente no coincidir.
+    if len(plain_password.encode("utf-8")) > 72:
+        return False
     return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
 

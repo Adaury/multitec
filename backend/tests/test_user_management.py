@@ -132,3 +132,55 @@ def test_invalid_role_rejected(client, admin_token):
         headers=headers,
     )
     assert resp.status_code == 422
+
+
+def test_password_over_bcrypt_limit_rejected(client, admin_token):
+    """bcrypt no acepta más de 72 bytes — antes de este fix, hash_password() truena con
+    un 500 sin manejar en vez de un 422 de validación limpio."""
+    headers = auth_headers(admin_token)
+    resp = client.post(
+        "/api/users",
+        json={
+            "name": "Clave Larga",
+            "email": "clavelarga@test.com",
+            "password": "a" * 73,
+            "role": "oficina",
+        },
+        headers=headers,
+    )
+    assert resp.status_code == 422
+
+
+def test_login_with_oversized_password_is_rejected_not_500(client, admin_token):
+    resp = client.post("/api/auth/login", data={"username": "admin@test.com", "password": "a" * 100})
+    assert resp.status_code == 401
+
+
+def test_email_is_normalized_to_lowercase_and_duplicates_rejected(client, admin_token):
+    headers = auth_headers(admin_token)
+    first = client.post(
+        "/api/users",
+        json={"name": "Mayus", "email": "MAYUS@Test.com", "password": "clave12345", "role": "oficina"},
+        headers=headers,
+    )
+    assert first.status_code == 201, first.text
+    assert first.json()["email"] == "mayus@test.com"
+
+    # el mismo correo con otra combinación de mayúsculas se rechaza como duplicado
+    second = client.post(
+        "/api/users",
+        json={"name": "Otro", "email": "mayus@TEST.COM", "password": "clave12345", "role": "oficina"},
+        headers=headers,
+    )
+    assert second.status_code == 400
+
+
+def test_login_is_case_insensitive_on_email(client, admin_token):
+    headers = auth_headers(admin_token)
+    client.post(
+        "/api/users",
+        json={"name": "Case Test", "email": "casetest@test.com", "password": "clave12345", "role": "oficina"},
+        headers=headers,
+    )
+    resp = client.post("/api/auth/login", data={"username": "CaseTest@Test.com", "password": "clave12345"})
+    assert resp.status_code == 200

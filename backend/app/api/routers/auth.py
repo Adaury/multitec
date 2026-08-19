@@ -22,7 +22,9 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 @router.post("/login", response_model=Token)
 @limiter.limit("10/minute")
 def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == form_data.username).one_or_none()
+    # Los emails se guardan normalizados a minúsculas (ver schemas/user.py) — se normaliza
+    # igual acá para que el login no dependa de cómo el usuario tecleó las mayúsculas.
+    user = db.query(User).filter(User.email == form_data.username.lower()).one_or_none()
     # verify_password corre siempre, incluso si el email no existe (contra el hash "dummy"),
     # para que el tiempo de respuesta no delate si un email está registrado.
     password_ok = verify_password(form_data.password, user.hashed_password if user else DUMMY_PASSWORD_HASH)
