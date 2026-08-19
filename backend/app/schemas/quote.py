@@ -6,8 +6,10 @@ from pydantic import BaseModel, Field
 class QuoteItemIn(BaseModel):
     product_id: int | None = None
     description: str = Field(max_length=500)
-    quantity: float = 1
-    unit_price: float = 0
+    quantity: float = Field(default=1, gt=0)
+    # None: no lo mandó el caller (usar precio del catálogo si hay producto, o 0 si es
+    # texto libre) — distinto de un $0 explícito, que se respeta. Ver services/document_items.py.
+    unit_price: float | None = Field(default=None, ge=0)
     note: str | None = Field(default=None, max_length=500)
 
 

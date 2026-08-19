@@ -55,7 +55,10 @@ def test_budget_to_quote_to_material_flow(client, admin_token):
     assert len(client.get(f"/api/projects/{project['id']}/pre-invoices", headers=headers).json()) == 1
 
 
-def test_approving_quote_twice_does_not_duplicate_materials_or_pre_invoice(client, admin_token):
+def test_reapproving_an_approved_quote_is_rejected(client, admin_token):
+    """Una cotización aprobada es un estado terminal — aprobar de nuevo (en vez de ser un
+    no-op idempotente) se rechaza de plano, así que nunca puede duplicar materiales/
+    prefactura."""
     headers = auth_headers(admin_token)
     project = make_project(client, headers)
 
@@ -67,19 +70,35 @@ def test_approving_quote_twice_does_not_duplicate_materials_or_pre_invoice(clien
     quote = client.post(f"/api/budgets/{budget['id']}/convert-to-quote", headers=headers).json()
 
     client.post(f"/api/quotes/{quote['id']}/approve", headers=headers)
-    client.post(f"/api/quotes/{quote['id']}/archive", headers=headers)
-    reactivate_resp = client.post(f"/api/quotes/{quote['id']}/reactivate", headers=headers)
-    assert reactivate_resp.status_code == 200
-    assert reactivate_resp.json()["status"] == "pendiente"
 
     reapprove_resp = client.post(f"/api/quotes/{quote['id']}/approve", headers=headers)
-    assert reapprove_resp.status_code == 200
+    assert reapprove_resp.status_code == 400
 
     materials = client.get(f"/api/projects/{project['id']}/materials", headers=headers).json()
     assert len(materials) == 1
 
     pre_invoices = client.get(f"/api/projects/{project['id']}/pre-invoices", headers=headers).json()
     assert len(pre_invoices) == 1
+
+
+def test_archiving_an_approved_quote_is_rejected(client, admin_token):
+    """archive_quote es solo para cotizaciones 'pendiente' (igual que el auto-archivador
+    de quote_archiver.py) — una ya decidida no debe poder volver a 'pendiente' vía
+    archivar+reactivar, perdiendo el rastro de que ya se generaron materiales/prefactura."""
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+
+    budget = client.post(
+        f"/api/projects/{project['id']}/budgets",
+        json={"items": [{"description": "Switch 24 puertos", "quantity": 1, "unit_price": 300}]},
+        headers=headers,
+    ).json()
+    quote = client.post(f"/api/budgets/{budget['id']}/convert-to-quote", headers=headers).json()
+
+    client.post(f"/api/quotes/{quote['id']}/approve", headers=headers)
+
+    archive_resp = client.post(f"/api/quotes/{quote['id']}/archive", headers=headers)
+    assert archive_resp.status_code == 400
 
 
 def test_reject_quote(client, admin_token):
@@ -101,3 +120,40 @@ def test_reject_quote(client, admin_token):
     # una cotización rechazada no se puede volver a aprobar directamente
     approve_resp = client.post(f"/api/quotes/{quote['id']}/approve", headers=headers)
     assert approve_resp.status_code == 400
+
+
+def test_budget_item_rejects_negative_quantity_and_price(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+
+    negative_qty = client.post(
+        f"/api/projects/{project['id']}/budgets",
+        json={"items": [{"description": "x", "quantity": -1, "unit_price": 10}]},
+        headers=headers,
+    )
+    assert negative_qty.status_code == 422
+
+    negative_price = client.post(
+        f"/api/projects/{project['id']}/budgets",
+        json={"items": [{"description": "x", "quantity": 1, "unit_price": -10}]},
+        headers=headers,
+    )
+    assert negative_price.status_code == 422
+
+
+def test_quote_item_rejects_negative_quantity_and_price(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    budget = client.post(
+        f"/api/projects/{project['id']}/budgets",
+        json={"items": [{"description": "x", "quantity": 1, "unit_price": 10}]},
+        headers=headers,
+    ).json()
+    quote = client.post(f"/api/budgets/{budget['id']}/convert-to-quote", headers=headers).json()
+
+    resp = client.put(
+        f"/api/quotes/{quote['id']}",
+        json={"items": [{"description": "x", "quantity": -1, "unit_price": 10}]},
+        headers=headers,
+    )
+    assert resp.status_code == 422

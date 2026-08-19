@@ -26,6 +26,7 @@ from app.services.margin import compute_margin
 from app.services.notifications import notify_quote_pending
 from app.services.pdf import build_quote_pdf
 from app.services.quote_approval import build_material_rows_from_quote, mark_quote_approved
+from app.services.document_items import resolve_item_fields
 from app.services.quote_archiver import archive_stale_quotes
 from app.services.totals import LineInput, compute_totals
 
@@ -42,21 +43,10 @@ def _get_quote(db: Session, quote_id: int) -> Quote:
     return quote
 
 
-def _resolve_item_fields(db: Session, product_id: int | None, description: str, unit_price: float) -> tuple[str, float]:
-    if product_id is not None:
-        product = db.get(Product, product_id)
-        if product is None:
-            raise HTTPException(status_code=400, detail=f"Producto {product_id} no encontrado")
-        description = description or product.name
-        if not unit_price:
-            unit_price = float(product.price)
-    return description, unit_price
-
-
 def _build_quote_items(db: Session, quote: Quote, items_in) -> None:
     settings = get_settings()
     for item in items_in:
-        description, unit_price = _resolve_item_fields(db, item.product_id, item.description, item.unit_price)
+        description, unit_price = resolve_item_fields(db, item.product_id, item.description, item.unit_price)
         quote.items.append(
             QuoteItem(
                 product_id=item.product_id,
@@ -204,6 +194,8 @@ def reject_quote(quote_id: int, payload: RejectIn, db: Session = Depends(get_db)
 @router.post("/api/quotes/{quote_id}/archive", response_model=QuoteOut)
 def archive_quote(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
     quote = _get_quote(db, quote_id)
+    if quote.status != "pendiente":
+        raise HTTPException(status_code=400, detail=f"No se puede archivar una cotización '{quote.status}'")
     quote.status = "archivada"
     db.add(QuoteHistory(quote_id=quote.id, action="archivada", note="Archivada manualmente"))
     db.commit()

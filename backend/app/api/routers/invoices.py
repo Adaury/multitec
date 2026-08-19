@@ -5,11 +5,11 @@ from fastapi.responses import Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.config import get_settings
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.client import Client
 from app.models.invoice import Invoice, InvoiceHistory, InvoiceItem, PreInvoice, PreInvoiceItem
-from app.models.product import Product
 from app.models.project import Project
 from app.models.quote import Quote
 from app.models.user import User
@@ -18,6 +18,7 @@ from app.schemas.margin import MarginSummary
 from app.schemas.ncf import ConvertToInvoiceRequest
 from app.services.code_generator import next_code
 from app.services.csv_export import build_csv
+from app.services.document_items import resolve_item_fields
 from app.services.margin import compute_margin
 from app.services.ncf import assign_ncf, default_ncf_type
 from app.services.notifications import notify_invoice_issued
@@ -29,17 +30,6 @@ router = APIRouter(tags=["invoices"])
 
 allowed_roles = require_role("admin", "oficina")
 admin_only = require_role("admin")
-
-
-def _resolve_item_fields(db: Session, product_id: int | None, description: str, unit_price: float) -> tuple[str, float]:
-    if product_id is not None:
-        product = db.get(Product, product_id)
-        if product is None:
-            raise HTTPException(status_code=400, detail=f"Producto {product_id} no encontrado")
-        description = description or product.name
-        if not unit_price:
-            unit_price = float(product.price)
-    return description, unit_price
 
 
 def _get_pre_invoice(db: Session, pre_invoice_id: int) -> PreInvoice:
@@ -72,11 +62,12 @@ def create_pre_invoice(
     db: Session = Depends(get_db),
     current_user: User = Depends(allowed_roles),
 ):
+    settings = get_settings()
     code = next_code(db, "PFC")
     pre_invoice = PreInvoice(code=code, project_id=project_id, notes=payload.notes, created_by=current_user.id)
 
     for item in payload.items:
-        description, unit_price = _resolve_item_fields(db, item.product_id, item.description, item.unit_price)
+        description, unit_price = resolve_item_fields(db, item.product_id, item.description, item.unit_price)
         pre_invoice.items.append(
             PreInvoiceItem(
                 product_id=item.product_id,
@@ -89,7 +80,7 @@ def create_pre_invoice(
         )
 
     lines = [LineInput(item.quantity, item.unit_price) for item in pre_invoice.items]
-    pre_invoice.subtotal, pre_invoice.itbis, pre_invoice.total = compute_totals(lines, 0.18)
+    pre_invoice.subtotal, pre_invoice.itbis, pre_invoice.total = compute_totals(lines, settings.itbis_rate)
 
     db.add(pre_invoice)
     db.commit()

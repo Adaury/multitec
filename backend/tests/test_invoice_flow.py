@@ -1,4 +1,4 @@
-from tests.conftest import auth_headers, make_project, seed_ncf_sequence
+from tests.conftest import auth_headers, make_category, make_project, seed_ncf_sequence
 
 
 def _approved_quote(client, headers, project):
@@ -56,3 +56,85 @@ def test_cannot_generate_pre_invoice_from_unapproved_quote(client, admin_token):
 
     resp = client.post(f"/api/quotes/{quote['id']}/generate-pre-invoice", headers=headers)
     assert resp.status_code == 400
+
+
+def test_create_pre_invoice_uses_configured_itbis_rate(client, admin_token, monkeypatch):
+    import app.api.routers.invoices as invoices_module
+
+    base_settings = invoices_module.get_settings()
+    custom_settings = base_settings.model_copy(update={"itbis_rate": 0.10})
+    monkeypatch.setattr(invoices_module, "get_settings", lambda: custom_settings)
+
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+
+    resp = client.post(
+        f"/api/projects/{project['id']}/pre-invoices",
+        json={"items": [{"description": "Servicio manual", "quantity": 1, "unit_price": 100}]},
+        headers=headers,
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["subtotal"] == 100
+    assert body["itbis"] == 10  # 10%, no el 18% hardcodeado
+    assert body["total"] == 110
+
+
+def test_pre_invoice_item_respects_explicit_zero_price(client, admin_token):
+    """Un producto de catálogo con unit_price=0 explícito (ej. garantía/regalo) no debe
+    sobreescribirse con el precio del catálogo."""
+    headers = auth_headers(admin_token)
+    category = make_category(client, headers)
+    product = client.post(
+        "/api/catalog",
+        json={"category_id": category["id"], "name": "Cámara de regalo", "unit": "unidad", "price": 200},
+        headers=headers,
+    ).json()
+    project = make_project(client, headers)
+
+    resp = client.post(
+        f"/api/projects/{project['id']}/pre-invoices",
+        json={"items": [{"product_id": product["id"], "description": "", "quantity": 1, "unit_price": 0}]},
+        headers=headers,
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["items"][0]["unit_price"] == 0
+    assert resp.json()["total"] == 0
+
+
+def test_pre_invoice_item_without_price_falls_back_to_catalog_price(client, admin_token):
+    headers = auth_headers(admin_token)
+    category = make_category(client, headers)
+    product = client.post(
+        "/api/catalog",
+        json={"category_id": category["id"], "name": "Cámara IP", "unit": "unidad", "price": 200},
+        headers=headers,
+    ).json()
+    project = make_project(client, headers)
+
+    resp = client.post(
+        f"/api/projects/{project['id']}/pre-invoices",
+        json={"items": [{"product_id": product["id"], "description": "", "quantity": 1}]},
+        headers=headers,
+    )
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["items"][0]["unit_price"] == 200
+
+
+def test_pre_invoice_item_rejects_negative_quantity_and_price(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+
+    negative_qty = client.post(
+        f"/api/projects/{project['id']}/pre-invoices",
+        json={"items": [{"description": "x", "quantity": -1, "unit_price": 10}]},
+        headers=headers,
+    )
+    assert negative_qty.status_code == 422
+
+    negative_price = client.post(
+        f"/api/projects/{project['id']}/pre-invoices",
+        json={"items": [{"description": "x", "quantity": 1, "unit_price": -10}]},
+        headers=headers,
+    )
+    assert negative_price.status_code == 422

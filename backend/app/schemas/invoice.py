@@ -6,8 +6,9 @@ from pydantic import BaseModel, Field
 class PreInvoiceItemIn(BaseModel):
     product_id: int | None = None
     description: str = Field(max_length=500)
-    quantity: float = 1
-    unit_price: float = 0
+    quantity: float = Field(default=1, gt=0)
+    # None: no lo mandó el caller (ver services/document_items.py).
+    unit_price: float | None = Field(default=None, ge=0)
     note: str | None = Field(default=None, max_length=500)
 
 

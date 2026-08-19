@@ -6,8 +6,10 @@ from pydantic import BaseModel, Field
 class BudgetItemIn(BaseModel):
     product_id: int | None = None
     description: str = Field(max_length=500)
-    quantity: float = 1
-    unit_price: float = 0  # usado solo para calcular el total; no se expone en la salida
+    quantity: float = Field(default=1, gt=0)
+    # None: no lo mandó el caller (ver services/document_items.py) — usado solo para
+    # calcular el total; no se expone en la salida.
+    unit_price: float | None = Field(default=None, ge=0)
     note: str | None = Field(default=None, max_length=500)
 
 

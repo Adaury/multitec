@@ -6,13 +6,13 @@ from app.core.config import get_settings
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.budget import Budget, BudgetItem
-from app.models.product import Product
 from app.models.project import Project
 from app.models.quote import Quote, QuoteHistory, QuoteItem
 from app.models.user import User
 from app.schemas.budget import BudgetCreate, BudgetOut, BudgetUpdate
 from app.schemas.quote import QuoteOut
 from app.services.code_generator import next_code
+from app.services.document_items import resolve_item_fields
 from app.services.notifications import notify_quote_pending
 from app.services.pdf import build_budget_summary_pdf
 from app.services.totals import LineInput, compute_totals, line_subtotal
@@ -22,21 +22,9 @@ router = APIRouter(tags=["budgets"])
 allowed_roles = require_role("admin", "oficina")
 
 
-def _resolve_item_fields(db: Session, product_id: int | None, description: str, unit_price: float) -> tuple[str, float]:
-    """Si viene product_id y falta descripción/precio, los completa desde el catálogo."""
-    if product_id is not None:
-        product = db.get(Product, product_id)
-        if product is None:
-            raise HTTPException(status_code=400, detail=f"Producto {product_id} no encontrado")
-        description = description or product.name
-        if not unit_price:
-            unit_price = float(product.price)
-    return description, unit_price
-
-
 def _build_budget_items(db: Session, budget: Budget, items_in) -> None:
     for item in items_in:
-        description, unit_price = _resolve_item_fields(db, item.product_id, item.description, item.unit_price)
+        description, unit_price = resolve_item_fields(db, item.product_id, item.description, item.unit_price)
         budget.items.append(
             BudgetItem(
                 product_id=item.product_id,

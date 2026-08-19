@@ -19,7 +19,8 @@ def _quote_with_mixed_items(client, headers, project, product):
         f"/api/projects/{project['id']}/budgets",
         json={
             "items": [
-                {"product_id": product["id"], "quantity": 2, "description": "", "unit_price": 0},
+                # Sin unit_price: se resuelve al precio del catálogo (distinto de un $0 explícito).
+                {"product_id": product["id"], "quantity": 2, "description": ""},
                 {"description": "Mano de obra", "quantity": 1, "unit_price": 50},
             ]
         },
