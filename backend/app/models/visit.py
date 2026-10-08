@@ -14,9 +14,11 @@ class Visit(Base):
     __tablename__ = "visits"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
-    technician_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    scheduled_date: Mapped[date] = mapped_column(Date)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    technician_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
+    # El calendario filtra por rango de fechas; el índice ya existe en la base (ix_visits_scheduled_date),
+    # aquí se declara para que el modelo y la migración no diverjan.
+    scheduled_date: Mapped[date] = mapped_column(Date, index=True)
     scheduled_time: Mapped[time | None] = mapped_column(Time, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="programada")

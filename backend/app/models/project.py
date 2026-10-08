@@ -21,8 +21,8 @@ class Project(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"))
-    responsible_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), index=True)
+    responsible_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     date: Mapped[date] = mapped_column(Date, default=today_dr)
     status: Mapped[str] = mapped_column(String(30), default="levantamiento")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

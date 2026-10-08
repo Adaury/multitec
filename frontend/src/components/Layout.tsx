@@ -1,11 +1,11 @@
-import { useEffect } from 'react'
-import { useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { api, logout } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import type { CurrentUser } from '../lib/types'
 import { GlobalSearch } from './GlobalSearch'
 import { NotificationBell } from './NotificationBell'
+import { PageLoader } from './PageLoader'
 import { ThemeToggle } from './ThemeToggle'
 
 interface NavItem {
@@ -184,7 +184,9 @@ export function Layout() {
         </header>
 
         <main className="flex-1 px-5 md:px-10 md:pb-10">
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </main>
 
         {!hideTabBar && (

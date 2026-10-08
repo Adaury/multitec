@@ -14,8 +14,8 @@ class Material(Base):
     __tablename__ = "materials"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
-    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), index=True, nullable=True)
     source_quote_id: Mapped[int | None] = mapped_column(ForeignKey("quotes.id"), nullable=True)
     description: Mapped[str] = mapped_column(String(255))
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=1)
@@ -24,7 +24,7 @@ class Material(Base):
     # A quién se le compró y a qué precio real (distinto de Product.price/cost, que son
     # estimados de catálogo) — se completan cuando el material se marca "comprado", pero
     # quedan opcionales (se pueden cargar después) igual que `reason` en StockMovement.
-    supplier_id: Mapped[int | None] = mapped_column(ForeignKey("suppliers.id"), nullable=True)
+    supplier_id: Mapped[int | None] = mapped_column(ForeignKey("suppliers.id"), index=True, nullable=True)
     purchase_price: Mapped[float | None] = mapped_column(Numeric(12, 2), nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { formatDOP } from '../lib/format'
+import { shrinkImage } from '../lib/imageUpload'
 import { useGeolocation } from '../lib/useGeolocation'
 import type { Client, ClientInput, GenerateFromSurveyOut, Project, VoiceSurveyResult } from '../lib/types'
 import { Button, Card, Field, Input } from '../components/ui'
@@ -160,7 +161,7 @@ export function QuickSurvey() {
     try {
       const form = new FormData()
       form.append('kind', 'photo')
-      form.append('file', file)
+      form.append('file', await shrinkImage(file))
       await api.post(`/projects/${project.id}/survey/assets`, form)
       setPhotos((n) => n + 1)
     } catch (err) {

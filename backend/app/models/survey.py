@@ -31,7 +31,7 @@ class SurveyAsset(Base):
     __tablename__ = "survey_assets"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    survey_id: Mapped[int] = mapped_column(ForeignKey("surveys.id"))
+    survey_id: Mapped[int] = mapped_column(ForeignKey("surveys.id"), index=True)
     kind: Mapped[str] = mapped_column(String(10))  # photo | audio
     file_path: Mapped[str] = mapped_column(String(500))
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)

@@ -13,7 +13,7 @@ class PreInvoice(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     source_quote_id: Mapped[int | None] = mapped_column(ForeignKey("quotes.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pendiente")  # pendiente | facturada
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -33,7 +33,7 @@ class PreInvoiceItem(Base):
     __tablename__ = "pre_invoice_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    pre_invoice_id: Mapped[int] = mapped_column(ForeignKey("pre_invoices.id"))
+    pre_invoice_id: Mapped[int] = mapped_column(ForeignKey("pre_invoices.id"), index=True)
     product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     description: Mapped[str] = mapped_column(String(255))
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=1)
@@ -51,7 +51,7 @@ class Invoice(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     pre_invoice_id: Mapped[int] = mapped_column(ForeignKey("pre_invoices.id"), unique=True)
     ncf: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
     ncf_type: Mapped[str | None] = mapped_column(String(3), nullable=True)
@@ -73,7 +73,7 @@ class InvoiceItem(Base):
     __tablename__ = "invoice_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"))
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"), index=True)
     product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
     description: Mapped[str] = mapped_column(String(255))
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=1)
@@ -88,7 +88,7 @@ class InvoiceHistory(Base):
     __tablename__ = "invoice_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"))
+    invoice_id: Mapped[int] = mapped_column(ForeignKey("invoices.id"), index=True)
     action: Mapped[str] = mapped_column(String(20))
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

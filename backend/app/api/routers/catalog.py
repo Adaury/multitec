@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.ai_engine.calculation import KNOWN_PARAMETERS
 from app.core.security import require_role
@@ -44,7 +44,11 @@ def _get_category_or_404(db: Session, category_id: int) -> Category:
 
 @router.get("", response_model=list[ProductOut])
 def list_products(db: Session = Depends(get_db), _=Depends(allowed_roles)):
-    return db.query(Product).order_by(Product.code).all()
+    # `category_name`/`category_path` de cada producto recorren la categoría y sus padres. Con las
+    # categorías ya cargadas en la sesión, esos accesos salen del identity map en vez de hacer
+    # una consulta por producto (antes: 1 + N consultas por listado).
+    db.query(Category).all()
+    return db.query(Product).options(joinedload(Product.category)).order_by(Product.code).all()
 
 
 @router.post("", response_model=ProductOut, status_code=status.HTTP_201_CREATED)

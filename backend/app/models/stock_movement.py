@@ -15,7 +15,7 @@ class StockMovement(Base):
     __tablename__ = "stock_movements"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"), index=True)
     movement_type: Mapped[str] = mapped_column(String(10))
     quantity: Mapped[float] = mapped_column(Numeric(12, 2))
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)

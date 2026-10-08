@@ -27,7 +27,7 @@ class Product(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(150))
     unit: Mapped[str] = mapped_column(String(20), default="unidad")
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)

@@ -15,7 +15,7 @@ class ProjectStage(Base):
     __table_args__ = (UniqueConstraint("project_id", "name", name="uq_project_stage"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     name: Mapped[str] = mapped_column(String(20))
     order: Mapped[int] = mapped_column(Integer)
     completed: Mapped[bool] = mapped_column(Boolean, default=False)

@@ -13,7 +13,7 @@ class Budget(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     # True mientras las líneas sean exactamente las que sugirió la IA (§ Motor 7,
@@ -33,8 +33,8 @@ class BudgetItem(Base):
     __tablename__ = "budget_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    budget_id: Mapped[int] = mapped_column(ForeignKey("budgets.id"))
-    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    budget_id: Mapped[int] = mapped_column(ForeignKey("budgets.id"), index=True)
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), index=True, nullable=True)
     description: Mapped[str] = mapped_column(String(255))
     quantity: Mapped[float] = mapped_column(Numeric(12, 2), default=1)
     unit_price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)  # usado solo para calcular el total

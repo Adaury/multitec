@@ -15,7 +15,7 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
     title: Mapped[str] = mapped_column(String(200))
     body: Mapped[str] = mapped_column(Text)
     link: Mapped[str | None] = mapped_column(String(255), nullable=True)

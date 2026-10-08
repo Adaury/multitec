@@ -49,6 +49,7 @@ import { useAuthStore } from '../lib/authStore'
 import { useSpeechDictation } from '../lib/useSpeechDictation'
 import { Badge, Button, Card, Field, IconButton, Textarea } from '../components/ui'
 import { LineItemsEditor } from '../components/LineItemsEditor'
+import { shrinkImage } from '../lib/imageUpload'
 import { ProjectLocationCard } from '../components/ProjectLocationCard'
 import { VoiceRecorderCard, VoiceReviewCard, transcribeAsset } from '../components/VoiceSurvey'
 
@@ -555,7 +556,7 @@ function LevantamientoTab({
     mutationFn: async ({ kind, file }: { kind: 'photo' | 'audio'; file: File }) => {
       const form = new FormData()
       form.append('kind', kind)
-      form.append('file', file)
+      form.append('file', kind === 'photo' ? await shrinkImage(file) : file)
       return (await api.post(`/projects/${projectId}/survey/assets`, form)).data
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['survey', projectId] }),
@@ -733,6 +734,8 @@ function LevantamientoTab({
               <div key={asset.id} className="relative">
                 <img
                   src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+                  loading="lazy"
+                  decoding="async"
                   className="aspect-square rounded-xl object-cover"
                   alt="Foto de levantamiento"
                 />
@@ -1883,7 +1886,7 @@ function LogbookTab({ projectId }: { projectId: number }) {
   const uploadPhoto = useMutation({
     mutationFn: async ({ entryId, file }: { entryId: number; file: File }) => {
       const form = new FormData()
-      form.append('file', file)
+      form.append('file', await shrinkImage(file))
       return (await api.post(`/logbook/${entryId}/photos`, form)).data
     },
     onSuccess: invalidate,
@@ -1932,7 +1935,9 @@ function LogbookTab({ projectId }: { projectId: number }) {
                   <img
                     key={asset.id}
                     src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
-                    className="aspect-square rounded-xl object-cover"
+                    loading="lazy"
+                  decoding="async"
+                  className="aspect-square rounded-xl object-cover"
                     alt="Foto de bitácora"
                   />
                 ))}
@@ -2176,7 +2181,9 @@ function InvoiceTab({ projectId }: { projectId: number }) {
                   <img
                     key={asset.id}
                     src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
-                    className="aspect-square rounded-lg object-cover"
+                    loading="lazy"
+                  decoding="async"
+                  className="aspect-square rounded-lg object-cover"
                     alt="Foto de levantamiento"
                   />
                 ))}
@@ -2567,7 +2574,7 @@ function TicketCard({
   const uploadPhoto = useMutation({
     mutationFn: async (file: File) => {
       const form = new FormData()
-      form.append('file', file)
+      form.append('file', await shrinkImage(file))
       return (await api.post(`/tickets/${ticket.id}/photos`, form)).data
     },
     onSuccess: onChanged,
@@ -2671,7 +2678,9 @@ function TicketCard({
                 <div key={asset.id} className="relative">
                   <img
                     src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
-                    className="aspect-square rounded-xl object-cover"
+                    loading="lazy"
+                  decoding="async"
+                  className="aspect-square rounded-xl object-cover"
                     alt="Foto de evidencia del ticket"
                   />
                   <button

@@ -16,8 +16,8 @@ class Extension(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
-    quote_id: Mapped[int | None] = mapped_column(ForeignKey("quotes.id"), nullable=True)
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
+    quote_id: Mapped[int | None] = mapped_column(ForeignKey("quotes.id"), index=True, nullable=True)
     title: Mapped[str] = mapped_column(String(150))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pendiente")

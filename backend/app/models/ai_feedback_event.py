@@ -39,7 +39,7 @@ class AIFeedbackEvent(Base):
     budget_id: Mapped[int | None] = mapped_column(ForeignKey("budgets.id", ondelete="CASCADE"), nullable=True, index=True)
     entity_type: Mapped[str] = mapped_column(String(20))
     origin: Mapped[str] = mapped_column(String(20))
-    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), nullable=True)
+    product_id: Mapped[int | None] = mapped_column(ForeignKey("products.id"), index=True, nullable=True)
     field_changed: Mapped[str | None] = mapped_column(String(40), nullable=True)
     old_value: Mapped[str | None] = mapped_column(Text, nullable=True)
     new_value: Mapped[str | None] = mapped_column(Text, nullable=True)
