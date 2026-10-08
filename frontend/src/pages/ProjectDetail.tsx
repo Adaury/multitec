@@ -49,6 +49,7 @@ import { useAuthStore } from '../lib/authStore'
 import { useSpeechDictation } from '../lib/useSpeechDictation'
 import { Badge, Button, Card, Field, IconButton, Textarea } from '../components/ui'
 import { LineItemsEditor } from '../components/LineItemsEditor'
+import { ProjectLocationCard } from '../components/ProjectLocationCard'
 import { VoiceRecorderCard, VoiceReviewCard, transcribeAsset } from '../components/VoiceSurvey'
 
 function DictationField({
@@ -223,6 +224,8 @@ export function ProjectDetail() {
         </div>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{project.client.name}</p>
       </Card>
+
+      <ProjectLocationCard project={project} />
 
       {isAdmin && <ProjectMarginCard projectId={project.id} />}
 

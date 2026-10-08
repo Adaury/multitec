@@ -37,11 +37,11 @@ class Visit(Base):
 
     @property
     def client_address(self) -> str | None:
-        return self.project.client.address
+        return self.project.place_address
 
     @property
     def client_location_url(self) -> str | None:
-        return self.project.client.location_url
+        return self.project.place_location_url
 
     @property
     def client_phone(self) -> str | None:

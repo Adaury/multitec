@@ -51,6 +51,8 @@ export interface Project {
   date: string
   status: string
   description: string | null
+  address: string | null
+  location_url: string | null
   created_at: string
 }
 

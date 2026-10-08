@@ -69,6 +69,11 @@ export function embedUrl(place: Place): string | null {
   return query ? `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=16&output=embed` : null
 }
 
+/** Enlace de Maps a un punto exacto (lo que se guarda al capturar el GPS). */
+export function mapsPointUrl(lat: number, lng: number): string {
+  return `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`
+}
+
 /** Texto que Google Maps entiende como una parada de ruta: coordenadas o dirección. Un enlace
  * corto (maps.app.goo.gl) no sirve como parada — Maps no lo acepta en `waypoints`. */
 export function routeQuery(place: Place): string | null {

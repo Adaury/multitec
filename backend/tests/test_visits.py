@@ -191,3 +191,29 @@ def test_visit_location_fields_are_null_when_client_has_none(client, admin_token
     assert created["client_address"] is None
     assert created["client_location_url"] is None
     assert created["client_phone"] is None
+
+
+def test_visit_prefers_project_location_over_client_location(client, admin_token):
+    """Un cliente con varias obras: la visita apunta al sitio del proyecto, no al del cliente."""
+    headers = auth_headers(admin_token)
+    client_id = client.post(
+        "/api/clients",
+        json={"name": "Cliente multi-obra", "address": "Oficina central", "location_url": "https://maps.app.goo.gl/central"},
+        headers=headers,
+    ).json()["id"]
+    with_site = client.post(
+        "/api/projects",
+        json={"client_id": client_id, "address": "Obra norte", "location_url": "https://www.google.com/maps?q=18.5,-69.9"},
+        headers=headers,
+    ).json()
+    without_site = client.post("/api/projects", json={"client_id": client_id}, headers=headers).json()
+    today = date.today().isoformat()
+
+    a = client.post("/api/visits", json={"project_id": with_site["id"], "scheduled_date": today}, headers=headers).json()
+    b = client.post("/api/visits", json={"project_id": without_site["id"], "scheduled_date": today}, headers=headers).json()
+
+    assert a["client_address"] == "Obra norte"
+    assert a["client_location_url"] == "https://www.google.com/maps?q=18.5,-69.9"
+    # sin ubicación propia, el proyecto cae al respaldo del cliente
+    assert b["client_address"] == "Oficina central"
+    assert b["client_location_url"] == "https://maps.app.goo.gl/central"

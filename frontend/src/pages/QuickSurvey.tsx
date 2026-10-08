@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { formatDOP } from '../lib/format'
+import { useGeolocation } from '../lib/useGeolocation'
 import type { Client, ClientInput, GenerateFromSurveyOut, Project, VoiceSurveyResult } from '../lib/types'
 import { Button, Card, Field, Input } from '../components/ui'
 import { MapPreview } from '../components/MapPreview'
@@ -14,10 +15,6 @@ type Fields = Pick<VoiceSurveyResult, 'notes' | 'measurements' | 'observations'>
 function apiError(err: any, fallback: string): string {
   const detail = err?.response?.data?.detail
   return typeof detail === 'string' ? detail : fallback
-}
-
-function mapsLink(lat: number, lng: number): string {
-  return `https://www.google.com/maps?q=${lat.toFixed(6)},${lng.toFixed(6)}`
 }
 
 /** Levantamiento en sitio en un toque: cliente + ubicación → narrar → cotización. Pensado para
@@ -42,8 +39,7 @@ export function QuickSurvey() {
   const [newClient, setNewClient] = useState({ name: '', phone: '', company: '' })
   const [address, setAddress] = useState('')
   const [locationUrl, setLocationUrl] = useState('')
-  const [locating, setLocating] = useState(false)
-  const [locationNote, setLocationNote] = useState<string | null>(null)
+  const gps = useGeolocation(setLocationUrl)
 
   const matches = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -53,31 +49,6 @@ export function QuickSurvey() {
       : list
     return filtered.slice(0, 5)
   }, [clients, search])
-
-  function captureLocation() {
-    setLocationNote(null)
-    if (!navigator.geolocation) {
-      setLocationNote('Este navegador no da la ubicación (requiere HTTPS). Pega un enlace de Google Maps abajo.')
-      return
-    }
-    setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLocationUrl(mapsLink(pos.coords.latitude, pos.coords.longitude))
-        setLocationNote(`📍 Ubicación capturada (±${Math.round(pos.coords.accuracy)} m)`)
-        setLocating(false)
-      },
-      (err) => {
-        setLocationNote(
-          err.code === err.PERMISSION_DENIED
-            ? 'Permiso de ubicación denegado. Actívalo en el navegador o pega un enlace de Google Maps abajo.'
-            : 'No se pudo obtener la ubicación. Intenta de nuevo o pega un enlace de Google Maps abajo.',
-        )
-        setLocating(false)
-      },
-      { enableHighAccuracy: true, timeout: 20_000, maximumAge: 30_000 },
-    )
-  }
 
   // --- Paso 2: narración ---
   const [project, setProject] = useState<Project | null>(null)
@@ -120,7 +91,12 @@ export function QuickSurvey() {
       }
       if (!client) return
       const created = (
-        await api.post<Project>('/projects', { client_id: client.id, description: 'Levantamiento en sitio' })
+        // La ubicación capturada queda en el proyecto (la obra), además de completar la del cliente.
+        await api.post<Project>('/projects', {
+          client_id: client.id,
+          description: 'Levantamiento en sitio',
+          ...place,
+        })
       ).data
       queryClient.invalidateQueries({ queryKey: ['clients'] })
       queryClient.invalidateQueries({ queryKey: ['projects'] })
@@ -201,7 +177,6 @@ export function QuickSurvey() {
     setSearch('')
     setAddress('')
     setLocationUrl('')
-    setLocationNote(null)
     setVoiceResult(null)
     setSaved({ notes: '', measurements: '', observations: '' })
     setSegments(0)
@@ -372,10 +347,10 @@ export function QuickSurvey() {
 
       <Card className="space-y-3">
         <p className="font-medium text-gray-800 dark:text-gray-200">2 · Ubicación</p>
-        <Button variant="secondary" onClick={captureLocation} disabled={locating}>
-          {locating ? 'Buscando señal GPS…' : locationUrl ? '📍 Actualizar mi ubicación' : '📍 Usar mi ubicación actual'}
+        <Button variant="secondary" onClick={gps.capture} disabled={gps.locating}>
+          {gps.locating ? 'Buscando señal GPS…' : locationUrl ? '📍 Actualizar mi ubicación' : '📍 Usar mi ubicación actual'}
         </Button>
-        {locationNote && <p className="text-sm text-gray-600 dark:text-gray-400">{locationNote}</p>}
+        {gps.note && <p className="text-sm text-gray-600 dark:text-gray-400">{gps.note}</p>}
         <Field label="Dirección o referencia (opcional)">
           <Input placeholder="Ej. Calle 5 #12, frente al colmado" value={address} onChange={(e) => setAddress(e.target.value)} />
         </Field>

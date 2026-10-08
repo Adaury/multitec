@@ -11,12 +11,16 @@ class ProjectCreate(BaseModel):
     responsible_id: int | None = None
     description: str | None = Field(default=None, max_length=5000)
     date: date_type | None = None
+    address: str | None = Field(default=None, max_length=5000)
+    location_url: str | None = Field(default=None, max_length=2048)
 
 
 class ProjectUpdate(BaseModel):
     status: str | None = Field(default=None, max_length=30)
     responsible_id: int | None = None
     description: str | None = Field(default=None, max_length=5000)
+    address: str | None = Field(default=None, max_length=5000)
+    location_url: str | None = Field(default=None, max_length=2048)
 
 
 class ProjectOut(BaseModel):
@@ -27,6 +31,8 @@ class ProjectOut(BaseModel):
     date: date_type
     status: str
     description: str | None
+    address: str | None = None
+    location_url: str | None = None
     created_by: int | None = None
     created_at: datetime
     updated_at: datetime | None = None

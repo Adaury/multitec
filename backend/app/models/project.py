@@ -26,6 +26,10 @@ class Project(Base):
     date: Mapped[date] = mapped_column(Date, default=today_dr)
     status: Mapped[str] = mapped_column(String(30), default="levantamiento")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Ubicación del sitio de ESTE proyecto (un cliente puede tener varias obras). Si está
+    # vacía, se usa la del cliente — ver `Project.place_address/place_location_url`.
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    location_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     # Token opaco para el portal de cliente (sin login) — NULL = portal desactivado. Ver
     # api/routers/public.py. No usar el id numérico como identificador público: sería
     # trivial enumerar todos los proyectos de la empresa.
@@ -57,3 +61,13 @@ class Project(Base):
     invoices: Mapped[list["Invoice"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     extensions: Mapped[list["Extension"]] = relationship(back_populates="project", cascade="all, delete-orphan")
     tickets: Mapped[list["Ticket"]] = relationship(back_populates="project", cascade="all, delete-orphan")
+
+    @property
+    def place_address(self) -> str | None:
+        """Dirección del sitio: la del proyecto, o la del cliente si el proyecto no tiene."""
+        return self.address or self.client.address
+
+    @property
+    def place_location_url(self) -> str | None:
+        """Enlace de ubicación del sitio: el del proyecto, o el del cliente como respaldo."""
+        return self.location_url or self.client.location_url

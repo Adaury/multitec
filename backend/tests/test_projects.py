@@ -64,3 +64,38 @@ def test_update_project_with_missing_responsible_fails(client, admin_token):
 
     resp = client.put(f"/api/projects/{project['id']}", json={"responsible_id": 999999}, headers=headers)
     assert resp.status_code == 404
+
+
+def test_project_location_roundtrip(client, admin_token):
+    headers = auth_headers(admin_token)
+    client_id = client.post("/api/clients", json={"name": "Cliente obras"}, headers=headers).json()["id"]
+    created = client.post(
+        "/api/projects",
+        json={
+            "client_id": client_id,
+            "address": "Obra norte, km 12",
+            "location_url": "https://www.google.com/maps?q=18.5,-69.9",
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201, created.text
+    body = created.json()
+    assert body["address"] == "Obra norte, km 12"
+    assert body["location_url"] == "https://www.google.com/maps?q=18.5,-69.9"
+
+    updated = client.put(
+        f"/api/projects/{body['id']}", json={"address": "Obra sur", "location_url": None}, headers=headers
+    )
+    assert updated.status_code == 200
+    assert updated.json()["address"] == "Obra sur"
+    assert updated.json()["location_url"] is None
+
+    detail = client.get(f"/api/projects/{body['id']}", headers=headers).json()
+    assert detail["address"] == "Obra sur"
+
+
+def test_project_location_defaults_to_empty(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    assert project["address"] is None
+    assert project["location_url"] is None
