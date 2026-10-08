@@ -7,6 +7,7 @@ análisis periódico queda para cuando haya volumen suficiente de proyectos (ver
 evolución del documento de arquitectura). Aquí solo se escribe la señal cruda.
 """
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.ai_feedback_event import (
@@ -19,6 +20,7 @@ from app.models.ai_feedback_event import (
 )
 from app.models.budget import Budget
 from app.models.engineering import Engineering
+from app.models.voice_survey_example import VoiceSurveyExample
 
 ENGINEERING_FIELDS = (
     "recommended_equipment",
@@ -128,3 +130,69 @@ def record_engineering_edit_feedback(db: Session, project_id: int, engineering: 
             )
 
     engineering.ai_generated = False
+
+
+# --- Levantamiento por voz: aprender cómo la empresa reparte lo dictado -----------------------
+
+VOICE_FIELDS = ("notes", "measurements", "observations")
+# El modelo local tiene poco contexto: pocos ejemplos y cortos. Se prefieren las correcciones
+# (lo que la IA hizo mal) sobre los aciertos.
+VOICE_EXAMPLES_LIMIT = 3
+VOICE_EXAMPLE_MAX_CHARS = 700
+
+
+def record_voice_feedback(
+    db: Session,
+    project_id: int,
+    transcript: str,
+    ai_fields: dict[str, str],
+    final_fields: dict[str, str],
+    ai_classified: bool,
+    created_by: int | None,
+) -> VoiceSurveyExample:
+    """Guarda lo que dijo el técnico, cómo lo repartió la IA y cómo lo dejó él al revisarlo.
+    `corrected` es True si el técnico cambió cualquier campo (ignorando espacios al borde)."""
+    ai = {f: (ai_fields.get(f) or "").strip() for f in VOICE_FIELDS}
+    final = {f: (final_fields.get(f) or "").strip() for f in VOICE_FIELDS}
+    example = VoiceSurveyExample(
+        project_id=project_id,
+        transcript=transcript.strip(),
+        ai_notes=ai["notes"],
+        ai_measurements=ai["measurements"],
+        ai_observations=ai["observations"],
+        final_notes=final["notes"],
+        final_measurements=final["measurements"],
+        final_observations=final["observations"],
+        ai_classified=ai_classified,
+        corrected=ai != final,
+        created_by=created_by,
+    )
+    db.add(example)
+    return example
+
+
+def recent_voice_examples(db: Session, limit: int = VOICE_EXAMPLES_LIMIT) -> list[dict]:
+    """Ejemplos para el prompt del reparto: primero las correcciones más recientes y, si no
+    alcanzan, los aciertos más recientes. Devuelve `{transcript, notes, measurements,
+    observations}` con lo que dejó el técnico (la versión buena), sin dictados vacíos ni largos."""
+    rows = (
+        db.query(VoiceSurveyExample)
+        .filter(func.length(VoiceSurveyExample.transcript) <= VOICE_EXAMPLE_MAX_CHARS)
+        .filter(
+            (VoiceSurveyExample.final_notes != "")
+            | (VoiceSurveyExample.final_measurements != "")
+            | (VoiceSurveyExample.final_observations != "")
+        )
+        .order_by(VoiceSurveyExample.corrected.desc(), VoiceSurveyExample.created_at.desc(), VoiceSurveyExample.id.desc())
+        .limit(limit)
+        .all()
+    )
+    return [
+        {
+            "transcript": r.transcript,
+            "notes": r.final_notes,
+            "measurements": r.final_measurements,
+            "observations": r.final_observations,
+        }
+        for r in rows
+    ]

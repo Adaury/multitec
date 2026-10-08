@@ -114,3 +114,109 @@ def test_classify_falls_back_when_model_returns_empty_fields():
         result = classify_voice_transcript("cuatro cámaras")
     assert result["notes"] == "cuatro cámaras"
     assert result["classified"] is False
+
+
+# --- Aprendizaje: el reparto mejora con las correcciones del técnico -------------------------
+
+
+def _feedback(client, headers, project_id, ai, final, transcript="cuatro cámaras veinte metros", classified=True):
+    return client.post(
+        f"/api/projects/{project_id}/survey/voice-feedback",
+        json={"transcript": transcript, "ai": ai, "final": final, "classified": classified},
+        headers=headers,
+    )
+
+
+def test_voice_feedback_records_correction(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    ai = {"notes": "4 cámaras, 20 m", "measurements": "", "observations": ""}
+    final = {"notes": "4 cámaras", "measurements": "20 m", "observations": ""}
+
+    resp = _feedback(client, headers, project["id"], ai, final)
+    assert resp.status_code == 204, resp.text
+
+    rows = client.get("/api/ai-feedback-events/voice-examples", headers=headers).json()
+    assert len(rows) == 1
+    assert rows[0]["corrected"] is True
+    assert rows[0]["ai_notes"] == "4 cámaras, 20 m"
+    assert rows[0]["final_measurements"] == "20 m"
+
+
+def test_voice_feedback_unchanged_is_not_marked_corrected(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    same = {"notes": "4 cámaras", "measurements": "20 m", "observations": ""}
+    # los espacios al borde no cuentan como corrección
+    padded = {"notes": " 4 cámaras ", "measurements": "20 m ", "observations": ""}
+    assert _feedback(client, headers, project["id"], same, padded).status_code == 204
+
+    assert client.get("/api/ai-feedback-events/voice-examples", headers=headers).json()[0]["corrected"] is False
+    assert client.get("/api/ai-feedback-events/voice-examples?corrected_only=true", headers=headers).json() == []
+
+
+def test_voice_feedback_unknown_project_404_and_requires_auth(client, admin_token):
+    body = {"transcript": "x", "ai": {}, "final": {}}
+    assert client.post("/api/projects/999999/survey/voice-feedback", json=body, headers=auth_headers(admin_token)).status_code == 404
+    assert client.post("/api/projects/1/survey/voice-feedback", json=body).status_code == 401
+
+
+def test_recent_voice_examples_prefers_corrections_and_skips_long_or_empty(client, admin_token, db_session):
+    from app.ai_engine.learning import recent_voice_examples, record_voice_feedback
+
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    pid = project["id"]
+    accepted = {"notes": "A", "measurements": "", "observations": ""}
+    fixed_ai = {"notes": "todo en notas", "measurements": "", "observations": ""}
+    fixed = {"notes": "B", "measurements": "5 m", "observations": ""}
+
+    record_voice_feedback(db_session, pid, "dictado aceptado", accepted, accepted, True, None)
+    record_voice_feedback(db_session, pid, "dictado corregido", fixed_ai, fixed, True, None)
+    record_voice_feedback(db_session, pid, "x" * 701, fixed_ai, fixed, True, None)  # demasiado largo
+    record_voice_feedback(db_session, pid, "dictado vacío", accepted, {"notes": "", "measurements": "", "observations": ""}, True, None)
+    db_session.commit()
+
+    examples = recent_voice_examples(db_session)
+    assert [e["transcript"] for e in examples] == ["dictado corregido", "dictado aceptado"]
+    assert examples[0]["measurements"] == "5 m"  # lo que dejó el técnico, no lo de la IA
+
+
+def test_classify_prompt_includes_learned_examples():
+    seen = {}
+
+    class Client:
+        def chat(self, **kwargs):
+            seen["prompt"] = kwargs["messages"][0]["content"]
+            return SimpleNamespace(message=SimpleNamespace(content='{"notes": "n", "measurements": "", "observations": ""}'))
+
+    examples = [{"transcript": "tres puertas quince metros", "notes": "3 puertas", "measurements": "15 m", "observations": ""}]
+    with patch("app.ai_engine.nlu.get_client", return_value=Client()):
+        classify_voice_transcript("dos cámaras", examples)
+    assert "tres puertas quince metros" in seen["prompt"]
+    assert '"measurements": "15 m"' in seen["prompt"]
+    assert seen["prompt"].rstrip().endswith("Dictado nuevo:\ndos cámaras")
+
+    with patch("app.ai_engine.nlu.get_client", return_value=Client()):
+        classify_voice_transcript("dos cámaras")
+    assert "Ejemplo 1" not in seen["prompt"]
+
+
+def test_transcribe_passes_learned_examples_to_classifier(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    ai = {"notes": "todo", "measurements": "", "observations": ""}
+    final = {"notes": "4 cámaras", "measurements": "20 m", "observations": ""}
+    _feedback(client, headers, project["id"], ai, final, transcript="cuatro cámaras veinte metros")
+    asset = _upload_audio(client, headers, project["id"]).json()
+
+    fields = {"notes": "n", "measurements": "", "observations": "", "classified": True}
+    with (
+        patch("app.api.routers.ai.transcribe_audio", return_value="dos cámaras"),
+        patch("app.api.routers.ai.classify_voice_transcript", return_value=fields) as mocked,
+    ):
+        resp = client.post(f"/api/projects/{project['id']}/survey/assets/{asset['id']}/transcribe", headers=headers)
+    assert resp.status_code == 200
+    passed = mocked.call_args.args[1]
+    assert passed[0]["transcript"] == "cuatro cámaras veinte metros"
+    assert passed[0]["measurements"] == "20 m"

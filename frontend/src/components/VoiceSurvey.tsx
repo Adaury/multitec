@@ -204,12 +204,14 @@ export function VoiceRecorderCard({
 
 /** Revisión del resultado: el técnico puede corregir cada campo antes de aplicarlo. */
 export function VoiceReviewCard({
+  projectId,
   result,
   busy,
   onApply,
   onApplyAndGenerate,
   onDiscard,
 }: {
+  projectId: number
   result: VoiceSurveyResult
   busy: boolean
   onApply: (fields: Pick<VoiceSurveyResult, 'notes' | 'measurements' | 'observations'>) => void
@@ -221,6 +223,19 @@ export function VoiceReviewCard({
   const [observations, setObservations] = useState(result.observations)
   const fields = { notes, measurements, observations }
   const empty = !notes.trim() && !measurements.trim() && !observations.trim()
+
+  // Aprendizaje: se guarda lo que dijo, cómo lo repartió la IA y cómo lo dejó el técnico. Es
+  // best-effort: si falla no debe frenar al técnico en el sitio, así que no se espera ni se muestra.
+  function learn() {
+    api
+      .post(`/projects/${projectId}/survey/voice-feedback`, {
+        transcript: result.transcript,
+        ai: { notes: result.notes, measurements: result.measurements, observations: result.observations },
+        final: fields,
+        classified: result.classified,
+      })
+      .catch(() => {})
+  }
 
   return (
     <Card className="space-y-3 ring-2 ring-brand-blue/30">
@@ -245,10 +260,16 @@ export function VoiceReviewCard({
       </Field>
       <p className="text-xs text-gray-400">Se agrega al final de lo que ya tengas escrito en cada campo.</p>
       <div className="flex flex-col gap-2 md:flex-row">
-        <Button variant="secondary" onClick={() => onApply(fields)} disabled={busy || empty}>
+        <Button variant="secondary" onClick={() => {
+            learn()
+            onApply(fields)
+          }} disabled={busy || empty}>
           Agregar al levantamiento
         </Button>
-        <Button onClick={() => onApplyAndGenerate(fields)} disabled={busy || empty}>
+        <Button onClick={() => {
+            learn()
+            onApplyAndGenerate(fields)
+          }} disabled={busy || empty}>
           {busy ? 'Trabajando…' : '🤖 Agregar y generar cotización'}
         </Button>
         <Button variant="ghost" onClick={onDiscard} disabled={busy}>

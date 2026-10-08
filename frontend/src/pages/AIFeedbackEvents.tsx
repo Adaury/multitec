@@ -9,6 +9,7 @@ import type {
   Product,
   Project,
   StaleRuleCandidate,
+  VoiceExample,
 } from '../lib/types'
 import { useAuthStore } from '../lib/authStore'
 import { Badge, Button, Card, Field, Input } from '../components/ui'
@@ -36,6 +37,53 @@ function describeEvent(event: AIFeedbackEvent, productName: string | null): stri
   if (event.origin === 'human_added') return `Se agregó ${product} — cantidad ${event.new_value}`
   if (event.origin === 'human_removed') return `Se quitó ${product} — tenía cantidad ${event.old_value}`
   return `Se cambió la cantidad de ${product}: ${event.old_value} → ${event.new_value}`
+}
+
+const VOICE_FIELD_LABELS = [
+  ['notes', 'Notas'],
+  ['measurements', 'Medidas'],
+  ['observations', 'Observaciones'],
+] as const
+
+/** Lo que la IA aprendió del levantamiento por voz: cada dictado, cómo lo repartió ella y cómo lo
+ * dejó el técnico. Las correcciones se usan como ejemplos en el siguiente dictado (automático). */
+function VoiceLearningCard() {
+  const { data: examples } = useQuery({
+    queryKey: ['voice-examples'],
+    queryFn: async () => (await api.get<VoiceExample[]>('/ai-feedback-events/voice-examples')).data,
+  })
+  if (!examples) return null
+  const corrected = examples.filter((e) => e.corrected)
+
+  return (
+    <Card className="space-y-3">
+      <div>
+        <p className="font-medium text-gray-800 dark:text-gray-200">🎙️ Aprendizaje del levantamiento por voz</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          {examples.length === 0
+            ? 'Aún no hay dictados aplicados. Cuando un técnico corrija el reparto de la IA, aparecerá aquí y se usará de ejemplo en los siguientes.'
+            : `${corrected.length} corrección(es) de ${examples.length} dictado(s) recientes. Las correcciones se usan solas como ejemplos en el siguiente dictado.`}
+        </p>
+      </div>
+      {corrected.slice(0, 5).map((e) => (
+        <div key={e.id} className="space-y-1 rounded-xl bg-brand-gray p-3 text-sm dark:bg-gray-800">
+          <p className="italic text-gray-600 dark:text-gray-400">“{e.transcript}”</p>
+          {VOICE_FIELD_LABELS.map(([key, label]) => {
+            const before = e[`ai_${key}`]
+            const after = e[`final_${key}`]
+            if (before === after) return null
+            return (
+              <p key={key} className="text-gray-700 dark:text-gray-300">
+                <b>{label}:</b> <span className="text-red-600 line-through dark:text-red-400">{before || '(vacío)'}</span>
+                {' → '}
+                <span className="text-green-700 dark:text-green-400">{after || '(vacío)'}</span>
+              </p>
+            )
+          })}
+        </div>
+      ))}
+    </Card>
+  )
 }
 
 function AccessoryCandidateCard({ candidate, onHandled }: { candidate: AccessoryCandidate; onHandled: () => void }) {
@@ -241,6 +289,8 @@ export function AIFeedbackEvents() {
           </div>
         )}
       </Card>
+
+      <VoiceLearningCard />
 
       <Card className="max-w-sm">
         <Field label="Filtrar por proyecto">

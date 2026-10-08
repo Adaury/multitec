@@ -22,6 +22,7 @@ from app.models.sequence import CodeSequence
 from app.models.stock_movement import StockMovement
 from app.models.supplier import Supplier
 from app.models.survey import Survey, SurveyAsset
+from app.models.voice_survey_example import VoiceSurveyExample
 from app.models.technical_rule import TechnicalRule
 from app.models.ticket import Ticket, TicketAsset, TicketHistory
 from app.models.user import User
@@ -67,4 +68,5 @@ __all__ = [
     "TicketHistory",
     "User",
     "Visit",
+    "VoiceSurveyExample",
 ]

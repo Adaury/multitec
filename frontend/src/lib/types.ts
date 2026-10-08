@@ -129,6 +129,21 @@ export interface VoiceSurveyResult {
   classified: boolean
 }
 
+export interface VoiceExample {
+  id: number
+  project_id: number
+  transcript: string
+  ai_notes: string
+  ai_measurements: string
+  ai_observations: string
+  final_notes: string
+  final_measurements: string
+  final_observations: string
+  ai_classified: boolean
+  corrected: boolean
+  created_at: string
+}
+
 export interface Survey {
   id: number
   project_id: number

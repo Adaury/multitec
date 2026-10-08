@@ -31,6 +31,40 @@ class VoiceSurveyOut(BaseModel):
     classified: bool
 
 
+class VoiceFields(BaseModel):
+    notes: str = Field(default="", max_length=10000)
+    measurements: str = Field(default="", max_length=10000)
+    observations: str = Field(default="", max_length=10000)
+
+
+class VoiceFeedbackIn(BaseModel):
+    """Lo que el frontend manda al aplicar un dictado: el texto, el reparto que hizo la IA y el
+    que dejó el técnico tras revisarlo — de ahí se aprende (Motor 7)."""
+
+    transcript: str = Field(min_length=1, max_length=20000)
+    ai: VoiceFields
+    final: VoiceFields
+    classified: bool = True
+
+
+class VoiceExampleOut(BaseModel):
+    id: int
+    project_id: int
+    transcript: str
+    ai_notes: str
+    ai_measurements: str
+    ai_observations: str
+    final_notes: str
+    final_measurements: str
+    final_observations: str
+    ai_classified: bool
+    corrected: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class SurveyOut(BaseModel):
     id: int
     project_id: int

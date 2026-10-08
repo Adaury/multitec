@@ -5,8 +5,10 @@ from app.ai_engine.learning_analysis import detect_accessory_candidates, detect_
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.ai_feedback_event import AIFeedbackEvent
+from app.models.voice_survey_example import VoiceSurveyExample
 from app.schemas.ai_feedback_event import AIFeedbackEventOut
 from app.schemas.learning_analysis import AccessoryCandidateOut, LearningAnalysisOut, StaleRuleCandidateOut
+from app.schemas.survey import VoiceExampleOut
 
 router = APIRouter(prefix="/api/ai-feedback-events", tags=["ai-feedback-events"])
 
@@ -44,3 +46,14 @@ def analyze_ai_feedback_events(db: Session = Depends(get_db), _=Depends(admin_on
             StaleRuleCandidateOut.model_validate(c, from_attributes=True) for c in detect_stale_rule_candidates(db)
         ],
     )
+
+
+@router.get("/voice-examples", response_model=list[VoiceExampleOut])
+def list_voice_examples(corrected_only: bool = False, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    """Lo que la IA ha aprendido del levantamiento por voz: cada dictado con el reparto de la IA y
+    el que dejó el técnico. Las `corrected` son las que se usan como ejemplos en el siguiente
+    dictado (ver `app.ai_engine.learning.recent_voice_examples`). Solo lectura."""
+    query = db.query(VoiceSurveyExample)
+    if corrected_only:
+        query = query.filter(VoiceSurveyExample.corrected.is_(True))
+    return query.order_by(VoiceSurveyExample.created_at.desc(), VoiceSurveyExample.id.desc()).limit(50).all()

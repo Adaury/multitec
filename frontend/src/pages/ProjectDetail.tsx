@@ -663,6 +663,7 @@ function LevantamientoTab({
     <div className="space-y-4">
       {voiceResult ? (
         <VoiceReviewCard
+          projectId={projectId}
           key={voiceResult.transcript}
           result={voiceResult}
           busy={voiceBusy || generate.isPending}

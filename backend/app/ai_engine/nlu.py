@@ -89,7 +89,17 @@ VOICE_SURVEY_SCHEMA = {
 }
 
 
-def classify_voice_transcript(transcript: str) -> dict:
+def _format_voice_examples(examples: list[dict]) -> str:
+    """Ejemplos reales de esta empresa (lo que el técnico dejó tras corregir a la IA), para que el
+    modelo imite su criterio de reparto. Se serializan como JSON, igual que la salida esperada."""
+    blocks = []
+    for i, ex in enumerate(examples, 1):
+        result = {k: ex.get(k, "") for k in ("notes", "measurements", "observations")}
+        blocks.append(f"Ejemplo {i}\nDictado: {ex['transcript']}\nResultado: {json.dumps(result, ensure_ascii=False)}")
+    return "\n\n".join(blocks)
+
+
+def classify_voice_transcript(transcript: str, examples: list[dict] | None = None) -> dict:
     """Reparte lo que el técnico dijo en voz alta entre los tres campos del levantamiento
     (Notas, Medidas, Observaciones). Solo reorganiza y limpia muletillas — no agrega ni
     inventa datos. Si Ollama falla o devuelve algo inútil, se degrada a poner la
@@ -110,13 +120,20 @@ def classify_voice_transcript(transcript: str) -> dict:
         "Reglas estrictas:\n"
         "1. Usa las mismas palabras del técnico. NO agregues verbos, frases ni datos que él no "
         "dijo (por ejemplo no escribas \"comprar\", ni \"no hay restricciones\").\n"
-        "2. Conserva las cantidades y números exactos.\n"
+        "2. Conserva las cantidades y números exactos y NUNCA los omitas: \"tres cámaras\" se queda "
+        "como \"tres cámaras\" (o \"3 cámaras\"), jamás como \"cámaras\".\n"
         "3. Cada frase del dictado va en UN solo campo; no repitas la misma información en dos "
         "campos.\n"
         "4. Si un campo no tiene contenido en el dictado, déjalo como \"\" (vacío). Nunca "
         "escribas \"ninguna\", \"no hay\" ni \"N/A\".\n\n"
-        f"Dictado:\n{transcript}"
     )
+    if examples:
+        prompt += (
+            "Así reparte ESTA empresa lo que dictan sus técnicos (corregido por ellos mismos). "
+            "Imita su criterio de qué va en cada campo y cómo lo redactan, pero sigue usando solo "
+            "lo que dice el dictado nuevo:\n\n" + _format_voice_examples(examples) + "\n\n"
+        )
+    prompt += f"Dictado nuevo:\n{transcript}"
 
     def run():
         response = client.chat(

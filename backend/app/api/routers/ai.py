@@ -1,10 +1,11 @@
 import logging
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.ai_engine.documents import compute_survey_items, draft_engineering, generate_documents_from_survey
+from app.ai_engine.learning import recent_voice_examples, record_voice_feedback
 from app.ai_engine.nlu import classify_voice_transcript, summarize_survey
 from app.ai_engine.qa import answer_question
 from app.ai_engine.transcription import transcribe_audio
@@ -20,7 +21,7 @@ from app.models.survey import Survey
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas.ai import AskRequest, AskResponse, BudgetSuggestionOut, EngineeringDraftOut, GenerateFromSurveyOut
-from app.schemas.survey import SurveyOut, VoiceSurveyOut
+from app.schemas.survey import SurveyOut, VoiceFeedbackIn, VoiceSurveyOut
 from app.services.embeddings import reindex_project, search_projects
 from app.services.notifications import notify_quote_pending
 
@@ -159,7 +160,33 @@ def transcribe_survey_audio(project_id: int, asset_id: int, db: Session = Depend
     asset.description = transcript[:255]
     db.commit()
 
-    return VoiceSurveyOut(transcript=transcript, **classify_voice_transcript(transcript))
+    # Motor 7: el reparto se apoya en las correcciones previas de los técnicos de esta empresa.
+    examples = recent_voice_examples(db)
+    return VoiceSurveyOut(transcript=transcript, **classify_voice_transcript(transcript, examples))
+
+
+@router.post("/api/projects/{project_id}/survey/voice-feedback", status_code=status.HTTP_204_NO_CONTENT)
+def record_voice_survey_feedback(
+    project_id: int,
+    payload: VoiceFeedbackIn,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(allowed_roles),
+):
+    """El técnico aplicó un dictado: se guarda lo que dijo, cómo lo repartió la IA y cómo lo dejó
+    tras revisarlo. Es la señal con la que el reparto mejora (ver `recent_voice_examples`)."""
+    if db.get(Project, project_id) is None:
+        raise HTTPException(status_code=404, detail="Proyecto no encontrado")
+    record_voice_feedback(
+        db,
+        project_id,
+        payload.transcript,
+        payload.ai.model_dump(),
+        payload.final.model_dump(),
+        payload.classified,
+        current_user.id,
+    )
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/api/projects/{project_id}/engineering/ai-draft", response_model=EngineeringDraftOut)

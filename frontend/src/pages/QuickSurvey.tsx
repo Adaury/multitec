@@ -236,6 +236,7 @@ export function QuickSurvey() {
 
         {voiceResult ? (
           <VoiceReviewCard
+            projectId={project.id}
             key={voiceResult.transcript}
             result={voiceResult}
             busy={busy}
