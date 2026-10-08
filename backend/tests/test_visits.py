@@ -150,3 +150,44 @@ def test_update_visit_with_missing_technician_fails(client, admin_token):
 
     resp = client.put(f"/api/visits/{visit['id']}", json={"technician_id": 999999}, headers=headers)
     assert resp.status_code == 404
+
+
+def test_visit_exposes_client_location_and_phone(client, admin_token):
+    """La tarjeta del calendario usa estos campos para 'Cómo llegar' y 'Llamar'."""
+    headers = auth_headers(admin_token)
+    client_resp = client.post(
+        "/api/clients",
+        json={
+            "name": "Cliente con mapa",
+            "address": "Calle 5 #12, Santo Domingo",
+            "location_url": "https://www.google.com/maps?q=18.486058,-69.931212",
+            "phone": "809-555-0100",
+        },
+        headers=headers,
+    )
+    project = client.post("/api/projects", json={"client_id": client_resp.json()["id"]}, headers=headers).json()
+
+    created = client.post(
+        "/api/visits",
+        json={"project_id": project["id"], "scheduled_date": date.today().isoformat()},
+        headers=headers,
+    ).json()
+    assert created["client_address"] == "Calle 5 #12, Santo Domingo"
+    assert created["client_location_url"].startswith("https://www.google.com/maps")
+    assert created["client_phone"] == "809-555-0100"
+
+    listed = client.get("/api/visits", headers=headers).json()
+    assert listed[0]["client_address"] == "Calle 5 #12, Santo Domingo"
+
+
+def test_visit_location_fields_are_null_when_client_has_none(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    created = client.post(
+        "/api/visits",
+        json={"project_id": project["id"], "scheduled_date": date.today().isoformat()},
+        headers=headers,
+    ).json()
+    assert created["client_address"] is None
+    assert created["client_location_url"] is None
+    assert created["client_phone"] is None

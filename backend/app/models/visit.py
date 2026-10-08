@@ -36,5 +36,17 @@ class Visit(Base):
         return self.project.client.name
 
     @property
+    def client_address(self) -> str | None:
+        return self.project.client.address
+
+    @property
+    def client_location_url(self) -> str | None:
+        return self.project.client.location_url
+
+    @property
+    def client_phone(self) -> str | None:
+        return self.project.client.phone
+
+    @property
     def technician_name(self) -> str | None:
         return self.technician.name if self.technician else None

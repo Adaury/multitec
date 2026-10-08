@@ -594,6 +594,9 @@ export interface Visit {
   project_id: number
   project_code: string
   client_name: string
+  client_address: string | null
+  client_location_url: string | null
+  client_phone: string | null
   technician_id: number | null
   technician_name: string | null
   scheduled_date: string

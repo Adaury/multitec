@@ -24,6 +24,10 @@ class VisitOut(BaseModel):
     project_id: int
     project_code: str
     client_name: str
+    # Para "Cómo llegar" / "Llamar" directo desde la tarjeta de la visita (calendario).
+    client_address: str | None = None
+    client_location_url: str | None = None
+    client_phone: str | None = None
     technician_id: int | None
     technician_name: str | None = None
     scheduled_date: date

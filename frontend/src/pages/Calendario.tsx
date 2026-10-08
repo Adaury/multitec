@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
+import { directionsUrl } from '../lib/maps'
 import type { Project, Technician, Visit, VisitStatus } from '../lib/types'
 import { VISIT_STATUS_LABELS } from '../lib/types'
 import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
@@ -313,6 +314,8 @@ function VisitCard({
     )
   }
 
+  const directions = directionsUrl({ address: visit.client_address, location_url: visit.client_location_url })
+
   return (
     <Card className="space-y-2">
       <div className="flex items-center justify-between">
@@ -322,11 +325,36 @@ function VisitCard({
         <Badge tone={STATUS_TONE[visit.status]}>{VISIT_STATUS_LABELS[visit.status]}</Badge>
       </div>
       <p className="text-sm text-gray-500 dark:text-gray-400">{visit.client_name}</p>
+      {visit.client_address && (
+        <p className="text-sm text-gray-600 dark:text-gray-400">📍 {visit.client_address}</p>
+      )}
       <div className="flex gap-3 text-xs text-gray-400">
         {visit.scheduled_time && <span>🕐 {visit.scheduled_time.slice(0, 5)}</span>}
         <span>👤 {visit.technician_name ?? 'Sin asignar'}</span>
       </div>
       {visit.notes && <p className="text-sm text-gray-600 dark:text-gray-400">{visit.notes}</p>}
+      {(directions || visit.client_phone) && (
+        <div className="flex gap-2">
+          {directions && (
+            <a
+              href={directions}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-brand-blue px-4 py-3 text-sm font-semibold text-white active:scale-[0.98]"
+            >
+              🧭 Cómo llegar
+            </a>
+          )}
+          {visit.client_phone && (
+            <a
+              href={`tel:${visit.client_phone.replace(/[^\d+]/g, '')}`}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-brand-gray px-4 py-3 text-sm font-semibold text-gray-800 active:scale-[0.98] dark:bg-gray-800 dark:text-gray-100"
+            >
+              📞 Llamar
+            </a>
+          )}
+        </div>
+      )}
       {visit.status === 'programada' && (
         <div className="flex flex-wrap gap-2">
           <Button
