@@ -10,6 +10,7 @@ import type {
   Extension,
   ExtensionStatus,
   GenerateFromSurveyOut,
+  VoiceSurveyResult,
   Invoice,
   InvoiceHistoryEntry,
   LineItemInput,
@@ -48,6 +49,7 @@ import { useAuthStore } from '../lib/authStore'
 import { useSpeechDictation } from '../lib/useSpeechDictation'
 import { Badge, Button, Card, Field, IconButton, Textarea } from '../components/ui'
 import { LineItemsEditor } from '../components/LineItemsEditor'
+import { VoiceRecorderCard, VoiceReviewCard, transcribeAsset } from '../components/VoiceSurvey'
 
 function DictationField({
   label,
@@ -62,7 +64,7 @@ function DictationField({
   rows?: number
   placeholder?: string
 }) {
-  const { supported, listening, start, stop } = useSpeechDictation({
+  const { supported, listening, interim, error, start, stop } = useSpeechDictation({
     onResult: (text) => onChange(value ? `${value} ${text}` : text),
   })
 
@@ -71,6 +73,12 @@ function DictationField({
       <div className="flex items-start gap-2">
         <div className="flex-1">
           <Textarea rows={rows} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
+          {listening && (
+            <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+              🔴 Escuchando…{interim && <span className="italic text-gray-500 dark:text-gray-400"> {interim}</span>}
+            </p>
+          )}
+          {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
         </div>
         {supported && (
           <IconButton
@@ -601,8 +609,69 @@ function LevantamientoTab({
     setRecording(true)
   }
 
+  const [voiceResult, setVoiceResult] = useState<VoiceSurveyResult | null>(null)
+  const [voiceBusy, setVoiceBusy] = useState(false)
+  const [voiceError, setVoiceError] = useState<string | null>(null)
+  const [transcribingId, setTranscribingId] = useState<number | null>(null)
+
+  async function transcribeExisting(assetId: number) {
+    setVoiceError(null)
+    setTranscribingId(assetId)
+    try {
+      setVoiceResult(await transcribeAsset(projectId, assetId))
+      queryClient.invalidateQueries({ queryKey: ['survey', projectId] })
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      setVoiceError(typeof detail === 'string' ? detail : 'No se pudo transcribir la nota de voz')
+    } finally {
+      setTranscribingId(null)
+    }
+  }
+
+  async function applyVoice(
+    fields: Pick<VoiceSurveyResult, 'notes' | 'measurements' | 'observations'>,
+    generateAfter: boolean,
+  ) {
+    const append = (current: string, added: string) => [current.trim(), added.trim()].filter(Boolean).join('\n')
+    const merged = {
+      notes: append(notes, fields.notes),
+      measurements: append(measurements, fields.measurements),
+      observations: append(observations, fields.observations),
+    }
+    setVoiceBusy(true)
+    setVoiceError(null)
+    try {
+      await api.put(`/projects/${projectId}/survey`, merged)
+      setNotes(merged.notes)
+      setMeasurements(merged.measurements)
+      setObservations(merged.observations)
+      queryClient.invalidateQueries({ queryKey: ['survey', projectId] })
+      setVoiceResult(null)
+      if (generateAfter) generate.mutate()
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail
+      setVoiceError(typeof detail === 'string' ? detail : 'No se pudo guardar el levantamiento')
+    } finally {
+      setVoiceBusy(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
+      {voiceResult ? (
+        <VoiceReviewCard
+          key={voiceResult.transcript}
+          result={voiceResult}
+          busy={voiceBusy || generate.isPending}
+          onApply={(fields) => applyVoice(fields, false)}
+          onApplyAndGenerate={(fields) => applyVoice(fields, true)}
+          onDiscard={() => setVoiceResult(null)}
+        />
+      ) : (
+        <VoiceRecorderCard projectId={projectId} onTranscribed={setVoiceResult} />
+      )}
+      {voiceError && <p className="text-sm text-red-600 dark:text-red-400">{voiceError}</p>}
+
       <Card className="space-y-3">
         <DictationField label="Notas" rows={3} value={notes} onChange={setNotes} />
         <DictationField
@@ -680,12 +749,23 @@ function LevantamientoTab({
           {survey?.assets
             .filter((a) => a.kind === 'audio')
             .map((asset) => (
-              <div key={asset.id} className="flex items-center gap-2">
+              <div key={asset.id} className="space-y-1">
+              <div className="flex items-center gap-2">
                 <audio
                   controls
                   src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
                   className="w-full"
                 />
+                <button
+                  type="button"
+                  onClick={() => transcribeExisting(asset.id)}
+                  disabled={transcribingId !== null}
+                  aria-label="Transcribir nota de voz"
+                  title="Transcribir y repartir en el levantamiento"
+                  className="shrink-0 rounded-full bg-brand-gray px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  {transcribingId === asset.id ? '…' : '📝'}
+                </button>
                 <button
                   type="button"
                   onClick={() => deleteAsset.mutate(asset.id)}
@@ -695,6 +775,10 @@ function LevantamientoTab({
                 >
                   ✕
                 </button>
+              </div>
+              {asset.description && (
+                <p className="line-clamp-2 text-xs text-gray-500 dark:text-gray-400">{asset.description}</p>
+              )}
               </div>
             ))}
         </div>

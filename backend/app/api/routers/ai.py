@@ -1,11 +1,13 @@
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.ai_engine.documents import compute_survey_items, draft_engineering, generate_documents_from_survey
-from app.ai_engine.nlu import summarize_survey
+from app.ai_engine.nlu import classify_voice_transcript, summarize_survey
 from app.ai_engine.qa import answer_question
+from app.ai_engine.transcription import transcribe_audio
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.budget import Budget
@@ -18,7 +20,7 @@ from app.models.survey import Survey
 from app.models.ticket import Ticket
 from app.models.user import User
 from app.schemas.ai import AskRequest, AskResponse, BudgetSuggestionOut, EngineeringDraftOut, GenerateFromSurveyOut
-from app.schemas.survey import SurveyOut
+from app.schemas.survey import SurveyOut, VoiceSurveyOut
 from app.services.embeddings import reindex_project, search_projects
 from app.services.notifications import notify_quote_pending
 
@@ -131,6 +133,33 @@ def ai_summarize_survey(project_id: int, db: Session = Depends(get_db), _=Depend
     db.commit()
     db.refresh(survey)
     return survey
+
+
+@router.post("/api/projects/{project_id}/survey/assets/{asset_id}/transcribe", response_model=VoiceSurveyOut)
+def transcribe_survey_audio(project_id: int, asset_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    """Transcribe (Whisper local) una nota de voz ya subida al levantamiento y reparte el
+    texto en Notas/Medidas/Observaciones. No modifica el Survey: el frontend muestra el
+    resultado para que el técnico lo revise y decida aplicarlo."""
+    survey = (
+        db.query(Survey)
+        .options(joinedload(Survey.assets))
+        .filter(Survey.project_id == project_id)
+        .one_or_none()
+    )
+    if survey is None:
+        raise HTTPException(status_code=404, detail="Levantamiento no encontrado")
+    asset = next((a for a in survey.assets if a.id == asset_id and a.kind == "audio"), None)
+    if asset is None or not Path(asset.file_path).is_file():
+        raise HTTPException(status_code=404, detail="Nota de voz no encontrada")
+
+    transcript = transcribe_audio(asset.file_path)
+    if not transcript:
+        raise HTTPException(status_code=422, detail="No se entendió nada en el audio. Habla más cerca o repite.")
+
+    asset.description = transcript[:255]
+    db.commit()
+
+    return VoiceSurveyOut(transcript=transcript, **classify_voice_transcript(transcript))
 
 
 @router.post("/api/projects/{project_id}/engineering/ai-draft", response_model=EngineeringDraftOut)

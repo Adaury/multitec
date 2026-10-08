@@ -118,6 +118,15 @@ export interface SurveyAsset {
   created_at: string
 }
 
+export interface VoiceSurveyResult {
+  transcript: string
+  notes: string
+  measurements: string
+  observations: string
+  /** false = la IA no pudo repartir el texto; todo quedó en Notas. */
+  classified: boolean
+}
+
 export interface Survey {
   id: number
   project_id: number

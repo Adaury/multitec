@@ -68,6 +68,12 @@ class Settings(BaseSettings):
     ai_vision_model: str = "llava"
     ai_embedding_model: str = "nomic-embed-text"
 
+    # Transcripción de voz local (faster-whisper) — ver app/ai_engine/transcription.py. El
+    # modelo se descarga solo la primera vez que se usa (small ≈ 500 MB, buen español en CPU;
+    # "medium" es más preciso pero ~3x más lento).
+    whisper_model: str = "small"
+    whisper_compute_type: str = "int8"
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

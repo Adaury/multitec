@@ -78,6 +78,69 @@ def summarize_survey(notes: str, measurements: str, observations: str, image_pat
     return result
 
 
+VOICE_SURVEY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "notes": {"type": "string"},
+        "measurements": {"type": "string"},
+        "observations": {"type": "string"},
+    },
+    "required": ["notes", "measurements", "observations"],
+}
+
+
+def classify_voice_transcript(transcript: str) -> dict:
+    """Reparte lo que el técnico dijo en voz alta entre los tres campos del levantamiento
+    (Notas, Medidas, Observaciones). Solo reorganiza y limpia muletillas — no agrega ni
+    inventa datos. Si Ollama falla o devuelve algo inútil, se degrada a poner la
+    transcripción completa en Notas para no perder nada; `classified` indica cuál ocurrió."""
+    fallback = {"notes": transcript, "measurements": "", "observations": "", "classified": False}
+    if not transcript.strip():
+        return fallback
+
+    settings = get_settings()
+    client = get_client()
+    prompt = (
+        "Un técnico de seguridad electrónica (CCTV, redes, control de acceso) dictó en voz "
+        "alta lo que ve durante un levantamiento en sitio. Tu única tarea es COPIAR cada frase "
+        "del dictado al campo que le corresponde, en español:\n"
+        "- notes: qué hay que instalar o hacer (equipos, cantidades, ubicaciones, trabajos).\n"
+        "- measurements: distancias, alturas, metrajes y dimensiones, con su unidad.\n"
+        "- observations: condiciones del sitio, riesgos, restricciones, pedidos del cliente.\n\n"
+        "Reglas estrictas:\n"
+        "1. Usa las mismas palabras del técnico. NO agregues verbos, frases ni datos que él no "
+        "dijo (por ejemplo no escribas \"comprar\", ni \"no hay restricciones\").\n"
+        "2. Conserva las cantidades y números exactos.\n"
+        "3. Cada frase del dictado va en UN solo campo; no repitas la misma información en dos "
+        "campos.\n"
+        "4. Si un campo no tiene contenido en el dictado, déjalo como \"\" (vacío). Nunca "
+        "escribas \"ninguna\", \"no hay\" ni \"N/A\".\n\n"
+        f"Dictado:\n{transcript}"
+    )
+
+    def run():
+        response = client.chat(
+            model=settings.ai_model,
+            format=VOICE_SURVEY_SCHEMA,
+            messages=[{"role": "user", "content": prompt}],
+            options={**OLLAMA_OPTIONS, "temperature": 0},  # copiar, no "crear": sin aleatoriedad
+        )
+        return json.loads(response.message.content)
+
+    try:
+        data = _call(run)
+    except Exception:
+        # _call ya registró el detalle (y convierte el error en HTTPException): aquí se
+        # degrada en vez de fallar, porque la transcripción en sí ya se obtuvo.
+        return fallback
+
+    result = {key: str(data.get(key) or "").strip() for key in ("notes", "measurements", "observations")}
+    if not any(result.values()):
+        return fallback
+    result["classified"] = True
+    return result
+
+
 SURVEY_ENTITIES_SCHEMA = {
     "type": "object",
     "properties": {

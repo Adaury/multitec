@@ -14,3 +14,5 @@ ollama>=0.4
 psycopg2-binary>=2.9
 slowapi>=0.1.9
 reportlab>=4.2
+faster-whisper>=1.1
+av>=14,<17  # av 17+ quita metadata_errors, que faster-whisper aún usa al decodificar

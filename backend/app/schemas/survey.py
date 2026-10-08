@@ -20,6 +20,17 @@ class SurveyAssetOut(BaseModel):
         from_attributes = True
 
 
+class VoiceSurveyOut(BaseModel):
+    """Resultado de transcribir una nota de voz: el texto crudo más su reparto en los campos
+    del levantamiento. No se guarda en el Survey — el técnico lo revisa antes de aplicarlo."""
+
+    transcript: str
+    notes: str
+    measurements: str
+    observations: str
+    classified: bool
+
+
 class SurveyOut(BaseModel):
     id: int
     project_id: int

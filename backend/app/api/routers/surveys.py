@@ -60,7 +60,10 @@ async def upload_asset(
 ):
     if kind not in ALLOWED_KINDS:
         raise HTTPException(status_code=400, detail="kind debe ser 'photo' o 'audio'")
-    if file.content_type not in ALLOWED_CONTENT_TYPES[kind]:
+    # MediaRecorder en Chrome/Edge etiqueta el audio "audio/webm;codecs=opus" — se compara
+    # solo el tipo base, sin los parámetros.
+    base_type = (file.content_type or "").split(";")[0].strip().lower()
+    if base_type not in ALLOWED_CONTENT_TYPES[kind]:
         raise HTTPException(status_code=400, detail=f"Tipo de archivo no permitido para {kind}: {file.content_type}")
 
     survey = _get_survey(db, project_id)
