@@ -5,6 +5,7 @@ import { api } from '../lib/api'
 import { formatDOP } from '../lib/format'
 import type { Client, ClientInput, GenerateFromSurveyOut, Project, VoiceSurveyResult } from '../lib/types'
 import { Button, Card, Field, Input } from '../components/ui'
+import { MapPreview } from '../components/MapPreview'
 import { VoiceRecorderCard, VoiceReviewCard } from '../components/VoiceSurvey'
 
 type Step = 'datos' | 'narrar' | 'listo'
@@ -381,6 +382,7 @@ export function QuickSurvey() {
         <Field label="Enlace de Google Maps (opcional)">
           <Input placeholder="Se llena solo con el GPS, o pega uno" value={locationUrl} onChange={(e) => setLocationUrl(e.target.value)} />
         </Field>
+        <MapPreview place={{ address, location_url: locationUrl }} />
       </Card>
 
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}

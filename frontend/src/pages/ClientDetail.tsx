@@ -6,6 +6,7 @@ import type { Client, ClientInput, Project } from '../lib/types'
 import { PROJECT_STATUS_LABELS } from '../lib/types'
 import { Badge, Button, Card } from '../components/ui'
 import { ClientFormFields } from '../components/ClientFormFields'
+import { MapPreview } from '../components/MapPreview'
 
 function clientToForm(client: Client): ClientInput {
   return {
@@ -109,16 +110,7 @@ export function ClientDetail() {
                 {client.address && <p>Dirección: {client.address}</p>}
                 {client.notes && <p>Notas: {client.notes}</p>}
               </div>
-              {client.location_url && (
-                <a
-                  href={client.location_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 inline-block rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
-                >
-                  🧭 Iniciar trayecto
-                </a>
-              )}
+              <MapPreview place={client} className="mt-3" />
             </>
           )}
         </Card>

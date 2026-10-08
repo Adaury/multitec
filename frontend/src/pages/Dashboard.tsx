@@ -12,20 +12,12 @@ const quickActions = [
   { label: 'Nueva Cotización', icon: '🧾', to: '/proyectos' },
 ]
 
-const baseMenu = [
+// Accesos grandes del Inicio móvil: solo lo que se usa a diario. El resto está en "Más".
+const mobileTiles = [
   { label: 'Clientes', icon: '👤', to: '/clientes' },
   { label: 'Proyectos', icon: '📁', to: '/proyectos' },
-  { label: 'Calendario', icon: '📅', to: '/calendario' },
-  { label: 'Catálogo', icon: '📦', to: '/catalogo' },
-  { label: 'Proveedores', icon: '🏢', to: '/proveedores' },
-  { label: 'Presupuestos', icon: '💰', to: '/presupuestos' },
   { label: 'Cotizaciones', icon: '🧾', to: '/cotizaciones' },
-  { label: 'Compras', icon: '🛒', to: '/proyectos' },
-  { label: 'Prefacturas', icon: '📄', to: '/proyectos' },
-  { label: 'Facturas', icon: '🧮', to: '/proyectos' },
-  { label: 'Bitácora', icon: '📓', to: '/proyectos' },
-  { label: 'Tickets', icon: '🎫', to: '/proyectos' },
-  { label: 'Preguntar IA', icon: '🤖', to: '/preguntar' },
+  { label: 'Calendario', icon: '📅', to: '/calendario' },
 ]
 
 function MonthlyInvoicingChart({ data }: { data: DashboardSummary['monthly_invoicing'] }) {
@@ -199,24 +191,49 @@ function DashboardKpis() {
 
 export function Dashboard() {
   const navigate = useNavigate()
-  const role = useAuthStore((s) => s.user?.role)
-  const isAdmin = role === 'admin'
+  const user = useAuthStore((s) => s.user)
+  const role = user?.role
   const canSeeReports = role === 'admin' || role === 'oficina'
-  const menu = isAdmin
-    ? [...baseMenu, { label: 'Usuarios', icon: '⚙️', to: '/usuarios' }, { label: 'NCF', icon: '🧾', to: '/ncf' }]
-    : baseMenu
+  const firstName = user?.name?.split(' ')[0]
 
   return (
     <div className="space-y-6 py-4 md:space-y-8 md:py-8">
-      <div>
-        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Acciones rápidas</h1>
-        <div className="mt-3 grid grid-cols-3 gap-3 md:max-w-xl md:gap-4">
+      {/* Móvil: un botón principal enorme + cuatro accesos grandes. */}
+      <div className="space-y-4 md:hidden">
+        {firstName && <p className="text-lg text-gray-500 dark:text-gray-400">Hola, {firstName} 👋</p>}
+        <Link
+          to="/nuevo"
+          className="flex items-center gap-4 rounded-3xl bg-brand-blue p-6 text-white shadow-lg active:scale-[0.98]"
+        >
+          <span className="text-6xl">🎙️</span>
+          <span>
+            <span className="block text-2xl font-bold leading-tight">Nuevo levantamiento</span>
+            <span className="mt-1 block text-sm text-blue-100">Cliente, ubicación y narras</span>
+          </span>
+        </Link>
+        <div className="grid grid-cols-2 gap-4">
+          {mobileTiles.map((tile) => (
+            <Link
+              key={tile.to}
+              to={tile.to}
+              className="flex h-36 flex-col items-center justify-center gap-3 rounded-3xl bg-white shadow-sm ring-1 ring-black/5 active:scale-[0.97] dark:bg-gray-900 dark:ring-white/10"
+            >
+              <span className="text-6xl leading-none">{tile.icon}</span>
+              <span className="text-lg font-semibold text-gray-800 dark:text-gray-100">{tile.label}</span>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {/* Escritorio: acciones rápidas (la barra lateral cubre el resto de la navegación). */}
+      <div className="hidden md:block">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Acciones rápidas</h1>
+        <div className="mt-3 grid max-w-xl grid-cols-3 gap-4">
           {quickActions.map((action) => (
             <button
               key={action.label}
-              disabled={!action.to}
-              onClick={() => action.to && navigate(action.to)}
-              className="flex flex-col items-center gap-2 rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5 disabled:opacity-40 dark:bg-gray-900 dark:ring-white/10"
+              onClick={() => navigate(action.to)}
+              className="flex flex-col items-center gap-2 rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10"
             >
               <span className="text-2xl">{action.icon}</span>
               <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{action.label}</span>
@@ -226,32 +243,6 @@ export function Dashboard() {
       </div>
 
       {canSeeReports && <DashboardKpis />}
-
-      {/* En escritorio la barra lateral ya cubre toda la navegación — esta cuadrícula
-          solo hace falta en móvil, donde el menú de abajo apenas tiene 4 accesos. */}
-      <div className="md:hidden">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Menú</h2>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          {menu.map((item) => (
-            <Card
-              key={item.label}
-              className={`flex items-center gap-3 ${!item.to ? 'opacity-40' : 'cursor-pointer active:scale-[0.98]'}`}
-            >
-              <button
-                disabled={!item.to}
-                onClick={() => item.to && navigate(item.to)}
-                className="flex w-full items-center gap-3 text-left disabled:cursor-default"
-              >
-                <span className="text-xl">{item.icon}</span>
-                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                  {item.label}
-                  {!item.to && <span className="block text-[10px] font-normal text-gray-400">próximamente</span>}
-                </span>
-              </button>
-            </Card>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
