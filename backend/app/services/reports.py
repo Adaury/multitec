@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.timeutil import to_local, today_dr
+from app.core.timeutil import as_utc, to_local, today_dr
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.quote import Quote
@@ -48,10 +48,7 @@ def _stale_quotes(db: Session) -> list[dict]:
     rows = []
     newly_stale = []
     for quote in quotes:
-        created_at = quote.created_at
-        if created_at.tzinfo is None:  # SQLite devuelve los DateTime sin zona (guardados en UTC)
-            created_at = created_at.replace(tzinfo=timezone.utc)
-        days_pending = (now - created_at).days
+        days_pending = (now - as_utc(quote.created_at)).days
         rows.append(
             {
                 "id": quote.id,

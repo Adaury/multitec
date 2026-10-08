@@ -1,9 +1,9 @@
 from datetime import date, datetime
 
-from app.core.timeutil import today_dr
 from sqlalchemy import Date, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.timeutil import today_dr
 from app.db.base import Base
 
 

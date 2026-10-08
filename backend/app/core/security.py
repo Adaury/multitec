@@ -10,6 +10,7 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.timeutil import as_utc
 from app.db.session import get_db
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
@@ -75,13 +76,7 @@ def get_valid_refresh_token(db: Session, raw_token: str) -> RefreshToken | None:
         db.commit()
         return None
 
-    # SQLite devuelve datetimes "naive" aunque la columna sea DateTime(timezone=True)
-    # (Postgres sí preserva el tzinfo) — se normaliza a UTC antes de comparar.
-    expires_at = row.expires_at
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-
-    if expires_at < datetime.now(timezone.utc):
+    if as_utc(row.expires_at) < datetime.now(timezone.utc):
         return None
     return row
 
