@@ -7,9 +7,14 @@ análisis periódico queda para cuando haya volumen suficiente de proyectos (ver
 evolución del documento de arquitectura). Aquí solo se escribe la señal cruda.
 """
 
+import re
+from collections import Counter, defaultdict
+from dataclasses import dataclass, field
+
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.ai_engine.tagging import normalize_text
 from app.models.ai_feedback_event import (
     ENTITY_TYPE_BUDGET_ITEM,
     ENTITY_TYPE_ENGINEERING,
@@ -20,6 +25,8 @@ from app.models.ai_feedback_event import (
 )
 from app.models.budget import Budget
 from app.models.engineering import Engineering
+from app.models.product import Product
+from app.models.product_match_correction import ProductMatchCorrection
 from app.models.voice_survey_example import VoiceSurveyExample
 
 ENGINEERING_FIELDS = (
@@ -41,7 +48,11 @@ def _budget_item_key(product_id: int | None, description: str):
 
 
 def record_budget_edit_feedback(
-    db: Session, project_id: int, budget: Budget, new_items: list[tuple[int | None, str, float]]
+    db: Session,
+    project_id: int,
+    budget: Budget,
+    new_items: list[tuple[int | None, str, float]],
+    user_id: int | None = None,
 ) -> None:
     """Si `budget.ai_generated` sigue en True, compara sus líneas actuales (= lo que
     sugirió la IA, porque nada las tocó todavía) contra `new_items` (lo que un humano está
@@ -102,7 +113,72 @@ def record_budget_edit_feedback(
                 )
             )
 
+    _record_product_replacements(db, project_id, budget, new_items, user_id)
     budget.ai_generated = False
+
+
+def _pair_replacements(removed: list[tuple], added: list[tuple]) -> list[tuple[tuple, tuple]]:
+    """Empareja una línea quitada con una agregada solo cuando es inequívoco: misma cantidad y
+    ninguna otra candidata de ese lado ni del otro. Una sustitución de producto no deja rastro
+    explícito (la edición manda la lista final), así que se infiere — con dudas, no se aprende."""
+    pairs = []
+    for r in removed:
+        candidates = [a for a in added if a[2] == r[2]]
+        if len(candidates) != 1:
+            continue
+        a = candidates[0]
+        if sum(1 for x in removed if x[2] == a[2]) != 1:
+            continue
+        pairs.append((r, a))
+    return pairs
+
+
+def _record_product_replacements(
+    db: Session,
+    project_id: int,
+    budget: Budget,
+    new_items: list[tuple[int | None, str, float]],
+    user_id: int | None,
+) -> None:
+    """Aprendizaje de sinónimos: si el humano quitó una línea (lo que la IA emparejó mal, o no
+    emparejó) y puso otro producto en su lugar, queda registrado "dijo X → es el producto Y".
+    Solo cuenta la descripción que dijo el técnico: las líneas cuya descripción es el nombre del
+    propio producto (accesorios agregados por reglas) no son algo que alguien dijera."""
+    new_keys = {_budget_item_key(pid, desc) for pid, desc, _ in new_items}
+    old_keys = {_budget_item_key(i.product_id, i.description) for i in budget.items}
+
+    removed = [
+        (i.product_id, i.description, float(i.quantity))
+        for i in budget.items
+        if _budget_item_key(i.product_id, i.description) not in new_keys
+    ]
+    added = [
+        (pid, desc, float(q))
+        for pid, desc, q in new_items
+        if pid is not None and _budget_item_key(pid, desc) not in old_keys
+    ]
+    if not removed or not added:
+        return
+
+    removed_ids = {r[0] for r in removed if r[0] is not None}
+    names = (
+        {pid: normalize_text(name) for pid, name in db.query(Product.id, Product.name).filter(Product.id.in_(removed_ids))}
+        if removed_ids
+        else {}
+    )
+    spoken = [r for r in removed if normalize_text(r[1]) and normalize_text(r[1]) != names.get(r[0])]
+
+    for removed_line, added_line in _pair_replacements(spoken, added):
+        db.add(
+            ProductMatchCorrection(
+                project_id=project_id,
+                budget_id=budget.id,
+                spoken_text=removed_line[1].strip()[:255],
+                ai_product_id=removed_line[0],
+                human_product_id=added_line[0],
+                created_by=user_id,
+            )
+        )
 
 
 def record_engineering_edit_feedback(db: Session, project_id: int, engineering: Engineering, new_values: dict) -> None:
@@ -196,3 +272,61 @@ def recent_voice_examples(db: Session, limit: int = VOICE_EXAMPLES_LIMIT) -> lis
         }
         for r in rows
     ]
+
+
+# --- Sinónimos de producto: aprender cómo dicen los técnicos lo que hay en el catálogo --------
+
+# Con una sola corrección puede ser un error o un caso raro: solo se le da la razón a los
+# humanos sobre el modelo cuando la misma frase se corrigió al mismo producto 2+ veces y sin
+# que otro producto le haya ganado.
+MIN_CONFIRMATIONS = 2
+HINTS_LIMIT = 8
+
+
+@dataclass
+class LearnedMatches:
+    """`overrides`: frase normalizada -> producto confirmado (reemplaza lo que decida el modelo).
+    `hints`: correcciones sueltas recientes (frase normalizada, producto) que solo se le muestran
+    al modelo como pista, sin imponerlas."""
+
+    overrides: dict[str, int] = field(default_factory=dict)
+    hints: list[tuple[str, int]] = field(default_factory=list)
+
+
+def get_learned_matches(db: Session) -> LearnedMatches:
+    rows = (
+        db.query(ProductMatchCorrection)
+        .order_by(ProductMatchCorrection.created_at.desc(), ProductMatchCorrection.id.desc())
+        .limit(500)
+        .all()
+    )
+    counts: dict[str, Counter] = defaultdict(Counter)
+    for row in rows:
+        phrase = normalize_text(row.spoken_text)
+        if phrase:
+            counts[phrase][row.human_product_id] += 1
+
+    learned = LearnedMatches()
+    for phrase, counter in counts.items():
+        ranked = counter.most_common()
+        top_id, top_count = ranked[0]
+        if top_count >= MIN_CONFIRMATIONS and (len(ranked) == 1 or top_count > ranked[1][1]):
+            learned.overrides[phrase] = top_id
+
+    seen: set[tuple[str, int]] = set()
+    for row in rows:  # más recientes primero
+        phrase = normalize_text(row.spoken_text)
+        key = (phrase, row.human_product_id)
+        if not phrase or phrase in learned.overrides or key in seen:
+            continue
+        seen.add(key)
+        learned.hints.append(key)
+        if len(learned.hints) >= HINTS_LIMIT:
+            break
+    return learned
+
+
+def phrase_matches(description: str, phrase: str) -> bool:
+    """¿`description` es la frase aprendida o la contiene como palabra(s) completa(s)?"""
+    normalized = normalize_text(description)
+    return normalized == phrase or bool(re.search(rf"\b{re.escape(phrase)}\b", normalized))

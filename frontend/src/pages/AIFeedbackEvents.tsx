@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import type {
   AccessoryCandidate,
@@ -9,6 +9,7 @@ import type {
   Product,
   Project,
   StaleRuleCandidate,
+  SynonymCandidate,
   VoiceExample,
 } from '../lib/types'
 import { useAuthStore } from '../lib/authStore'
@@ -139,6 +140,45 @@ function AccessoryCandidateCard({ candidate, onHandled }: { candidate: Accessory
   )
 }
 
+function SynonymCandidateCard({
+  candidate,
+  existingSynonyms,
+  onHandled,
+}: {
+  candidate: SynonymCandidate
+  existingSynonyms: string[]
+  onHandled: () => void
+}) {
+  const queryClient = useQueryClient()
+  const [error, setError] = useState<string | null>(null)
+
+  const addSynonym = useMutation({
+    mutationFn: async () =>
+      (await api.put(`/catalog/${candidate.product_id}`, { synonyms: [...existingSynonyms, candidate.phrase] })).data,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['catalog'] })
+      onHandled()
+    },
+    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo agregar el sinónimo'),
+  })
+
+  return (
+    <Card className="space-y-2">
+      <p className="text-sm text-gray-700 dark:text-gray-300">
+        Los técnicos dicen <strong>“{candidate.phrase}”</strong> y se corrigió a{' '}
+        <strong>{candidate.product_name}</strong> {candidate.confirmations} veces.
+      </p>
+      {candidate.example_project_codes.length > 0 && (
+        <p className="text-xs text-gray-400">Ejemplos: {candidate.example_project_codes.join(', ')}</p>
+      )}
+      <Button onClick={() => addSynonym.mutate()} disabled={addSynonym.isPending}>
+        {addSynonym.isPending ? 'Agregando…' : `+ Agregar “${candidate.phrase}” como sinónimo`}
+      </Button>
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+    </Card>
+  )
+}
+
 function StaleRuleCandidateCard({ candidate, onHandled }: { candidate: StaleRuleCandidate; onHandled: () => void }) {
   const [error, setError] = useState<string | null>(null)
 
@@ -173,12 +213,14 @@ export function AIFeedbackEvents() {
   const [projectId, setProjectId] = useState('')
   const [handledAccessoryKeys, setHandledAccessoryKeys] = useState<Set<string>>(new Set())
   const [handledRuleIds, setHandledRuleIds] = useState<Set<number>>(new Set())
+  const [handledSynonymKeys, setHandledSynonymKeys] = useState<Set<string>>(new Set())
 
   const analyze = useMutation({
     mutationFn: async () => (await api.post<LearningAnalysisOut>('/ai-feedback-events/analyze')).data,
     onSuccess: () => {
       setHandledAccessoryKeys(new Set())
       setHandledRuleIds(new Set())
+      setHandledSynonymKeys(new Set())
     },
   })
 
@@ -266,6 +308,24 @@ export function AIFeedbackEvents() {
                       setHandledAccessoryKeys(
                         (prev) => new Set(prev).add(`${c.source_product_id}-${c.added_product_id}`),
                       )
+                    }
+                  />
+                ))}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Sinónimos para el catálogo</p>
+              {analyze.data.synonym_candidates.filter((c) => !handledSynonymKeys.has(`${c.phrase}-${c.product_id}`))
+                .length === 0 && <p className="text-xs text-gray-400">Ningún sinónimo propuesto por ahora.</p>}
+              {analyze.data.synonym_candidates
+                .filter((c) => !handledSynonymKeys.has(`${c.phrase}-${c.product_id}`))
+                .map((c) => (
+                  <SynonymCandidateCard
+                    key={`${c.phrase}-${c.product_id}`}
+                    candidate={c}
+                    existingSynonyms={products?.find((p) => p.id === c.product_id)?.synonyms ?? []}
+                    onHandled={() =>
+                      setHandledSynonymKeys((prev) => new Set(prev).add(`${c.phrase}-${c.product_id}`))
                     }
                   />
                 ))}

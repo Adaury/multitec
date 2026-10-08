@@ -33,6 +33,7 @@ from app.ai_engine.calculation import (
     get_calculation_parameter,
 )
 from app.ai_engine.catalog_matching import suggest_budget_items
+from app.ai_engine.learning import get_learned_matches
 from app.ai_engine.ollama_client import OLLAMA_OPTIONS, _call, get_client
 from app.ai_engine.rules import (
     build_accessory_rule_dicts,
@@ -162,7 +163,7 @@ def compute_survey_items(db: Session, context: str) -> tuple[list[dict], list[st
     rules = build_accessory_rule_dicts(db.query(CatalogRule).all(), technical_rules)
     product_prices = {p.id: float(p.price) for p in products}
 
-    items = suggest_budget_items(context, catalog)
+    items = suggest_budget_items(context, catalog, get_learned_matches(db))
     items = expand_with_rules(items, catalog, rules)
     param_overrides = resolve_calculation_parameter_overrides(items, technical_rules)
     engineering_notes = resolve_engineering_notes(items, technical_rules)

@@ -109,13 +109,18 @@ def get_budget_pdf(budget_id: int, db: Session = Depends(get_db), _=Depends(allo
 
 
 @router.put("/api/budgets/{budget_id}", response_model=BudgetOut)
-def update_budget(budget_id: int, payload: BudgetUpdate, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def update_budget(
+    budget_id: int,
+    payload: BudgetUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(allowed_roles),
+):
     budget = db.query(Budget).options(joinedload(Budget.items)).filter(Budget.id == budget_id).one_or_none()
     if budget is None:
         raise HTTPException(status_code=404, detail="Presupuesto no encontrado")
 
     new_items = [(item.product_id, item.description, item.quantity) for item in payload.items]
-    record_budget_edit_feedback(db, budget.project_id, budget, new_items)
+    record_budget_edit_feedback(db, budget.project_id, budget, new_items, current_user.id)
 
     budget.notes = payload.notes
     budget.items.clear()

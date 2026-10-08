@@ -16,6 +16,8 @@ from statistics import median
 
 from sqlalchemy.orm import Session
 
+from app.ai_engine.learning import MIN_CONFIRMATIONS
+from app.ai_engine.tagging import _product_search_terms, normalize_text
 from app.models.ai_feedback_event import (
     ENTITY_TYPE_BUDGET_ITEM,
     ORIGIN_HUMAN_ADDED,
@@ -25,6 +27,7 @@ from app.models.ai_feedback_event import (
 from app.models.budget import Budget, BudgetItem
 from app.models.catalog_rule import CatalogRule
 from app.models.product import Product
+from app.models.product_match_correction import ProductMatchCorrection
 from app.models.project import Project
 from app.models.technical_rule import ACTION_TYPE_ADD_ACCESSORY, TechnicalRule
 
@@ -291,4 +294,68 @@ def detect_stale_rule_candidates(
         )
 
     candidates.sort(key=lambda c: (-c.removed_count, -c.ratio))
+    return candidates
+
+
+@dataclass
+class SynonymCandidate:
+    """Patrón 3 — los técnicos dicen `phrase` y los humanos lo corrigen siempre al mismo producto.
+    Candidato a agregar `phrase` a `Product.synonyms`: así el catálogo lo reconoce solo, sin
+    depender de la IA ni de las correcciones aprendidas."""
+
+    phrase: str
+    product_id: int
+    product_name: str
+    confirmations: int
+    example_project_codes: list[str] = field(default_factory=list)
+
+
+def detect_synonym_candidates(db: Session, min_confirmations: int = MIN_CONFIRMATIONS) -> list[SynonymCandidate]:
+    rows = (
+        db.query(ProductMatchCorrection)
+        .order_by(ProductMatchCorrection.created_at.desc(), ProductMatchCorrection.id.desc())
+        .all()
+    )
+    groups: dict[tuple[str, int], list[ProductMatchCorrection]] = defaultdict(list)
+    for row in rows:
+        phrase = normalize_text(row.spoken_text)
+        if phrase:
+            groups[(phrase, row.human_product_id)].append(row)
+    if not groups:
+        return []
+
+    products = {
+        p.id: p for p in db.query(Product).filter(Product.id.in_({pid for _, pid in groups}))
+    }
+    # por frase: solo el producto con más correcciones, y solo si le gana claramente a los demás
+    by_phrase: dict[str, list[tuple[int, int]]] = defaultdict(list)
+    for (phrase, product_id), group in groups.items():
+        by_phrase[phrase].append((len(group), product_id))
+
+    candidates = []
+    for phrase, ranked in by_phrase.items():
+        ranked.sort(reverse=True)
+        count, product_id = ranked[0]
+        if count < min_confirmations or (len(ranked) > 1 and ranked[1][0] == count):
+            continue
+        product = products.get(product_id)
+        if product is None:
+            continue
+        known = _product_search_terms(
+            {"name": product.name, "tags": product.tags or [], "synonyms": product.synonyms or []}
+        )
+        if phrase in known:
+            continue  # el catálogo ya lo reconoce
+        group = groups[(phrase, product_id)]
+        candidates.append(
+            SynonymCandidate(
+                phrase=group[0].spoken_text.strip(),  # cómo lo dijeron la última vez
+                product_id=product.id,
+                product_name=product.name,
+                confirmations=count,
+                example_project_codes=_project_codes(db, {r.project_id for r in group}),
+            )
+        )
+
+    candidates.sort(key=lambda c: (-c.confirmations, c.phrase))
     return candidates

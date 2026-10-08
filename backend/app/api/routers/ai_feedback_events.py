@@ -1,13 +1,22 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.ai_engine.learning_analysis import detect_accessory_candidates, detect_stale_rule_candidates
+from app.ai_engine.learning_analysis import (
+    detect_accessory_candidates,
+    detect_stale_rule_candidates,
+    detect_synonym_candidates,
+)
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.ai_feedback_event import AIFeedbackEvent
 from app.models.voice_survey_example import VoiceSurveyExample
 from app.schemas.ai_feedback_event import AIFeedbackEventOut
-from app.schemas.learning_analysis import AccessoryCandidateOut, LearningAnalysisOut, StaleRuleCandidateOut
+from app.schemas.learning_analysis import (
+    AccessoryCandidateOut,
+    LearningAnalysisOut,
+    StaleRuleCandidateOut,
+    SynonymCandidateOut,
+)
 from app.schemas.survey import VoiceExampleOut
 
 router = APIRouter(prefix="/api/ai-feedback-events", tags=["ai-feedback-events"])
@@ -44,6 +53,9 @@ def analyze_ai_feedback_events(db: Session = Depends(get_db), _=Depends(admin_on
         ],
         stale_rule_candidates=[
             StaleRuleCandidateOut.model_validate(c, from_attributes=True) for c in detect_stale_rule_candidates(db)
+        ],
+        synonym_candidates=[
+            SynonymCandidateOut.model_validate(c, from_attributes=True) for c in detect_synonym_candidates(db)
         ],
     )
 

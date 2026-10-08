@@ -10,9 +10,10 @@ sin catálogo.
 
 import json
 
+from app.ai_engine.learning import LearnedMatches, phrase_matches
 from app.ai_engine.nlu import interpret_survey_items
 from app.ai_engine.ollama_client import OLLAMA_OPTIONS, _call, get_client
-from app.ai_engine.tagging import find_product_by_text
+from app.ai_engine.tagging import find_product_by_text, normalize_text
 from app.core.config import get_settings
 
 
@@ -83,7 +84,51 @@ def _apply_tag_fallback(items: list[dict], catalog: list[dict]) -> list[dict]:
     return result
 
 
-def match_entities_to_catalog(entities: list[dict], catalog: list[dict]) -> list[dict]:
+def _apply_learned_overrides(items: list[dict], learned: LearnedMatches | None, catalog: list[dict]) -> list[dict]:
+    """Motor 7 -> Motor 2: una frase que los humanos corrigieron al mismo producto varias veces
+    (ver `learning.get_learned_matches`) se resuelve directo a ese producto, por encima de lo que
+    haya decidido el modelo. Gana la frase más larga (la más específica); un producto que ya no
+    está en el catálogo se ignora."""
+    if not learned or not learned.overrides:
+        return items
+    catalog_ids = {p["id"] for p in catalog}
+    result = []
+    for item in items:
+        matches = [
+            (phrase, product_id)
+            for phrase, product_id in learned.overrides.items()
+            if product_id in catalog_ids and phrase_matches(item["description"], phrase)
+        ]
+        if matches:
+            _, product_id = max(matches, key=lambda m: len(m[0]))
+            item = {**item, "product_id": product_id}
+        result.append(item)
+    return result
+
+
+def _format_learned_hints(entities: list[dict], learned: LearnedMatches | None, catalog: list[dict]) -> str:
+    """Pistas para el prompt: correcciones sueltas (aún no confirmadas) cuyas palabras aparecen en
+    lo detectado. Le dicen al modelo cómo la empresa llama a sus productos sin imponérselo."""
+    if not learned or not learned.hints:
+        return ""
+    names = {p["id"]: p["name"] for p in catalog}
+    words = {w for e in entities for w in normalize_text(e["description"]).split() if len(w) >= 4}
+    lines = [
+        f'- "{phrase}" → id={product_id}: {names[product_id]}'
+        for phrase, product_id in learned.hints
+        if product_id in names and words & set(phrase.split())
+    ]
+    if not lines:
+        return ""
+    return (
+        "Correcciones anteriores de esta empresa (cómo llaman sus técnicos a sus productos; "
+        "úsalas cuando apliquen):\n" + "\n".join(lines) + "\n\n"
+    )
+
+
+def match_entities_to_catalog(
+    entities: list[dict], catalog: list[dict], learned: LearnedMatches | None = None
+) -> list[dict]:
     """Por cada entidad detectada por Motor 1, decide a qué producto del catálogo
     corresponde (o ninguno, ej. mano de obra o servicios). El modelo solo devuelve el
     `product_id` por índice — nunca vuelve a generar descripción ni cantidad, para no
@@ -107,6 +152,7 @@ def match_entities_to_catalog(entities: list[dict], catalog: list[dict]) -> list
         "producto del catálogo (por ejemplo, mano de obra o un servicio), usa product_id 0.\n\n"
         "Devuelve, para CADA índice de la lista, su product_id correspondiente — no omitas "
         "ninguno.\n\n"
+        f"{_format_learned_hints(entities, learned, catalog)}"
         f"Catálogo disponible:\n{catalog_text}\n\n"
         f"Elementos detectados:\n{entities_text}"
     )
@@ -122,14 +168,17 @@ def match_entities_to_catalog(entities: list[dict], catalog: list[dict]) -> list
 
     matches = _call(run)
     items = _merge_entities_with_matches(entities, matches)
-    return _apply_tag_fallback(items, catalog)
+    items = _apply_tag_fallback(items, catalog)
+    return _apply_learned_overrides(items, learned, catalog)
 
 
-def suggest_budget_items(project_context: str, catalog: list[dict]) -> list[dict]:
+def suggest_budget_items(
+    project_context: str, catalog: list[dict], learned: LearnedMatches | None = None
+) -> list[dict]:
     """Pipeline Motor 1 → Motor 2: interpreta el expediente en entidades y las resuelve
     contra el catálogo. Dos llamadas al modelo en vez de una — la interpretación no ve el
     catálogo y el matching no reinterpreta el texto — para poder conservar una entidad
     detectada aunque no tenga producto de catálogo, y para poder reusar la interpretación
     en otras áreas técnicas sin acoplarla a este catálogo en particular."""
     entities = interpret_survey_items(project_context)
-    return match_entities_to_catalog(entities, catalog)
+    return match_entities_to_catalog(entities, catalog, learned)

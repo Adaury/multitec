@@ -33,6 +33,18 @@ class StaleRuleCandidateOut(BaseModel):
         from_attributes = True
 
 
+class SynonymCandidateOut(BaseModel):
+    phrase: str
+    product_id: int
+    product_name: str
+    confirmations: int
+    example_project_codes: list[str]
+
+    class Config:
+        from_attributes = True
+
+
 class LearningAnalysisOut(BaseModel):
     accessory_candidates: list[AccessoryCandidateOut]
     stale_rule_candidates: list[StaleRuleCandidateOut]
+    synonym_candidates: list[SynonymCandidateOut] = []

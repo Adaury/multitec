@@ -289,9 +289,18 @@ export interface StaleRuleCandidate {
   example_project_codes: string[]
 }
 
+export interface SynonymCandidate {
+  phrase: string
+  product_id: number
+  product_name: string
+  confirmations: number
+  example_project_codes: string[]
+}
+
 export interface LearningAnalysisOut {
   accessory_candidates: AccessoryCandidate[]
   stale_rule_candidates: StaleRuleCandidate[]
+  synonym_candidates: SynonymCandidate[]
 }
 
 export type StockMovementType = 'entrada' | 'salida'

@@ -167,7 +167,7 @@ def test_analyze_returns_empty_lists_when_no_patterns(client, admin_token):
     headers = auth_headers(admin_token)
     resp = client.post("/api/ai-feedback-events/analyze", headers=headers)
     assert resp.status_code == 200, resp.text
-    assert resp.json() == {"accessory_candidates": [], "stale_rule_candidates": []}
+    assert resp.json() == {"accessory_candidates": [], "stale_rule_candidates": [], "synonym_candidates": []}
 
 
 def test_analyze_detects_accessory_candidate(client, admin_token, db_session):

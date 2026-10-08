@@ -14,6 +14,7 @@ from app.models.material import Material
 from app.models.ncf_sequence import NcfSequence
 from app.models.notification import Notification
 from app.models.product import Product
+from app.models.product_match_correction import ProductMatchCorrection
 from app.models.product_relation import ProductRelation
 from app.models.project import Project
 from app.models.quote import Quote, QuoteHistory, QuoteItem
@@ -49,6 +50,7 @@ __all__ = [
     "PreInvoice",
     "PreInvoiceItem",
     "Product",
+    "ProductMatchCorrection",
     "ProductRelation",
     "Project",
     "ProjectEmbedding",
