@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
-import { directionsUrl } from '../lib/maps'
+import { useAuthStore } from '../lib/authStore'
+import { directionsUrl, routeQuery, routeUrls } from '../lib/maps'
 import type { Project, Technician, Visit, VisitStatus } from '../lib/types'
 import { VISIT_STATUS_LABELS } from '../lib/types'
 import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
@@ -29,16 +30,21 @@ function emptyForm(date: string) {
 
 export function Calendario() {
   const queryClient = useQueryClient()
+  const user = useAuthStore((s) => s.user)
+  // El técnico ve por defecto solo sus visitas: es SU ruta del día.
+  const [onlyMine, setOnlyMine] = useState(user?.role === 'tecnico')
   const [selectedDate, setSelectedDate] = useState(todayISO())
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm(todayISO()))
   const [error, setError] = useState<string | null>(null)
 
-  const { data: visits, isLoading } = useQuery({
+  const { data: allVisits, isLoading } = useQuery({
     queryKey: ['visits', selectedDate],
     queryFn: async () =>
       (await api.get<Visit[]>('/visits', { params: { start: selectedDate, end: selectedDate } })).data,
   })
+
+  const visits = onlyMine ? allVisits?.filter((v) => v.technician_id === user?.id) : allVisits
 
   const { data: projects } = useQuery({
     queryKey: ['projects'],
@@ -118,6 +124,17 @@ export function Calendario() {
         </button>
       </div>
 
+      <button
+        onClick={() => setOnlyMine((v) => !v)}
+        className={`rounded-full px-4 py-2 text-sm font-medium ${
+          onlyMine
+            ? 'bg-brand-blue text-white'
+            : 'bg-brand-gray text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+        }`}
+      >
+        {onlyMine ? '✓ Solo mis visitas' : 'Solo mis visitas'}
+      </button>
+
       {showForm && (
         <Card className="md:max-w-2xl">
           <form
@@ -187,6 +204,8 @@ export function Calendario() {
 
       {isLoading && <p className="text-sm text-gray-500">Cargando…</p>}
 
+      {visits && <RouteCard visits={visits} />}
+
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {visits?.map((visit) => (
           <VisitCard
@@ -200,6 +219,93 @@ export function Calendario() {
         {visits?.length === 0 && <p className="text-sm text-gray-500">No hay visitas agendadas este día.</p>}
       </div>
     </div>
+  )
+}
+
+/** Ruta del día: las visitas programadas en orden de hora, con un solo botón que abre Google
+ * Maps con todas las paradas. Se muestra solo si hay 2 o más (con una basta "Cómo llegar"). */
+function RouteCard({ visits }: { visits: Visit[] }) {
+  const stops = visits
+    .filter((v) => v.status === 'programada')
+    .sort((a, b) => (a.scheduled_time ?? '99:99').localeCompare(b.scheduled_time ?? '99:99'))
+    .map((visit) => ({
+      visit,
+      query: routeQuery({ address: visit.client_address, location_url: visit.client_location_url }),
+    }))
+  if (stops.length < 2) return null
+
+  const routable = stops.filter((s) => s.query)
+  const urls = routeUrls(routable.map((s) => s.query as string))
+  const unroutable = stops.length - routable.length
+
+  return (
+    <Card className="space-y-3 ring-2 ring-brand-blue/30">
+      <p className="font-medium text-gray-800 dark:text-gray-200">🗺️ Ruta del día · {stops.length} paradas</p>
+      <ol className="space-y-2">
+        {stops.map(({ visit, query }, index) => (
+          <li key={visit.id} className="flex items-start gap-3">
+            <span
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${
+                query ? 'bg-brand-blue' : 'bg-gray-400'
+              }`}
+            >
+              {index + 1}
+            </span>
+            <div className="min-w-0 text-sm">
+              <p className="font-medium text-gray-900 dark:text-gray-100">
+                {visit.scheduled_time ? `${visit.scheduled_time.slice(0, 5)} · ` : ''}
+                {visit.client_name}
+              </p>
+              <p className="truncate text-gray-500 dark:text-gray-400">
+                {visit.client_address ??
+                  (query
+                    ? 'Ubicación en el mapa'
+                    : visit.client_location_url
+                      ? 'Enlace corto de Maps (no entra en la ruta)'
+                      : 'Sin ubicación guardada')}
+              </p>
+            </div>
+          </li>
+        ))}
+      </ol>
+      {unroutable > 0 && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          {unroutable === 1 ? '1 parada no tiene' : `${unroutable} paradas no tienen`} dirección ni coordenadas
+          (los enlaces cortos de Maps no sirven para rutas) y quedó fuera del recorrido.
+        </p>
+      )}
+      {urls.length === 1 && (
+        <a
+          href={urls[0]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-4 py-4 text-base font-semibold text-white active:scale-[0.98]"
+        >
+          ▶ Iniciar ruta en Maps
+        </a>
+      )}
+      {urls.length > 1 && (
+        <div className="space-y-2">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Maps admite 10 paradas por recorrido; van en tramos.</p>
+          {urls.map((url, i) => (
+            <a
+              key={url}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-4 py-3 text-sm font-semibold text-white active:scale-[0.98]"
+            >
+              ▶ Tramo {i + 1} · paradas {i * 10 + 1}–{Math.min((i + 1) * 10, routable.length)}
+            </a>
+          ))}
+        </div>
+      )}
+      {urls.length === 0 && (
+        <p className="text-sm text-gray-500 dark:text-gray-400">
+          Agrega la dirección o la ubicación de los clientes para armar la ruta.
+        </p>
+      )}
+    </Card>
   )
 }
 
