@@ -25,6 +25,9 @@ export default defineConfig({
     }),
   ],
   server: {
+    // Escucha en IPv4 e IPv6: multitec.test (hosts) resuelve a 127.0.0.1 y Vite por defecto
+    // solo escuchaba en [::1], así que http://multitec.test:5173 no conectaba.
+    host: true,
     proxy: {
       '/api': 'http://127.0.0.1:8000',
       '/uploads': 'http://127.0.0.1:8000',
