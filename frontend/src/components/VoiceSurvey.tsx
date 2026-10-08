@@ -39,10 +39,13 @@ export async function transcribeAsset(projectId: number, assetId: number): Promi
 export function VoiceRecorderCard({
   projectId,
   disabled,
+  large,
   onTranscribed,
 }: {
   projectId: number
   disabled?: boolean
+  /** Botón de micrófono grande y centrado, para la pantalla móvil de levantamiento rápido. */
+  large?: boolean
   onTranscribed: (result: VoiceSurveyResult) => void
 }) {
   const queryClient = useQueryClient()
@@ -143,6 +146,37 @@ export function VoiceRecorderCard({
 
   function stop() {
     if (recorderRef.current?.state === 'recording') recorderRef.current.stop()
+  }
+
+  if (large) {
+    const recording = state === 'recording'
+    const processing = state === 'processing'
+    return (
+      <div className="flex flex-col items-center gap-3 py-4 text-center">
+        <button
+          type="button"
+          onClick={recording ? stop : start}
+          disabled={disabled || processing}
+          aria-label={recording ? 'Detener grabación' : 'Empezar a narrar'}
+          className={`flex h-32 w-32 items-center justify-center rounded-full text-6xl text-white shadow-xl transition active:scale-95 disabled:opacity-50 ${
+            recording ? 'animate-pulse bg-red-600' : 'bg-brand-blue'
+          }`}
+        >
+          {processing ? '⏳' : recording ? '⏹' : '🎙️'}
+        </button>
+        <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          {processing ? 'Transcribiendo…' : recording ? `Grabando · ${formatTime(seconds)}` : 'Toca y narra el levantamiento'}
+        </p>
+        <p className="max-w-xs text-sm text-gray-500 dark:text-gray-400">
+          {processing
+            ? 'Puede tardar hasta ~1 minuto.'
+            : recording
+              ? 'Cuenta qué hay que instalar, las medidas y lo que observes. Toca de nuevo para terminar.'
+              : 'Equipos y cantidades, medidas, y condiciones del sitio. Puedes grabar varias veces.'}
+        </p>
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      </div>
+    )
   }
 
   return (

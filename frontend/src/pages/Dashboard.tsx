@@ -8,7 +8,7 @@ import { PROJECT_STATUS_LABELS, type DashboardSummary, type MarginSummary } from
 
 const quickActions = [
   { label: 'Nuevo Proyecto', icon: '➕', to: '/proyectos?nuevo=1' },
-  { label: 'Nuevo Levantamiento', icon: '📋', to: '/proyectos' },
+  { label: 'Nuevo Levantamiento', icon: '📋', to: '/nuevo' },
   { label: 'Nueva Cotización', icon: '🧾', to: '/proyectos' },
 ]
 

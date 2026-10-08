@@ -13,6 +13,7 @@ import { Budgets } from './pages/Budgets'
 import { Quotes } from './pages/Quotes'
 import { Ask } from './pages/Ask'
 import { Profile } from './pages/Profile'
+import { QuickSurvey } from './pages/QuickSurvey'
 import { Users } from './pages/Users'
 import { Ncf } from './pages/Ncf'
 import { CalculationParameters } from './pages/CalculationParameters'
@@ -39,6 +40,7 @@ function App() {
           <Route path="/cotizaciones" element={<Quotes />} />
           <Route path="/preguntar" element={<Ask />} />
           <Route path="/perfil" element={<Profile />} />
+          <Route path="/nuevo" element={<QuickSurvey />} />
           <Route path="/usuarios" element={<Users />} />
           <Route path="/ncf" element={<Ncf />} />
           <Route path="/parametros-calculo" element={<CalculationParameters />} />
