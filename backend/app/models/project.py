@@ -1,5 +1,6 @@
 from datetime import date, datetime
 
+from app.core.timeutil import today_dr
 from sqlalchemy import Date, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,7 +23,7 @@ class Project(Base):
     code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"))
     responsible_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    date: Mapped[date] = mapped_column(Date, default=date.today)
+    date: Mapped[date] = mapped_column(Date, default=today_dr)
     status: Mapped[str] = mapped_column(String(30), default="levantamiento")
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Token opaco para el portal de cliente (sin login) — NULL = portal desactivado. Ver

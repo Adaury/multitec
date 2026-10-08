@@ -1,5 +1,6 @@
 from datetime import date, datetime
 
+from app.core.timeutil import today_dr
 from sqlalchemy import Date, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -15,7 +16,7 @@ class LogEntry(Base):
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
     responsible_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     comment: Mapped[str] = mapped_column(Text)
-    entry_date: Mapped[date] = mapped_column(Date, default=date.today)
+    entry_date: Mapped[date] = mapped_column(Date, default=today_dr)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
 

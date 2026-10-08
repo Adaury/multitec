@@ -3,6 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.timeutil import to_local, today_dr
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.quote import Quote
@@ -18,7 +19,7 @@ STALE_QUOTE_DAYS = 3
 
 
 def _last_n_months(n: int) -> list[str]:
-    today = date.today()
+    today = today_dr()
     year, month = today.year, today.month
     months = []
     for _ in range(n):
@@ -47,7 +48,10 @@ def _stale_quotes(db: Session) -> list[dict]:
     rows = []
     newly_stale = []
     for quote in quotes:
-        days_pending = (now - quote.created_at).days
+        created_at = quote.created_at
+        if created_at.tzinfo is None:  # SQLite devuelve los DateTime sin zona (guardados en UTC)
+            created_at = created_at.replace(tzinfo=timezone.utc)
+        days_pending = (now - created_at).days
         rows.append(
             {
                 "id": quote.id,
@@ -79,7 +83,8 @@ def dashboard_summary(db: Session) -> dict:
     range_start = date(int(months[0][:4]), int(months[0][5:7]), 1)
     monthly_totals = {m: 0.0 for m in months}
     for created_at, total in db.query(Invoice.created_at, Invoice.total).filter(Invoice.created_at >= range_start):
-        key = f"{created_at.year:04d}-{created_at.month:02d}"
+        local = to_local(created_at)
+        key = f"{local.year:04d}-{local.month:02d}"
         if key in monthly_totals:
             monthly_totals[key] += float(total)
 

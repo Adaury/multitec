@@ -1,9 +1,8 @@
-from datetime import date
-
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.timeutil import today_dr
 from app.models.client import Client
 from app.models.ncf_sequence import NcfSequence
 
@@ -22,7 +21,7 @@ def assign_ncf(db: Session, ncf_type: str) -> tuple[str, str]:
         .where(
             NcfSequence.ncf_type == ncf_type,
             NcfSequence.active.is_(True),
-            NcfSequence.expires_at >= date.today(),
+            NcfSequence.expires_at >= today_dr(),
             NcfSequence.next_number <= NcfSequence.range_end,
         )
         .order_by(NcfSequence.expires_at, NcfSequence.id)

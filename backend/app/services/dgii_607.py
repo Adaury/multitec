@@ -1,7 +1,6 @@
-from datetime import datetime, timedelta, timezone
-
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.timeutil import to_local
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.services.csv_export import build_csv
@@ -37,19 +36,6 @@ REPORT_607_HEADERS = [
 ]
 
 
-# Hora de República Dominicana: UTC-4 todo el año (sin horario de verano). Fijo en vez de
-# zoneinfo porque en Windows requiere el paquete tzdata.
-DR_TZ = timezone(timedelta(hours=-4))
-
-
-def _invoice_local_date(created_at: datetime) -> datetime:
-    """created_at se guarda en UTC (SQLite lo devuelve naive); la fecha del comprobante
-    para la DGII es la fecha local dominicana, no la UTC — de noche difieren en un día."""
-    if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
-    return created_at.astimezone(DR_TZ)
-
-
 def _identification_type(rnc: str | None) -> str:
     """1 = RNC (persona jurídica, 9 dígitos), 2 = Cédula (persona física, 11 dígitos),
     3 = no identificado (consumidor final sin RNC/cédula registrado)."""
@@ -73,7 +59,7 @@ def build_607_report(db: Session, year: int, month: int) -> bytes:
     )
     period_invoices = []
     for inv in invoices:
-        issued = _invoice_local_date(inv.created_at)
+        issued = to_local(inv.created_at)
         if issued.year == year and issued.month == month:
             period_invoices.append((inv, issued))
 

@@ -1,5 +1,4 @@
 import uuid
-from datetime import date
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -7,6 +6,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.config import get_settings
 from app.core.security import require_role
+from app.core.timeutil import today_dr
 from app.db.session import get_db
 from app.models.logbook import LogEntry, LogEntryAsset
 from app.models.project import Project
@@ -45,7 +45,7 @@ def create_log_entry(
     entry = LogEntry(
         project_id=project_id,
         comment=payload.comment,
-        entry_date=payload.entry_date or date.today(),
+        entry_date=payload.entry_date or today_dr(),
         responsible_id=current_user.id,
     )
     db.add(entry)

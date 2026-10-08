@@ -3,6 +3,7 @@ from typing import Protocol, Sequence
 
 from sqlalchemy.orm import Session
 
+from app.core.timeutil import today_dr
 from app.models.invoice import Invoice, InvoiceItem
 from app.models.product import Product
 from app.models.quote import Quote, QuoteItem
@@ -92,7 +93,7 @@ def project_margin(db: Session, project_id: int) -> dict:
 def company_margin_last_months(db: Session, months: int = 6) -> dict:
     """Margen agregado de la empresa sobre líneas de factura de los últimos `months`
     meses (mismo rango que `dashboard_summary`/`monthly_invoicing` en `services/reports.py`)."""
-    today = date.today()
+    today = today_dr()
     year, month = today.year, today.month
     for _ in range(months - 1):
         month -= 1
