@@ -85,10 +85,10 @@ export function Layout() {
         </nav>
         <div className="border-t border-gray-100 px-6 py-4 dark:border-gray-800">
           <div className="mb-3 flex items-center justify-between">
-            <div className="min-w-0">
+            <NavLink to="/perfil" title="Mi perfil" className="min-w-0 rounded-lg hover:opacity-80">
               <p className="truncate text-sm font-medium text-gray-900 dark:text-gray-100">{user?.name}</p>
               <p className="truncate text-xs text-gray-400">{user?.email}</p>
-            </div>
+            </NavLink>
             <ThemeToggle className="shrink-0" />
           </div>
           <button
@@ -102,10 +102,10 @@ export function Layout() {
 
       <div className="mx-auto flex min-h-screen max-w-lg flex-1 flex-col pb-24 md:mx-0 md:max-w-none md:min-w-0 md:pb-0">
         <header className="sticky top-0 z-10 flex items-center gap-4 bg-brand-bg/80 px-5 py-4 backdrop-blur md:px-10 md:py-6 dark:bg-gray-950/80">
-          <div className="md:hidden">
+          <NavLink to="/perfil" className="md:hidden">
             <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">Multitec</p>
             <p className="text-xs text-gray-500">{user?.name}</p>
-          </div>
+          </NavLink>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ThemeToggle className="md:hidden" />

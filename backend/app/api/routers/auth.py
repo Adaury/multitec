@@ -9,12 +9,14 @@ from app.core.security import (
     create_refresh_token,
     get_current_user,
     get_valid_refresh_token,
+    hash_password,
+    revoke_all_refresh_tokens,
     revoke_refresh_token,
     verify_password,
 )
 from app.db.session import get_db
 from app.models.user import User
-from app.schemas.auth import CurrentUser, RefreshRequest, Token
+from app.schemas.auth import ChangePasswordRequest, CurrentUser, ProfileUpdate, RefreshRequest, Token
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -69,3 +71,36 @@ def logout(payload: RefreshRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=CurrentUser)
 def me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@router.put("/me", response_model=CurrentUser)
+def update_me(payload: ProfileUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Perfil propio: cualquier rol puede cambiar su nombre. Correo y rol los gestiona un admin."""
+    current_user.name = payload.name
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
+@router.post("/change-password", response_model=Token)
+@limiter.limit("10/minute")
+def change_password(
+    request: Request,
+    payload: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not verify_password(payload.current_password, current_user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="La contraseña actual es incorrecta")
+    if payload.new_password == payload.current_password:
+        raise HTTPException(status_code=400, detail="La nueva contraseña debe ser distinta de la actual")
+
+    current_user.hashed_password = hash_password(payload.new_password)
+    # Cierra las demás sesiones (otros dispositivos, tokens robados) y devuelve un par
+    # nuevo para que ésta siga activa.
+    revoke_all_refresh_tokens(db, current_user.id)
+    db.commit()
+    return Token(
+        access_token=create_access_token(subject=str(current_user.id)),
+        refresh_token=create_refresh_token(db, current_user.id),
+    )

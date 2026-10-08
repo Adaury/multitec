@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password, require_role
+from app.core.security import hash_password, require_role, revoke_all_refresh_tokens
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import TechnicianOut, UserCreate, UserOut, UserUpdate
@@ -72,6 +72,10 @@ def update_user(
         password = data.pop("password")
         if password:
             user.hashed_password = hash_password(password)
+            revoke_all_refresh_tokens(db, user.id)
+
+    if data.get("is_active") is False:
+        revoke_all_refresh_tokens(db, user.id)
 
     for field, value in data.items():
         setattr(user, field, value)
