@@ -35,6 +35,11 @@ export default defineConfig({
     proxy: {
       '/api': apiTarget,
       '/uploads': apiTarget,
+      // Documentación interactiva de la API (Swagger/ReDoc) a través del mismo puerto de la
+      // web, para abrirla desde el celular en la red local sin exponer el puerto del backend.
+      '/docs': apiTarget,
+      '/redoc': apiTarget,
+      '/openapi.json': apiTarget,
     },
     // Permite servir la app a través del túnel de ngrok (dominio *.ngrok-free.app,
     // distinto cada vez) además de localhost — sin esto Vite rechaza la petición
