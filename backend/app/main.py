@@ -29,6 +29,7 @@ from app.api.routers import (
     notifications,
     projects,
     public,
+    purchase_invoices,
     quotes,
     reports,
     search,
@@ -116,6 +117,7 @@ app.include_router(notifications.router)
 app.include_router(visits.router)
 app.include_router(public.router)
 app.include_router(suppliers.router)
+app.include_router(purchase_invoices.router)
 
 
 @app.get("/api/health")

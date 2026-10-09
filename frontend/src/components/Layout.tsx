@@ -22,6 +22,7 @@ const sidebarBaseItems: NavItem[] = [
   { to: '/calendario', label: 'Calendario', icon: '📅' },
   { to: '/catalogo', label: 'Catálogo', icon: '📦' },
   { to: '/proveedores', label: 'Proveedores', icon: '🏢' },
+  { to: '/compras', label: 'Compras', icon: '🛒' },
   { to: '/presupuestos', label: 'Presupuestos', icon: '💰' },
   { to: '/cotizaciones', label: 'Cotizaciones', icon: '🧾' },
   { to: '/preguntar', label: 'Preguntar IA', icon: '🤖' },

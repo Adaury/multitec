@@ -31,6 +31,7 @@ const loaders = {
   Calendario: () => import('./pages/Calendario'),
   PortalCliente: () => import('./pages/PortalCliente'),
   Proveedores: () => import('./pages/Proveedores'),
+  Compras: () => import('./pages/Compras'),
 }
 
 const Dashboard = lazyPage(loaders.Dashboard, 'Dashboard')
@@ -52,6 +53,7 @@ const AIFeedbackEvents = lazyPage(loaders.AIFeedbackEvents, 'AIFeedbackEvents')
 const Calendario = lazyPage(loaders.Calendario, 'Calendario')
 const PortalCliente = lazyPage(loaders.PortalCliente, 'PortalCliente')
 const Proveedores = lazyPage(loaders.Proveedores, 'Proveedores')
+const Compras = lazyPage(loaders.Compras, 'Compras')
 
 // Las pantallas de uso diario se descargan en segundo plano cuando el navegador está libre, para
 // que al tocarlas abran al instante en vez de esperar la descarga.
@@ -107,6 +109,7 @@ function App() {
           <Route path="/aprendizaje-ia" element={<AIFeedbackEvents />} />
           <Route path="/calendario" element={<Calendario />} />
           <Route path="/proveedores" element={<Proveedores />} />
+          <Route path="/compras" element={<Compras />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

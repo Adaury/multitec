@@ -8,6 +8,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Módulo de Compras y reporte 606** (`/compras`, admin+oficina): registro de facturas de
+  proveedores con NCF, tipo de gasto, forma de pago, ITBIS y retenciones
+  (`/api/purchase-invoices`, tabla `purchase_invoices`, migración `b7e4d1c9a2f3`) y export
+  CSV del formato 606 (`GET /api/reports/dgii-606?year=&month=`). Rechaza NCF duplicado por
+  proveedor. Columnas no verificadas contra la plantilla oficial de la DGII.
 - **Proveedores y compras reales** (`/proveedores`, admin+oficina, sin acceso `tecnico`
   igual que Catálogo/Compras): maestro simple de proveedores (nombre, RNC, teléfono,
   correo, dirección, notas — calco de Clientes). Cada `Material` marcado **"Comprado"** en

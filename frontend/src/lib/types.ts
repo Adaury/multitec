@@ -43,6 +43,27 @@ export interface Supplier {
 
 export type SupplierInput = Omit<Supplier, 'id'>
 
+// Factura de proveedor (insumo del reporte 606). Los montos pueden llegar como número o
+// string decimal, por eso se convierten con Number() al usarlos.
+export interface PurchaseInvoice {
+  id: number
+  supplier_id: number
+  supplier_name: string | null
+  project_id: number | null
+  ncf: string
+  ncf_modified: string | null
+  invoice_date: string
+  payment_date: string | null
+  expense_type: string
+  payment_type: string
+  services_amount: number | string
+  goods_amount: number | string
+  itbis_invoiced: number | string
+  itbis_withheld: number | string
+  isr_withheld: number | string
+  notes: string | null
+}
+
 export interface Project {
   id: number
   code: string

@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.schemas.margin import MarginSummary
 from app.schemas.reports import DashboardSummary
 from app.services.csv_export import build_csv
+from app.services.dgii_606 import build_606_report
 from app.services.dgii_607 import build_607_report
 from app.services.margin import company_margin_last_months
 from app.services.reports import dashboard_summary
@@ -45,6 +46,19 @@ def export_dashboard_csv(db: Session = Depends(get_db), _=Depends(allowed_roles)
 @router.get("/margin", response_model=MarginSummary)
 def get_margin_report(db: Session = Depends(get_db), _=Depends(admin_only)):
     return company_margin_last_months(db)
+
+
+@router.get("/dgii-606")
+def export_dgii_606(year: int, month: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    if not (1 <= month <= 12):
+        raise HTTPException(status_code=400, detail="Mes inválido, debe ser 1-12")
+    csv_bytes = build_606_report(db, year, month)
+    filename = f"606_{year:04d}{month:02d}.csv"
+    return Response(
+        content=csv_bytes,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/dgii-607")

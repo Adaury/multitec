@@ -296,14 +296,26 @@ facturado, ITBIS...).
 
 **Alcance limitado, léelo antes de usarlo para remitir de verdad:**
 
-- No se implementó el formato 606 (Compras) — el sistema no lleva facturas de
-  proveedores con su propio NCF/RNC, haría falta un módulo de compras que no existe.
-- No se trackea forma de pago (efectivo/tarjeta/crédito) ni retenciones de ITBIS/ISR, así
-  que esas columnas del 607 salen vacías — hay que completarlas a mano si aplican.
+- No se trackea forma de pago (efectivo/tarjeta/crédito) ni retenciones de ITBIS/ISR en
+  las ventas, así que esas columnas del 607 salen vacías — hay que completarlas a mano si
+  aplican.
 - La estructura de columnas es la mejor aproximación posible a partir de fuentes públicas
   de la DGII; no se pudo verificar campo por campo contra la plantilla oficial vigente
   (requiere descargar un ZIP de dgii.gov.do). **Verifica el archivo contra la plantilla
   oficial actual antes de remitirlo** — la pantalla lo recuerda explícitamente.
+
+### Compras y reporte 606 (Compras DGII)
+
+En `/compras` (admin/oficina) se registran las **facturas de proveedores** (proveedor, NCF,
+NCF modificado, fechas de comprobante y pago, tipo de gasto 01-11, forma de pago 01-07,
+montos en servicios y bienes, ITBIS facturado/retenido y retención de ISR). No se permite
+repetir el mismo NCF para un proveedor. El botón **"Descargar reporte 606"** exporta en CSV
+las facturas de un mes (por fecha del comprobante) con las columnas del formato 606.
+
+Mismo alcance limitado que el 607: proporcionalidad, ITBIS llevado al costo, percepciones,
+ISC, otros impuestos y propina salen vacíos, el ITBIS facturado se reporta completo como
+"por adelantar", y las columnas no se pudieron verificar contra la plantilla oficial. **Verifica
+el archivo en dgii.gov.do antes de remitirlo.**
 
 ## Frontend — arrancar en desarrollo
 
