@@ -16,6 +16,12 @@ test('quick survey: GPS is captured automatically and the assistant creates the 
   const maps = page.getByPlaceholder('Se llena solo con el GPS, o pega uno')
   await expect(maps).toHaveValue(/18\.486100,-69\.931200/, { timeout: 15000 })
   await expect(page.getByText('Ubicación capturada')).toBeVisible()
+  // Tocar el mapa (o "Cómo llegar" / "Ver en Maps") abre Google Maps en el punto capturado.
+  await expect(page.getByRole('link', { name: 'Abrir el mapa en Google Maps' })).toHaveAttribute(
+    'href',
+    /google\.com\/maps\/search\/.*18\.4861,-69\.9312/,
+  )
+  await expect(page.getByRole('link', { name: /Cómo llegar/ })).toHaveAttribute('href', /destination=18\.4861,-69\.9312/)
 
   // El menú de búsqueda ofrece crear el cliente cuando no existe y arranca el asistente. Como el
   // nombre ya se escribió en el buscador, el asistente no lo vuelve a preguntar: va al teléfono.
@@ -46,8 +52,8 @@ test('quick survey: GPS is captured automatically and the assistant creates the 
 
 test('the assistant asks for the name first when nothing was typed', async ({ page }) => {
   await page.goto('/nuevo')
-  await page.locator('input[role="combobox"]').click()
-  await page.getByRole('option', { name: /Crear cliente nuevo/ }).click()
+  // El alta es un botón visible desde el principio (no depende de abrir la lista del buscador).
+  await page.getByRole('button', { name: /Cliente nuevo/ }).click()
   await expect(page.getByText('¿Cómo se llama el cliente?').last()).toBeVisible()
   // "Siguiente" no avanza con el nombre vacío.
   await expect(page.getByRole('button', { name: 'Siguiente' })).toBeDisabled()

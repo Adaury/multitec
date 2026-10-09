@@ -60,6 +60,13 @@ export function QuickSurvey() {
 
   const canStart = !busy && (selected !== null || (creatingNew && newClient.name.trim().length > 0))
 
+  /** Arranca el alta de un cliente nuevo con el asistente; `typed` es lo que ya se escribió en el buscador. */
+  function startNewClient(typed: string) {
+    setNewClient({ ...newClient, name: typed })
+    setManualEntry(false)
+    setCreatingNew(true)
+  }
+
   /** `intake` llega del asistente (ya con nombre, teléfono y tipo); sin él se usan los campos. */
   async function start(intake?: IntakeData) {
     setBusy(true)
@@ -354,16 +361,14 @@ export function QuickSurvey() {
             </div>
           </div>
         ) : (
-          <ClientCombobox
-            clients={clients ?? []}
-            value={null}
-            onSelect={setSelected}
-            onCreateNew={(typed) => {
-              setNewClient({ ...newClient, name: typed })
-              setManualEntry(false)
-              setCreatingNew(true)
-            }}
-          />
+          <div className="space-y-2">
+            <ClientCombobox clients={clients ?? []} value={null} onSelect={setSelected} onCreateNew={startNewClient} />
+            {/* Visible siempre: antes de escribir nada no hay lista, así que el alta no puede
+                depender solo del renglón "Crear cliente nuevo" del menú. */}
+            <Button variant="secondary" onClick={() => startNewClient('')}>
+              ＋ Cliente nuevo · el asistente te pregunta
+            </Button>
+          </div>
         )}
       </Card>
 

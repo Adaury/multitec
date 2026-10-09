@@ -12,13 +12,26 @@ export function MapPreview({ place, className = '' }: { place: Place; className?
   return (
     <div className={`space-y-2 ${className}`}>
       {embed && (
-        <iframe
-          title="Mapa de la ubicación"
-          src={embed}
-          loading="lazy"
-          referrerPolicy="no-referrer-when-downgrade"
-          className="h-48 w-full rounded-2xl border-0 bg-brand-gray dark:bg-gray-800"
-        />
+        <div className="relative">
+          <iframe
+            title="Mapa de la ubicación"
+            src={embed}
+            loading="lazy"
+            referrerPolicy="no-referrer-when-downgrade"
+            className="h-48 w-full rounded-2xl border-0 bg-brand-gray dark:bg-gray-800"
+          />
+          {/* Tocar el mapa lo abre en Google Maps. Sirve aunque la vista previa no cargue (queda un
+              recuadro gris) y evita que el iframe se coma el scroll de la pantalla en el celular. */}
+          {view && (
+            <a
+              href={view}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Abrir el mapa en Google Maps"
+              className="absolute inset-0 rounded-2xl"
+            />
+          )}
+        </div>
       )}
       <div className="flex gap-2">
         {directions && (

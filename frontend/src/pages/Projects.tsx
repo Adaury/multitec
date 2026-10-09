@@ -39,6 +39,13 @@ export function Projects() {
     queryFn: async () => (await api.get<Client[]>('/clients')).data,
   })
 
+  /** Abre el alta de cliente con el asistente; `typed` es lo que ya se escribió en el buscador. */
+  function openNewClient(typed: string) {
+    setNewClient({ ...emptyClient(), name: typed })
+    setManualClient(false)
+    setShowClientModal(true)
+  }
+
   const createProject = useMutation({
     mutationFn: async () =>
       (
@@ -102,16 +109,23 @@ export function Projects() {
           >
             <div className="block text-left">
               <span className="mb-1 block text-sm font-medium text-gray-600 dark:text-gray-400">Cliente</span>
-              <ClientCombobox
-                clients={clients ?? []}
-                value={clientId ? Number(clientId) : null}
-                onSelect={(c) => setClientId(String(c.id))}
-                onCreateNew={(typed) => {
-                  setNewClient({ ...emptyClient(), name: typed })
-                  setManualClient(false)
-                  setShowClientModal(true)
-                }}
-              />
+              <div className="flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <ClientCombobox
+                    clients={clients ?? []}
+                    value={clientId ? Number(clientId) : null}
+                    onSelect={(c) => setClientId(String(c.id))}
+                    onCreateNew={openNewClient}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openNewClient('')}
+                  className="shrink-0 rounded-xl bg-brand-gray px-4 py-3 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                >
+                  + Nuevo
+                </button>
+              </div>
             </div>
             <Field label="Tipo de levantamiento">
               <select
