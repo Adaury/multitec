@@ -202,12 +202,21 @@ automáticamente en cada push/PR vía GitHub Actions.
 cd frontend
 npm install
 npx playwright install chromium
-npm run test:e2e            # requiere backend en :8000 y frontend en :5173 ya corriendo
+npm run test:e2e            # levanta su propio backend (:8100) y frontend (:5190), aislados
 ```
 
+**Aislamiento:** en local, Playwright arranca su propio backend (SQLite temporal en la
+carpeta temporal del sistema, admin sembrado con una contraseña desechable, SMTP apagado) y
+su propio Vite, así que los tests **nunca escriben en tu base de desarrollo**. No hace falta
+tener nada corriendo; los puertos 8100 y 5190 deben estar libres (si no, falla en vez de
+conectarse a un servidor con datos reales). Para apuntar a un servidor concreto, define
+`E2E_BASE_URL` (desactiva el modo aislado; CI también lo desactiva porque su workflow ya
+levanta los servidores).
+
 Prueba la UI real en un navegador: login/logout con revocación de sesión, crear cliente
-y proyecto, el flujo completo presupuesto→cotización (ITBIS 18%)→aprobar→materiales, y
-gestión de usuarios (crear, correo duplicado, protección contra auto-degradarse). No
+y proyecto, el flujo completo presupuesto→cotización (ITBIS 18%)→aprobar→materiales,
+gestión de usuarios (crear, correo duplicado, protección contra auto-degradarse) y
+compras (factura de proveedor, NCF duplicado, descarga del reporte 606). No
 depende de Ollama — ningún test usa los botones de IA. La mayoría de los tests reusan
 una sola sesión iniciada una vez (`e2e/global-setup.ts`) para no agotar el rate limit de
 login; solo `auth.spec.ts` arranca sin sesión a propósito. Corre automáticamente en CI

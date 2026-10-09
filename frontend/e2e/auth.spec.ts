@@ -6,7 +6,8 @@ test.use({ storageState: { cookies: [], origins: [] } })
 
 test('login with valid credentials reaches the dashboard', async ({ page }) => {
   await login(page)
-  await expect(page.getByRole('heading', { name: 'Acciones rápidas' })).toBeVisible()
+  await expect(page).not.toHaveURL(/login/)
+  await expect(page.getByRole('button', { name: 'Salir' })).toBeVisible()
 })
 
 test('login with wrong password shows an error and stays on the login page', async ({ page }) => {

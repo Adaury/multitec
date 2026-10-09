@@ -2,6 +2,10 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// Los E2E locales levantan su propio backend en otro puerto (ver e2e/isolated.ts) y lo pasan
+// por esta variable; sin ella el proxy sigue apuntando al backend normal de desarrollo.
+const apiTarget = process.env.E2E_API_TARGET ?? 'http://127.0.0.1:8000'
+
 export default defineConfig({
   plugins: [
     react(),
@@ -29,8 +33,8 @@ export default defineConfig({
     // solo escuchaba en [::1], así que http://multitec.test:5173 no conectaba.
     host: true,
     proxy: {
-      '/api': 'http://127.0.0.1:8000',
-      '/uploads': 'http://127.0.0.1:8000',
+      '/api': apiTarget,
+      '/uploads': apiTarget,
     },
     // Permite servir la app a través del túnel de ngrok (dominio *.ngrok-free.app,
     // distinto cada vez) además de localhost — sin esto Vite rechaza la petición

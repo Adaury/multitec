@@ -51,7 +51,7 @@ jobs:
       DATABASE_URL: sqlite:///./e2e.db
       JWT_SECRET: e2e-test-secret-not-for-production
       ADMIN_EMAIL: admin@multitec.com
-      ADMIN_PASSWORD: change-this-password
+      ADMIN_PASSWORD: e2e-admin-password
       CORS_ORIGINS: http://localhost:5173
       UPLOAD_DIR: ./uploads
     steps:
