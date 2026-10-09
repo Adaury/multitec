@@ -12,7 +12,8 @@ test('budget -> convert to quote -> approve, with correct ITBIS math', async ({ 
 
   await page.goto('/proyectos')
   await page.click('button:has-text("+ Nuevo")')
-  await page.locator('label:has-text("Cliente") select').selectOption({ label: clientName })
+  await page.locator('input[role="combobox"]').fill(clientName)
+  await page.getByRole('option', { name: clientName, exact: true }).click()
   await page.locator('label:has-text("Descripción") textarea').fill(description)
   await page.click('button:has-text("Crear proyecto")')
   await page.locator('a', { hasText: description }).click()

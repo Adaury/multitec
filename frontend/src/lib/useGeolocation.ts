@@ -1,9 +1,12 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { mapsPointUrl } from './maps'
 
 /** Captura la ubicación GPS del dispositivo y la entrega como enlace de Google Maps. El GPS del
- * navegador solo funciona en HTTPS o localhost; si falla, `note` explica por qué. */
-export function useGeolocation(onLocation: (mapsUrl: string) => void) {
+ * navegador solo funciona en HTTPS o localhost; si falla, `note` explica por qué.
+ *
+ * Con `auto` pide la ubicación apenas se abre la pantalla (una sola vez), sin tocar nada: pensado
+ * para el levantamiento en sitio, donde el técnico ya está en la obra. */
+export function useGeolocation(onLocation: (mapsUrl: string) => void, options: { auto?: boolean } = {}) {
   const [locating, setLocating] = useState(false)
   const [note, setNote] = useState<string | null>(null)
 
@@ -31,6 +34,14 @@ export function useGeolocation(onLocation: (mapsUrl: string) => void) {
       { enableHighAccuracy: true, timeout: 20_000, maximumAge: 30_000 },
     )
   }, [onLocation])
+
+  const autoDone = useRef(false)
+  useEffect(() => {
+    if (options.auto && !autoDone.current) {
+      autoDone.current = true
+      capture()
+    }
+  }, [options.auto, capture])
 
   return { locating, note, capture }
 }

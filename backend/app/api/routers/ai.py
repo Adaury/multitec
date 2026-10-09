@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session, joinedload
 
 from app.ai_engine.documents import compute_survey_items, draft_engineering, generate_documents_from_survey
+from app.ai_engine.intake import parse_intake
 from app.ai_engine.learning import recent_voice_examples, record_voice_feedback
 from app.ai_engine.nlu import classify_voice_transcript, summarize_survey
 from app.ai_engine.qa import answer_question
@@ -20,7 +21,15 @@ from app.models.quote import Quote
 from app.models.survey import Survey
 from app.models.ticket import Ticket
 from app.models.user import User
-from app.schemas.ai import AskRequest, AskResponse, BudgetSuggestionOut, EngineeringDraftOut, GenerateFromSurveyOut
+from app.schemas.ai import (
+    AskRequest,
+    AskResponse,
+    BudgetSuggestionOut,
+    EngineeringDraftOut,
+    GenerateFromSurveyOut,
+    IntakeParseIn,
+    IntakeParseOut,
+)
 from app.schemas.survey import SurveyOut, VoiceFeedbackIn, VoiceSurveyOut
 from app.services.embeddings import reindex_project, search_projects
 from app.services.notifications import notify_quote_pending
@@ -234,6 +243,13 @@ def generate_from_survey(
         engineering_drafted=document_set.engineering_drafted,
         warnings=document_set.warnings,
     )
+
+
+@router.post("/api/ai/intake-parse", response_model=IntakeParseOut)
+def ai_intake_parse(payload: IntakeParseIn, _=Depends(allowed_roles)):
+    """Alta rápida: de una frase ("Juan Pérez, 809 555 1234, cámaras") saca nombre, teléfono y
+    tipo de levantamiento. Nunca falla por la IA: sin Ollama responde solo con las reglas."""
+    return parse_intake(payload.text, payload.survey_types)
 
 
 @router.post("/api/ai/ask", response_model=AskResponse)

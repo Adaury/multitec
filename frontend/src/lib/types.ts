@@ -74,7 +74,17 @@ export interface Project {
   description: string | null
   address: string | null
   location_url: string | null
+  survey_type: string | null
   created_at: string
+}
+
+/** Respuesta de POST /ai/intake-parse: los datos básicos que la IA sacó de lo que se dictó. */
+export interface IntakeParseResult {
+  name: string
+  company: string
+  phone: string
+  survey_type: string
+  ai_used: boolean
 }
 
 export interface ProjectDetail extends Project {

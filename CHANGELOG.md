@@ -8,6 +8,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Levantamiento rápido más ágil** (`/nuevo`, y `/proyectos`):
+  - **Ubicación automática:** al abrir el levantamiento rápido se pide el GPS solo (una vez) y
+    se guarda en el proyecto; el mapa muestra "Cómo llegar" al punto. En la ficha de un
+    proyecto sin ubicación, "Agregar" también la pide al tocarlo (nunca al abrir la ficha,
+    para que mirar un proyecto desde la oficina no sobrescriba la ubicación de la obra).
+  - **Menú de búsqueda de clientes** (`ClientCombobox`): filtra al escribir por nombre,
+    empresa, teléfono o RNC, sin importar tildes, y ofrece "＋ Crear cliente nuevo" en el
+    momento. Reemplaza al `<select>` del formulario de proyectos.
+  - **Asistente de alta de cliente** (`IntakeAssistant`): pregunta nombre → teléfono → tipo de
+    levantamiento, se contesta escribiendo, dictando o tocando una opción, o se dice todo de una
+    vez ("Juan Pérez, 809 555 1234, cámaras") y la IA local lo separa
+    (`POST /api/ai/intake-parse`; teléfono y tipo se detectan con reglas, la IA ayuda con
+    nombre/empresa y, si Ollama no responde, el resultado sale igual solo de las reglas).
+  - **Tipo de levantamiento** (`projects.survey_type`, migración `c5a2e8d4f1b6`): se guarda en
+    el proyecto, se muestra en la lista y alimenta la descripción ("Levantamiento · Alarma").
+    La lista de tipos vive en `frontend/src/lib/surveyTypes.ts`.
 - **Módulo de Compras y reporte 606** (`/compras`, admin+oficina): registro de facturas de
   proveedores con NCF, tipo de gasto, forma de pago, ITBIS y retenciones
   (`/api/purchase-invoices`, tabla `purchase_invoices`, migración `b7e4d1c9a2f3`) y export

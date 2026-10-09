@@ -1,12 +1,15 @@
-import { useMemo, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { formatDOP } from '../lib/format'
 import { shrinkImage } from '../lib/imageUpload'
 import { useGeolocation } from '../lib/useGeolocation'
+import { SURVEY_TYPES, surveyDescription } from '../lib/surveyTypes'
 import type { Client, ClientInput, GenerateFromSurveyOut, Project, VoiceSurveyResult } from '../lib/types'
 import { Button, Card, Field, Input } from '../components/ui'
+import { ClientCombobox } from '../components/ClientCombobox'
+import { IntakeAssistant, type IntakeData } from '../components/IntakeAssistant'
 import { MapPreview } from '../components/MapPreview'
 import { VoiceRecorderCard, VoiceReviewCard } from '../components/VoiceSurvey'
 
@@ -34,22 +37,17 @@ export function QuickSurvey() {
     queryKey: ['clients'],
     queryFn: async () => (await api.get<Client[]>('/clients')).data,
   })
-  const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Client | null>(null)
   const [creatingNew, setCreatingNew] = useState(false)
+  // Cliente nuevo: por defecto lo llena el asistente (pregunta nombre, teléfono y tipo); también
+  // se puede escribir a mano.
+  const [manualEntry, setManualEntry] = useState(false)
   const [newClient, setNewClient] = useState({ name: '', phone: '', company: '' })
+  const [surveyType, setSurveyType] = useState('')
   const [address, setAddress] = useState('')
   const [locationUrl, setLocationUrl] = useState('')
-  const gps = useGeolocation(setLocationUrl)
-
-  const matches = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    const list = clients ?? []
-    const filtered = q
-      ? list.filter((c) => [c.name, c.company, c.phone].some((v) => v?.toLowerCase().includes(q)))
-      : list
-    return filtered.slice(0, 5)
-  }, [clients, search])
+  // En un levantamiento el técnico ya está en la obra: la ubicación se toma sola al abrir la pantalla.
+  const gps = useGeolocation(setLocationUrl, { auto: true })
 
   // --- Paso 2: narración ---
   const [project, setProject] = useState<Project | null>(null)
@@ -62,18 +60,20 @@ export function QuickSurvey() {
 
   const canStart = !busy && (selected !== null || (creatingNew && newClient.name.trim().length > 0))
 
-  async function start() {
+  /** `intake` llega del asistente (ya con nombre, teléfono y tipo); sin él se usan los campos. */
+  async function start(intake?: IntakeData) {
     setBusy(true)
     setError(null)
     try {
       let client = selected
       const place = { address: address.trim() || null, location_url: locationUrl.trim() || null }
+      const projectType = (intake?.survey_type ?? surveyType) || null
       if (creatingNew) {
         const payload: ClientInput = {
-          name: newClient.name.trim(),
+          name: (intake?.name ?? newClient.name).trim(),
           company: newClient.company.trim() || null,
           rnc: null,
-          phone: newClient.phone.trim() || null,
+          phone: (intake?.phone ?? newClient.phone).trim() || null,
           email: null,
           notes: null,
           ...place,
@@ -95,7 +95,8 @@ export function QuickSurvey() {
         // La ubicación capturada queda en el proyecto (la obra), además de completar la del cliente.
         await api.post<Project>('/projects', {
           client_id: client.id,
-          description: 'Levantamiento en sitio',
+          description: surveyDescription(projectType),
+          survey_type: projectType,
           ...place,
         })
       ).data
@@ -174,8 +175,9 @@ export function QuickSurvey() {
     setProject(null)
     setSelected(null)
     setCreatingNew(false)
+    setManualEntry(false)
     setNewClient({ name: '', phone: '', company: '' })
-    setSearch('')
+    setSurveyType('')
     setAddress('')
     setLocationUrl('')
     setVoiceResult(null)
@@ -303,6 +305,25 @@ export function QuickSurvey() {
               Cambiar
             </button>
           </div>
+        ) : creatingNew && !manualEntry ? (
+          <div className="space-y-3">
+            <IntakeAssistant
+              initialName={newClient.name}
+              initialSurveyType={surveyType}
+              busy={busy || gps.locating}
+              busyLabel={busy ? 'Preparando…' : 'Buscando tu ubicación…'}
+              submitLabel="🎙️ Comenzar levantamiento"
+              onComplete={(intake) => {
+                setNewClient({ ...newClient, name: intake.name, phone: intake.phone })
+                setSurveyType(intake.survey_type)
+                void start(intake)
+              }}
+              onManual={() => setManualEntry(true)}
+            />
+            <button onClick={() => setCreatingNew(false)} className="text-sm text-brand-blue">
+              ← Buscar un cliente existente
+            </button>
+          </div>
         ) : creatingNew ? (
           <div className="space-y-3">
             <Field label="Nombre del cliente">
@@ -323,27 +344,26 @@ export function QuickSurvey() {
             <Field label="Empresa (opcional)">
               <Input value={newClient.company} onChange={(e) => setNewClient({ ...newClient, company: e.target.value })} />
             </Field>
-            <button onClick={() => setCreatingNew(false)} className="text-sm text-brand-blue">
-              ← Buscar un cliente existente
-            </button>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              <button onClick={() => setManualEntry(false)} className="text-sm text-brand-blue">
+                🤖 Que el asistente me pregunte
+              </button>
+              <button onClick={() => setCreatingNew(false)} className="text-sm text-gray-500 dark:text-gray-400">
+                ← Buscar un cliente existente
+              </button>
+            </div>
           </div>
         ) : (
-          <div className="space-y-2">
-            <Input placeholder="Buscar cliente por nombre o teléfono" value={search} onChange={(e) => setSearch(e.target.value)} />
-            {matches.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setSelected(c)}
-                className="flex w-full flex-col rounded-xl bg-brand-gray px-4 py-3 text-left dark:bg-gray-800"
-              >
-                <span className="font-medium text-gray-900 dark:text-gray-100">{c.name}</span>
-                <span className="text-xs text-gray-500">{c.company || c.phone || ''}</span>
-              </button>
-            ))}
-            <Button variant="secondary" onClick={() => setCreatingNew(true)}>
-              ＋ Cliente nuevo
-            </Button>
-          </div>
+          <ClientCombobox
+            clients={clients ?? []}
+            value={null}
+            onSelect={setSelected}
+            onCreateNew={(typed) => {
+              setNewClient({ ...newClient, name: typed })
+              setManualEntry(false)
+              setCreatingNew(true)
+            }}
+          />
         )}
       </Card>
 
@@ -362,10 +382,36 @@ export function QuickSurvey() {
         <MapPreview place={{ address, location_url: locationUrl }} />
       </Card>
 
+      {!(creatingNew && !manualEntry) && (
+        <Card className="space-y-3">
+          <p className="font-medium text-gray-800 dark:text-gray-200">3 · Tipo de levantamiento</p>
+          <div className="flex flex-wrap gap-2">
+            {SURVEY_TYPES.map((t) => (
+              <button
+                key={t}
+                type="button"
+                aria-pressed={surveyType === t}
+                onClick={() => setSurveyType(surveyType === t ? '' : t)}
+                className={`rounded-full px-4 py-2 text-sm font-medium ${
+                  surveyType === t
+                    ? 'bg-brand-blue text-white'
+                    : 'bg-brand-gray text-gray-800 dark:bg-gray-800 dark:text-gray-100'
+                }`}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-      <Button onClick={start} disabled={!canStart}>
-        {busy ? 'Preparando…' : '🎙️ Comenzar levantamiento'}
-      </Button>
+      {/* Con el asistente, su propio botón final arranca el levantamiento. */}
+      {!(creatingNew && !manualEntry) && (
+        <Button onClick={() => start()} disabled={!canStart}>
+          {busy ? 'Preparando…' : '🎙️ Comenzar levantamiento'}
+        </Button>
+      )}
     </div>
   )
 }

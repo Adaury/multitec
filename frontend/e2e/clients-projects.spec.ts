@@ -15,7 +15,8 @@ test('create a client and a project for it', async ({ page }) => {
 
   await page.goto('/proyectos')
   await page.click('button:has-text("+ Nuevo")')
-  await page.locator('label:has-text("Cliente") select').selectOption({ label: clientName })
+  await page.locator('input[role="combobox"]').fill(clientName)
+  await page.getByRole('option', { name: clientName, exact: true }).click()
   await page.locator('label:has-text("Descripción") textarea').fill(description)
   await page.click('button:has-text("Crear proyecto")')
 

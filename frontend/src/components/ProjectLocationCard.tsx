@@ -28,6 +28,10 @@ export function ProjectLocationCard({ project }: { project: ProjectDetail }) {
     setLocationUrl(project.location_url ?? '')
     setError(null)
     setEditing(true)
+    // Al agregar la ubicación de una obra que aún no tiene, se pide el GPS directamente. Solo al
+    // tocar "Agregar" (nunca al abrir la ficha): quien mira el proyecto desde la oficina no debe
+    // sobrescribir la ubicación de la obra con la suya.
+    if (!own) gps.capture()
   }
 
   const save = useMutation({

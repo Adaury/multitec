@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.schemas.budget import BudgetOut
 from app.schemas.quote import QuoteOut
@@ -33,6 +33,19 @@ class AskRequest(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     projects: list[str] = []
+
+
+class IntakeParseIn(BaseModel):
+    text: str = Field(max_length=2000)
+    survey_types: list[str] = Field(default_factory=list, max_length=30)
+
+
+class IntakeParseOut(BaseModel):
+    name: str = ""
+    company: str = ""
+    phone: str = ""
+    survey_type: str = ""
+    ai_used: bool = False
 
 
 class GenerateFromSurveyOut(BaseModel):

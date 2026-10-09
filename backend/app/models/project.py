@@ -30,6 +30,9 @@ class Project(Base):
     # vacía, se usa la del cliente — ver `Project.place_address/place_location_url`.
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     location_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    # Tipo de levantamiento (cámaras, alarma, control de acceso...). Texto libre acotado: la
+    # lista de opciones vive en el frontend (lib/surveyTypes.ts), no es un enum de base de datos.
+    survey_type: Mapped[str | None] = mapped_column(String(60), nullable=True)
     # Token opaco para el portal de cliente (sin login) — NULL = portal desactivado. Ver
     # api/routers/public.py. No usar el id numérico como identificador público: sería
     # trivial enumerar todos los proyectos de la empresa.
