@@ -8,6 +8,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Asistente de IA que saluda por su nombre** (`/nuevo`): al abrir el levantamiento rápido
+  aparece solo, dice "Hola, Ing. X. Soy tu asistente de levantamientos", explica en qué puede
+  ayudar y ofrece "Cliente nuevo", "Decir todo de una vez" y "Buscar un cliente". Cada usuario
+  configura cómo lo llama en `/perfil` ("Cómo te llama el asistente de IA", p. ej. "Ing. Pérez";
+  vacío = "Ing." + primer nombre) — `users.assistant_alias`, migración `d9b3f6a1c4e8`,
+  `PUT /api/auth/me` acepta `assistant_alias` (si no viene no se toca; vacío lo borra).
+- **El mapa carga siempre:** con coordenadas la vista previa usa OpenStreetMap (sin clave); el
+  mapa de Google se quedaba en blanco en varios iPhone. Con solo una dirección sigue usando el de
+  Google, y tocar el mapa abre Google Maps.
 - **Levantamiento rápido más ágil** (`/nuevo`, y `/proyectos`):
   - **Ubicación automática:** al abrir el levantamiento rápido se pide el GPS solo (una vez) y
     se guarda en el proyecto; el mapa muestra "Cómo llegar" al punto. En la ficha de un

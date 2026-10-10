@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
+import { assistantCallName } from '../lib/assistantName'
 import type { CurrentUser, Role } from '../lib/types'
 import { Badge, Button, Card, Field, Input } from '../components/ui'
 
@@ -17,6 +18,9 @@ export function Profile() {
   const setTokens = useAuthStore((s) => s.setTokens)
 
   const [name, setName] = useState(user?.name ?? '')
+  const [alias, setAlias] = useState(user?.assistant_alias ?? '')
+  // Lo que usa el asistente si dejas vacío el campo (se actualiza mientras escribes tu nombre).
+  const defaultCall = assistantCallName({ name, assistant_alias: null })
   const [nameMsg, setNameMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   const [currentPassword, setCurrentPassword] = useState('')
@@ -25,11 +29,12 @@ export function Profile() {
   const [pwMsg, setPwMsg] = useState<{ ok: boolean; text: string } | null>(null)
 
   const saveName = useMutation({
-    mutationFn: async () => (await api.put<CurrentUser>('/auth/me', { name })).data,
+    mutationFn: async () => (await api.put<CurrentUser>('/auth/me', { name, assistant_alias: alias })).data,
     onSuccess: (data) => {
       setUser(data)
       setName(data.name)
-      setNameMsg({ ok: true, text: 'Nombre actualizado' })
+      setAlias(data.assistant_alias ?? '')
+      setNameMsg({ ok: true, text: 'Perfil actualizado' })
     },
     onError: (err: any) =>
       setNameMsg({ ok: false, text: err?.response?.data?.detail?.[0]?.msg ?? err?.response?.data?.detail ?? 'Error al guardar' }),
@@ -74,13 +79,32 @@ export function Profile() {
           <Field label="Nombre">
             <Input required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
           </Field>
+          <Field label="Cómo te llama el asistente de IA">
+            <Input
+              maxLength={60}
+              placeholder={defaultCall}
+              value={alias}
+              onChange={(e) => setAlias(e.target.value)}
+            />
+          </Field>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Ej. "Ing. Pérez". El asistente te saluda así al abrir un levantamiento. Si lo dejas vacío usa "
+            {defaultCall}".
+          </p>
           {nameMsg && (
             <p className={`text-sm ${nameMsg.ok ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
               {nameMsg.text}
             </p>
           )}
-          <Button type="submit" disabled={saveName.isPending || !name.trim() || name.trim() === user?.name}>
-            {saveName.isPending ? 'Guardando…' : 'Guardar nombre'}
+          <Button
+            type="submit"
+            disabled={
+              saveName.isPending ||
+              !name.trim() ||
+              (name.trim() === user?.name && alias.trim() === (user?.assistant_alias ?? ''))
+            }
+          >
+            {saveName.isPending ? 'Guardando…' : 'Guardar perfil'}
           </Button>
         </form>
       </Card>

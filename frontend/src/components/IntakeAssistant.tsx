@@ -65,6 +65,7 @@ function MicButton({ onText, disabled }: { onText: (text: string) => void; disab
 export function IntakeAssistant({
   initialName = '',
   initialSurveyType = '',
+  startWithAll = false,
   busy,
   submitLabel = 'Crear cliente y continuar',
   busyLabel = 'Guardando…',
@@ -73,6 +74,8 @@ export function IntakeAssistant({
 }: {
   initialName?: string
   initialSurveyType?: string
+  /** Arranca en "decir todo de una vez" en vez de preguntar paso a paso. */
+  startWithAll?: boolean
   busy?: boolean
   submitLabel?: string
   busyLabel?: string
@@ -87,7 +90,7 @@ export function IntakeAssistant({
     type: Boolean(initialSurveyType),
   })
   const firstPending = (d: Record<Key, boolean>): Phase => ORDER.find((k) => !d[k]) ?? 'confirm'
-  const [phase, setPhase] = useState<Phase>(() => firstPending(done))
+  const [phase, setPhase] = useState<Phase>(() => (startWithAll ? 'all' : firstPending(done)))
   const [log, setLog] = useState<Bubble[]>([])
   const [draft, setDraft] = useState('')
   const [parsing, setParsing] = useState(false)

@@ -16,6 +16,7 @@ export function ClientCombobox({
   onSelect,
   onCreateNew,
   placeholder = 'Buscar cliente por nombre, empresa o teléfono',
+  inputId,
 }: {
   clients: Client[]
   /** Id del cliente elegido (o null). */
@@ -24,6 +25,8 @@ export function ClientCombobox({
   /** Recibe lo que se había escrito, para precargarlo como nombre del cliente nuevo. */
   onCreateNew: (typed: string) => void
   placeholder?: string
+  /** Id del campo de texto, para poder enfocarlo desde otro botón. */
+  inputId?: string
 }) {
   const listId = useId()
   const rootRef = useRef<HTMLDivElement>(null)
@@ -82,6 +85,7 @@ export function ClientCombobox({
   return (
     <div ref={rootRef} className="relative">
       <input
+        id={inputId}
         role="combobox"
         aria-expanded={open}
         aria-controls={listId}

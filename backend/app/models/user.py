@@ -15,5 +15,8 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default="oficina")  # admin | oficina | tecnico
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # Cómo lo llama el asistente de IA ("Ing. Pérez"). Lo configura cada usuario en su perfil;
+    # vacío = el asistente usa "Ing." + el primer nombre.
+    assistant_alias: Mapped[str | None] = mapped_column(String(60), nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

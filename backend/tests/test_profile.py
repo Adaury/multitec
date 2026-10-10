@@ -19,6 +19,31 @@ def test_update_name_rejects_blank(client, oficina_token):
     assert resp.status_code == 422
 
 
+def test_assistant_alias_is_configurable_by_each_user(client, tecnico_token):
+    headers = auth_headers(tecnico_token)
+    assert client.get("/api/auth/me", headers=headers).json()["assistant_alias"] is None
+
+    resp = client.put("/api/auth/me", json={"name": "Juan Técnico", "assistant_alias": "  Ing. Pérez "}, headers=headers)
+    assert resp.status_code == 200
+    assert resp.json()["assistant_alias"] == "Ing. Pérez"
+    assert client.get("/api/auth/me", headers=headers).json()["assistant_alias"] == "Ing. Pérez"
+
+    # Si la petición no trae el alias, no se toca (guardar solo el nombre no lo borra).
+    client.put("/api/auth/me", json={"name": "Juan T."}, headers=headers)
+    assert client.get("/api/auth/me", headers=headers).json()["assistant_alias"] == "Ing. Pérez"
+
+    # Vacío lo borra: el asistente vuelve a usar "Ing." + el primer nombre.
+    client.put("/api/auth/me", json={"name": "Juan T.", "assistant_alias": "   "}, headers=headers)
+    assert client.get("/api/auth/me", headers=headers).json()["assistant_alias"] is None
+
+
+def test_assistant_alias_has_a_length_limit(client, tecnico_token):
+    resp = client.put(
+        "/api/auth/me", json={"name": "Juan", "assistant_alias": "x" * 61}, headers=auth_headers(tecnico_token)
+    )
+    assert resp.status_code == 422
+
+
 def test_change_password_success_and_new_login_works(client, db_session):
     create_user(db_session, "cp@test.com", "oldpassword1", "oficina")
     tokens = _login(client, "cp@test.com", "oldpassword1")

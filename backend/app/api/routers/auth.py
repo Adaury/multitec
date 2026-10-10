@@ -75,8 +75,11 @@ def me(current_user: User = Depends(get_current_user)):
 
 @router.put("/me", response_model=CurrentUser)
 def update_me(payload: ProfileUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
-    """Perfil propio: cualquier rol puede cambiar su nombre. Correo y rol los gestiona un admin."""
+    """Perfil propio: cualquier rol puede cambiar su nombre y cómo lo llama el asistente de IA.
+    Correo y rol los gestiona un admin."""
     current_user.name = payload.name
+    if "assistant_alias" in payload.model_fields_set:
+        current_user.assistant_alias = payload.assistant_alias
     db.commit()
     db.refresh(current_user)
     return current_user

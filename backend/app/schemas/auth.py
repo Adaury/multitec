@@ -23,6 +23,7 @@ class CurrentUser(BaseModel):
     name: str
     email: EmailStr
     role: str
+    assistant_alias: str | None = None
 
     class Config:
         from_attributes = True
@@ -30,6 +31,8 @@ class CurrentUser(BaseModel):
 
 class ProfileUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=120)
+    # Si no viene en la petición no se toca; si viene vacío se borra (vuelve al nombre por defecto).
+    assistant_alias: str | None = Field(default=None, max_length=60)
 
     @field_validator("name")
     @classmethod
@@ -38,6 +41,12 @@ class ProfileUpdate(BaseModel):
         if not v:
             raise ValueError("El nombre no puede estar vacío")
         return v
+
+    @field_validator("assistant_alias")
+    @classmethod
+    def _strip_alias(cls, v: str | None) -> str | None:
+        v = (v or "").strip()
+        return v or None
 
 
 class ChangePasswordRequest(BaseModel):

@@ -16,7 +16,6 @@ export function MapPreview({ place, className = '' }: { place: Place; className?
           <iframe
             title="Mapa de la ubicación"
             src={embed}
-            loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
             className="h-48 w-full rounded-2xl border-0 bg-brand-gray dark:bg-gray-800"
           />

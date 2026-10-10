@@ -62,11 +62,23 @@ export function viewUrl(place: Place): string | null {
 }
 
 /** URL del mapa incrustado (iframe). Null si no hay coordenadas ni dirección: un enlace corto
- * de Maps no se puede incrustar sin la API. */
+ * de Maps no se puede incrustar sin la API.
+ *
+ * Con coordenadas se usa OpenStreetMap: su mapa incrustado no pide clave y carga siempre,
+ * mientras que el de Google se queda en blanco en varios iPhone. Solo con una dirección (sin
+ * coordenadas) se recurre al de Google, que sí la sabe buscar. Tocar el mapa abre Google Maps. */
 export function embedUrl(place: Place): string | null {
   const coords = parseCoords(place.location_url)
-  const query = coords ? `${coords.lat},${coords.lng}` : place.address?.trim()
-  return query ? `https://maps.google.com/maps?q=${encodeURIComponent(query)}&z=16&output=embed` : null
+  if (coords) {
+    const dLng = 0.003
+    const dLat = 0.002 // el recuadro es más ancho que alto
+    const bbox = [coords.lng - dLng, coords.lat - dLat, coords.lng + dLng, coords.lat + dLat]
+      .map((n) => n.toFixed(5))
+      .join('%2C')
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`
+  }
+  const address = place.address?.trim()
+  return address ? `https://maps.google.com/maps?q=${encodeURIComponent(address)}&z=16&output=embed` : null
 }
 
 /** Enlace de Maps a un punto exacto (lo que se guarda al capturar el GPS). */

@@ -5,6 +5,8 @@ import { api } from '../lib/api'
 import { formatDOP } from '../lib/format'
 import { shrinkImage } from '../lib/imageUpload'
 import { useGeolocation } from '../lib/useGeolocation'
+import { assistantCallName } from '../lib/assistantName'
+import { useAuthStore } from '../lib/authStore'
 import { SURVEY_TYPES, surveyDescription } from '../lib/surveyTypes'
 import type { Client, ClientInput, GenerateFromSurveyOut, Project, VoiceSurveyResult } from '../lib/types'
 import { Button, Card, Field, Input } from '../components/ui'
@@ -42,6 +44,8 @@ export function QuickSurvey() {
   // Cliente nuevo: por defecto lo llena el asistente (pregunta nombre, teléfono y tipo); también
   // se puede escribir a mano.
   const [manualEntry, setManualEntry] = useState(false)
+  const [startAll, setStartAll] = useState(false)
+  const user = useAuthStore((s) => s.user)
   const [newClient, setNewClient] = useState({ name: '', phone: '', company: '' })
   const [surveyType, setSurveyType] = useState('')
   const [address, setAddress] = useState('')
@@ -61,9 +65,10 @@ export function QuickSurvey() {
   const canStart = !busy && (selected !== null || (creatingNew && newClient.name.trim().length > 0))
 
   /** Arranca el alta de un cliente nuevo con el asistente; `typed` es lo que ya se escribió en el buscador. */
-  function startNewClient(typed: string) {
+  function startNewClient(typed: string, all = false) {
     setNewClient({ ...newClient, name: typed })
     setManualEntry(false)
+    setStartAll(all)
     setCreatingNew(true)
   }
 
@@ -183,6 +188,7 @@ export function QuickSurvey() {
     setSelected(null)
     setCreatingNew(false)
     setManualEntry(false)
+    setStartAll(false)
     setNewClient({ name: '', phone: '', company: '' })
     setSurveyType('')
     setAddress('')
@@ -300,6 +306,40 @@ export function QuickSurvey() {
     <div className="space-y-4 py-4">
       <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Nuevo levantamiento</h1>
 
+      {!selected && !creatingNew && (
+        <Card className="space-y-3 bg-blue-50 ring-blue-100 dark:bg-blue-950 dark:ring-blue-900">
+          <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
+            🤖 Hola, {assistantCallName(user)}. Soy tu asistente de levantamientos.
+          </p>
+          <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
+            <p>Te puedo ayudar a:</p>
+            <ul className="list-disc space-y-0.5 pl-5">
+              <li>Buscar un cliente, o crearlo: te pregunto nombre, teléfono y tipo de levantamiento.</li>
+              <li>Tomar tu ubicación actual y abrir el mapa.</li>
+              <li>Entenderlo todo si me lo dices de una vez, hablando.</li>
+              <li>Después, grabar tu levantamiento y armar la cotización.</li>
+            </ul>
+            <p className="pt-1 font-medium">¿Por dónde empezamos?</p>
+          </div>
+          <div className="grid gap-2">
+            <Button onClick={() => startNewClient('', false)}>🆕 Cliente nuevo</Button>
+            <Button variant="secondary" onClick={() => startNewClient('', true)}>
+              🎙️ Decir todo de una vez
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const input = document.getElementById('client-search')
+                input?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+                input?.focus()
+              }}
+            >
+              🔎 Buscar un cliente
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <Card className="space-y-3">
         <p className="font-medium text-gray-800 dark:text-gray-200">1 · Cliente</p>
         {selected ? (
@@ -317,6 +357,7 @@ export function QuickSurvey() {
             <IntakeAssistant
               initialName={newClient.name}
               initialSurveyType={surveyType}
+              startWithAll={startAll}
               busy={busy || gps.locating}
               busyLabel={busy ? 'Preparando…' : 'Buscando tu ubicación…'}
               submitLabel="🎙️ Comenzar levantamiento"
@@ -362,10 +403,16 @@ export function QuickSurvey() {
           </div>
         ) : (
           <div className="space-y-2">
-            <ClientCombobox clients={clients ?? []} value={null} onSelect={setSelected} onCreateNew={startNewClient} />
+            <ClientCombobox
+              inputId="client-search"
+              clients={clients ?? []}
+              value={null}
+              onSelect={setSelected}
+              onCreateNew={(typed) => startNewClient(typed)}
+            />
             {/* Visible siempre: antes de escribir nada no hay lista, así que el alta no puede
                 depender solo del renglón "Crear cliente nuevo" del menú. */}
-            <Button variant="secondary" onClick={() => startNewClient('')}>
+            <Button variant="secondary" onClick={() => startNewClient('', false)}>
               ＋ Cliente nuevo · el asistente te pregunta
             </Button>
           </div>

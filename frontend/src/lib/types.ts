@@ -5,6 +5,8 @@ export interface CurrentUser {
   name: string
   email: string
   role: Role
+  /** Cómo lo llama el asistente de IA; null = "Ing." + primer nombre. */
+  assistant_alias: string | null
 }
 
 export interface ManagedUser {
