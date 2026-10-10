@@ -1,14 +1,17 @@
-﻿<#
+<#
 Backup diario de la base de datos Postgres de Multitec. Guarda un dump comprimido con
-fecha en el nombre y borra los backups más viejos que -RetentionDays.
+fecha en el nombre y borra los backups mas viejos que -RetentionDays.
 
-Uso manual:
+Uso manual (credenciales explicitas):
   .\backup-postgres.ps1 -PgBinPath "C:\Program Files\PostgreSQL\17\bin" `
     -PgHost 127.0.0.1 -PgUser multitec -PgDatabase multitec -PgPassword "..." `
     -BackupDir "D:\MultitecBackups"
 
-Para automatizarlo, usa register-backup-task.ps1 (registra esto como tarea programada
-diaria) — ajusta los mismos parámetros ahí.
+Uso recomendado (credenciales tomadas de backend\.env, sin repetir la contrasena):
+  .\backup-postgres.ps1 -EnvFile "C:\laragon\www\multitec\backend\.env" -BackupDir "D:\MultitecBackups"
+
+Para automatizarlo: register-backup-task.ps1 (como administrador, cuenta SYSTEM) o
+register-backup-task-user.ps1 (sin administrador, con tu usuario de Windows).
 #>
 
 param(
@@ -17,14 +20,32 @@ param(
     [string]$PgPort = "5432",
     [string]$PgUser = "multitec",
     [string]$PgDatabase = "multitec",
-    [Parameter(Mandatory = $true)][string]$PgPassword,
+    [string]$PgPassword,
+    # Si se indica, usuario, host, puerto, base y contrasena salen de DATABASE_URL en ese .env
+    # (asi la contrasena no queda escrita en la definicion de la tarea programada).
+    [string]$EnvFile,
     [string]$BackupDir = (Join-Path $PSScriptRoot "backups"),
     [int]$RetentionDays = 14
 )
 
+if ($EnvFile) {
+    if (-not (Test-Path $EnvFile)) { throw "No se encontro el archivo $EnvFile" }
+    $line = Select-String -Path $EnvFile -Pattern '^\s*DATABASE_URL\s*=\s*(.+?)\s*$' | Select-Object -First 1
+    if (-not $line) { throw "DATABASE_URL no esta definida en $EnvFile" }
+    $url = $line.Matches[0].Groups[1].Value
+    $pattern = '^[\w+]+://(?<user>[^:@/]+)(:(?<pass>[^@]*))?@(?<host>[^:/]+)(:(?<port>\d+))?/(?<db>[^?]+)'
+    if ($url -notmatch $pattern) { throw "DATABASE_URL no es una URL de PostgreSQL valida" }
+    $PgUser = [uri]::UnescapeDataString($Matches['user'])
+    $PgHost = $Matches['host']
+    if ($Matches['port']) { $PgPort = $Matches['port'] }
+    $PgDatabase = $Matches['db']
+    if ($Matches['pass']) { $PgPassword = [uri]::UnescapeDataString($Matches['pass']) }
+}
+if (-not $PgPassword) { throw "Falta la contrasena: usa -PgPassword o -EnvFile" }
+
 $pgDump = Join-Path $PgBinPath "pg_dump.exe"
 if (-not (Test-Path $pgDump)) {
-    throw "No se encontró pg_dump.exe en $PgBinPath"
+    throw "No se encontro pg_dump.exe en $PgBinPath"
 }
 
 New-Item -ItemType Directory -Path $BackupDir -Force | Out-Null
@@ -38,7 +59,8 @@ $exitCode = $LASTEXITCODE
 Remove-Item Env:\PGPASSWORD
 
 if ($exitCode -ne 0) {
-    throw "pg_dump terminó con código $exitCode"
+    if (Test-Path $outFile) { Remove-Item $outFile -Force }  # no dejar un dump a medias
+    throw "pg_dump termino con codigo $exitCode"
 }
 
 Write-Output "Backup creado: $outFile"

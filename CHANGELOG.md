@@ -8,6 +8,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Respaldo diario de la base sin administrador** (`deploy/register-backup-task-user.ps1`):
+  registra una tarea programada con el usuario de Windows (02:00, o apenas haya sesión si la PC
+  estaba apagada) que corre `backup-postgres.ps1`. `backup-postgres.ps1` acepta ahora
+  `-EnvFile backend\.env` y toma usuario, base y contraseña de `DATABASE_URL`, así la contraseña
+  no queda escrita en la definición de la tarea; borra el dump si `pg_dump` falla. Los respaldos
+  van fuera del repositorio (`%USERPROFILE%\MultitecBackups`, 14 días de retención).
 - **Levantamiento rápido sin scroll y sin esperas en el celular** (`/nuevo`):
   - **Una cosa por pantalla:** primero el cliente (saludo corto, buscador y dos botones grandes);
     con el cliente elegido, el tipo de levantamiento y "Comenzar". La ubicación va plegada en un
