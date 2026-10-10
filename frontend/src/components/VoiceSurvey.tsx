@@ -52,6 +52,12 @@ export function VoiceRecorderCard({
   const [state, setState] = useState<'idle' | 'recording' | 'processing'>('idle')
   const [seconds, setSeconds] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  // Grabaciones que se están transcribiendo. En modo `large` (levantamiento rápido en el celular)
+  // se procesan en segundo plano: el técnico sigue tomando fotos o grabando mientras la IA trabaja,
+  // y el resultado llega por `onTranscribed` cuando esté listo.
+  const [pending, setPending] = useState(0)
+  const [waited, setWaited] = useState(0)
+  const background = Boolean(large)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -78,8 +84,22 @@ export function VoiceRecorderCard({
     [],
   )
 
+  // Cronómetro de la espera, para que se vea que sigue trabajando y cuánto lleva.
+  useEffect(() => {
+    if (pending === 0) {
+      setWaited(0)
+      return
+    }
+    const id = window.setInterval(() => setWaited((w) => w + 1), 1000)
+    return () => window.clearInterval(id)
+  }, [pending])
+
   async function process(blob: Blob, mimeType: string) {
-    setState('processing')
+    if (background) {
+      // El micrófono queda libre de inmediato: se puede grabar otra nota mientras esta se procesa.
+      setPending((n) => n + 1)
+      setState('idle')
+    } else setState('processing')
     try {
       const extension = mimeType.includes('mp4') ? 'm4a' : 'webm'
       const form = new FormData()
@@ -95,7 +115,8 @@ export function VoiceRecorderCard({
       )
     } finally {
       queryClient.invalidateQueries({ queryKey: ['survey', projectId] })
-      setState('idle')
+      if (background) setPending((n) => Math.max(0, n - 1))
+      else setState('idle')
     }
   }
 
@@ -150,30 +171,41 @@ export function VoiceRecorderCard({
 
   if (large) {
     const recording = state === 'recording'
-    const processing = state === 'processing'
     return (
       <div className="flex flex-col items-center gap-3 py-4 text-center">
         <button
           type="button"
           onClick={recording ? stop : start}
-          disabled={disabled || processing}
+          disabled={disabled}
           aria-label={recording ? 'Detener grabación' : 'Empezar a narrar'}
           className={`flex h-32 w-32 items-center justify-center rounded-full text-6xl text-white shadow-xl transition active:scale-95 disabled:opacity-50 ${
             recording ? 'animate-pulse bg-red-600' : 'bg-brand-blue'
           }`}
         >
-          {processing ? '⏳' : recording ? '⏹' : '🎙️'}
+          {recording ? '⏹' : '🎙️'}
         </button>
         <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          {processing ? 'Transcribiendo…' : recording ? `Grabando · ${formatTime(seconds)}` : 'Toca y narra el levantamiento'}
+          {recording ? `Grabando · ${formatTime(seconds)}` : 'Toca y narra el levantamiento'}
         </p>
         <p className="max-w-xs text-sm text-gray-500 dark:text-gray-400">
-          {processing
-            ? 'Puede tardar hasta ~1 minuto.'
-            : recording
-              ? 'Cuenta qué hay que instalar, las medidas y lo que observes. Toca de nuevo para terminar.'
-              : 'Equipos y cantidades, medidas, y condiciones del sitio. Puedes grabar varias veces.'}
+          {recording
+            ? 'Cuenta qué hay que instalar, las medidas y lo que observes. Toca de nuevo para terminar.'
+            : 'Equipos y cantidades, medidas, y condiciones del sitio. Puedes grabar varias veces.'}
         </p>
+        {pending > 0 && (
+          <div
+            role="status"
+            className="w-full max-w-xs rounded-2xl bg-blue-50 px-4 py-3 text-left text-sm text-gray-700 dark:bg-blue-950 dark:text-gray-200"
+          >
+            <p className="font-medium">
+              ⏳ {pending > 1 ? `${pending} dictados en proceso` : 'Procesando tu dictado'} · {formatTime(waited)}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              {waited < 12 ? 'Escuchando tu grabación…' : 'La IA ordena notas, medidas y observaciones…'} Puedes seguir
+              tomando fotos o grabar otra nota: te aviso cuando esté listo.
+            </p>
+          </div>
+        )}
         {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       </div>
     )

@@ -16,11 +16,19 @@ from app.core.config import get_settings
 logger = logging.getLogger("multitec.ai")
 
 # Vocabulario del oficio: sesga a Whisper hacia los términos que un técnico dice en un
-# levantamiento (siglas, marcas de cable, unidades) en vez de homófonos comunes.
+# levantamiento (siglas, marcas, unidades, equipos) en vez de homófonos comunes. Con solo siglas
+# genéricas el modelo "small" oía "megapíxeles" como "metodopiceles", "Hikvision" como
+# "Marqueehibition" y "patch panel" como "Pashpanen"; con marcas y equipos concretos los acierta.
+# Ampliar esta lista con las marcas y equipos que de verdad se instalan mejora el dictado sin
+# costo de velocidad.
 DOMAIN_PROMPT = (
-    "Levantamiento técnico de seguridad electrónica en República Dominicana: cámaras CCTV, "
-    "DVR, NVR, cable UTP Cat6, metros de cable, canaletas, tubería, switch PoE, router, "
-    "access point, control de acceso, cerradura magnética, intercom, alarma, sensores."
+    "Levantamiento técnico de seguridad electrónica en República Dominicana. Vocabulario: "
+    "cámaras IP de 2, 4, 5 y 8 megapíxeles, Hikvision, Dahua, Uniview, Ezviz, Hilook, Axis, "
+    "Ubiquiti, TP-Link, NVR, DVR, 16 y 32 canales, disco duro, switch PoE de 8, 16 y 24 puertos, "
+    "patch panel, rack, gabinete de 6U, 9U y 12U, organizador, bandeja, UPS, regleta, cable UTP "
+    "categoría 6, Cat6, conector RJ45, canaleta, tubería EMT, caja de cable, fuente de poder, "
+    "balun, access point, router, control de acceso, cerradura magnética, huella, intercom, "
+    "videoportero, alarma, sensores, cerco eléctrico."
 )
 
 _model = None

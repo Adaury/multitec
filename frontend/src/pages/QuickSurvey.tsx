@@ -12,7 +12,7 @@ import type { Client, ClientInput, GenerateFromSurveyOut, Project, VoiceSurveyRe
 import { Button, Card, Field, Input } from '../components/ui'
 import { ClientCombobox } from '../components/ClientCombobox'
 import { IntakeAssistant, type IntakeData } from '../components/IntakeAssistant'
-import { MapPreview } from '../components/MapPreview'
+import { LocationBar } from '../components/LocationBar'
 import { VoiceRecorderCard, VoiceReviewCard } from '../components/VoiceSurvey'
 
 type Step = 'datos' | 'narrar' | 'listo'
@@ -57,6 +57,8 @@ export function QuickSurvey() {
   const [project, setProject] = useState<Project | null>(null)
   const [clientName, setClientName] = useState('')
   const [voiceResult, setVoiceResult] = useState<VoiceSurveyResult | null>(null)
+  // Dictados que la IA ya terminó mientras el técnico seguía con otra cosa; se revisan al tocar el aviso.
+  const [readyQueue, setReadyQueue] = useState<VoiceSurveyResult[]>([])
   const [saved, setSaved] = useState<Fields>({ notes: '', measurements: '', observations: '' })
   const [segments, setSegments] = useState(0)
   const [photos, setPhotos] = useState(0)
@@ -194,6 +196,7 @@ export function QuickSurvey() {
     setAddress('')
     setLocationUrl('')
     setVoiceResult(null)
+    setReadyQueue([])
     setSaved({ notes: '', measurements: '', observations: '' })
     setSegments(0)
     setPhotos(0)
@@ -261,8 +264,34 @@ export function QuickSurvey() {
             onDiscard={() => setVoiceResult(null)}
           />
         ) : (
-          <VoiceRecorderCard large projectId={project.id} disabled={busy} onTranscribed={setVoiceResult} />
+          readyQueue.length > 0 && (
+            <Card className="space-y-2 bg-green-50 ring-2 ring-green-300 dark:bg-green-950 dark:ring-green-800">
+              <p role="status" className="font-semibold text-gray-900 dark:text-gray-100">
+                ✅ {readyQueue.length > 1 ? `${readyQueue.length} dictados listos` : 'Tu dictado está listo'}
+              </p>
+              <Button
+                onClick={() => {
+                  setVoiceResult(readyQueue[0])
+                  setReadyQueue((q) => q.slice(1))
+                }}
+              >
+                Revisar lo que entendí
+              </Button>
+            </Card>
+          )
         )}
+        {/* Siempre montado: si se oculta, se perdería la grabación que se esté procesando en segundo plano. */}
+        <div className={voiceResult ? 'hidden' : ''}>
+          <VoiceRecorderCard
+            large
+            projectId={project.id}
+            disabled={busy}
+            onTranscribed={(r) => {
+              setReadyQueue((q) => [...q, r])
+              navigator.vibrate?.(200)
+            }}
+          />
+        </div>
 
         {error && <p className="text-center text-sm text-red-600 dark:text-red-400">{error}</p>}
 
@@ -302,47 +331,74 @@ export function QuickSurvey() {
     )
   }
 
-  return (
-    <div className="space-y-4 py-4">
-      <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Nuevo levantamiento</h1>
+  const assistantMode = creatingNew && !manualEntry
+  const locationBar = (
+    <LocationBar
+      address={address}
+      onAddressChange={setAddress}
+      locationUrl={locationUrl}
+      onLocationUrlChange={setLocationUrl}
+      locating={gps.locating}
+      note={gps.note}
+      onCapture={gps.capture}
+    />
+  )
+  const typeChips = (
+    <div className="space-y-2">
+      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">¿Qué tipo de levantamiento es?</p>
+      <div className="flex flex-wrap gap-2">
+        {SURVEY_TYPES.map((t) => (
+          <button
+            key={t}
+            type="button"
+            aria-pressed={surveyType === t}
+            onClick={() => setSurveyType(surveyType === t ? '' : t)}
+            className={`rounded-full px-4 py-2 text-sm font-medium ${
+              surveyType === t ? 'bg-brand-blue text-white' : 'bg-brand-gray text-gray-800 dark:bg-gray-800 dark:text-gray-100'
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 
+  // Una sola cosa por pantalla: primero el cliente; ya elegido (o creado), el tipo; la ubicación
+  // va siempre plegada en un renglón. Así cabe en el celular sin hacer scroll.
+  return (
+    <div className="space-y-3 py-3">
       {!selected && !creatingNew && (
         <Card className="space-y-3 bg-blue-50 ring-blue-100 dark:bg-blue-950 dark:ring-blue-900">
-          <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
-            🤖 Hola, {assistantCallName(user)}. Soy tu asistente de levantamientos.
-          </p>
-          <div className="space-y-1 text-sm text-gray-700 dark:text-gray-300">
-            <p>Te puedo ayudar a:</p>
-            <ul className="list-disc space-y-0.5 pl-5">
-              <li>Buscar un cliente, o crearlo: te pregunto nombre, teléfono y tipo de levantamiento.</li>
-              <li>Tomar tu ubicación actual y abrir el mapa.</li>
-              <li>Entenderlo todo si me lo dices de una vez, hablando.</li>
-              <li>Después, grabar tu levantamiento y armar la cotización.</li>
-            </ul>
-            <p className="pt-1 font-medium">¿Por dónde empezamos?</p>
+          <div>
+            <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
+              🤖 Hola, {assistantCallName(user)}. Soy tu asistente de levantamientos.
+            </p>
+            <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+              Te ayudo a buscar o crear el cliente, tomar tu ubicación y armar la cotización. ¿Por dónde empezamos?
+            </p>
           </div>
-          <div className="grid gap-2">
-            <Button onClick={() => startNewClient('', false)}>🆕 Cliente nuevo</Button>
-            <Button variant="secondary" onClick={() => startNewClient('', true)}>
-              🎙️ Decir todo de una vez
+          <ClientCombobox
+            inputId="client-search"
+            clients={clients ?? []}
+            value={null}
+            onSelect={setSelected}
+            onCreateNew={(typed) => startNewClient(typed)}
+            placeholder="🔎 Buscar un cliente"
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Button className="!px-3" onClick={() => startNewClient('', false)}>
+              🆕 Cliente nuevo
             </Button>
-            <Button
-              variant="secondary"
-              onClick={() => {
-                const input = document.getElementById('client-search')
-                input?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-                input?.focus()
-              }}
-            >
-              🔎 Buscar un cliente
+            <Button variant="secondary" className="!px-3" onClick={() => startNewClient('', true)}>
+              🎙️ Decir todo
             </Button>
           </div>
         </Card>
       )}
 
-      <Card className="space-y-3">
-        <p className="font-medium text-gray-800 dark:text-gray-200">1 · Cliente</p>
-        {selected ? (
+      {selected && (
+        <Card className="space-y-4">
           <div className="flex items-center justify-between gap-2 rounded-xl bg-blue-50 px-4 py-3 dark:bg-blue-950">
             <div className="min-w-0">
               <p className="truncate font-medium text-gray-900 dark:text-gray-100">{selected.name}</p>
@@ -352,114 +408,65 @@ export function QuickSurvey() {
               Cambiar
             </button>
           </div>
-        ) : creatingNew && !manualEntry ? (
-          <div className="space-y-3">
-            <IntakeAssistant
-              initialName={newClient.name}
-              initialSurveyType={surveyType}
-              startWithAll={startAll}
-              busy={busy || gps.locating}
-              busyLabel={busy ? 'Preparando…' : 'Buscando tu ubicación…'}
-              submitLabel="🎙️ Comenzar levantamiento"
-              onComplete={(intake) => {
-                setNewClient({ ...newClient, name: intake.name, phone: intake.phone })
-                setSurveyType(intake.survey_type)
-                void start(intake)
-              }}
-              onManual={() => setManualEntry(true)}
+          {typeChips}
+        </Card>
+      )}
+
+      {assistantMode && (
+        <Card className="space-y-3">
+          <IntakeAssistant
+            initialName={newClient.name}
+            initialSurveyType={surveyType}
+            startWithAll={startAll}
+            busy={busy || gps.locating}
+            busyLabel={busy ? 'Preparando…' : 'Buscando tu ubicación…'}
+            submitLabel="🎙️ Comenzar levantamiento"
+            onComplete={(intake) => {
+              setNewClient({ ...newClient, name: intake.name, phone: intake.phone })
+              setSurveyType(intake.survey_type)
+              void start(intake)
+            }}
+            onManual={() => setManualEntry(true)}
+          />
+          <button onClick={() => setCreatingNew(false)} className="text-sm text-brand-blue">
+            ← Buscar un cliente existente
+          </button>
+        </Card>
+      )}
+
+      {creatingNew && manualEntry && (
+        <Card className="space-y-3">
+          <Field label="Nombre del cliente">
+            <Input autoFocus value={newClient.name} onChange={(e) => setNewClient({ ...newClient, name: e.target.value })} />
+          </Field>
+          <Field label="Teléfono">
+            <Input
+              type="tel"
+              inputMode="tel"
+              value={newClient.phone}
+              onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
             />
-            <button onClick={() => setCreatingNew(false)} className="text-sm text-brand-blue">
+          </Field>
+          <Field label="Empresa (opcional)">
+            <Input value={newClient.company} onChange={(e) => setNewClient({ ...newClient, company: e.target.value })} />
+          </Field>
+          {typeChips}
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            <button onClick={() => setManualEntry(false)} className="text-sm text-brand-blue">
+              🤖 Que el asistente me pregunte
+            </button>
+            <button onClick={() => setCreatingNew(false)} className="text-sm text-gray-500 dark:text-gray-400">
               ← Buscar un cliente existente
             </button>
-          </div>
-        ) : creatingNew ? (
-          <div className="space-y-3">
-            <Field label="Nombre del cliente">
-              <Input
-                autoFocus
-                value={newClient.name}
-                onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
-              />
-            </Field>
-            <Field label="Teléfono">
-              <Input
-                type="tel"
-                inputMode="tel"
-                value={newClient.phone}
-                onChange={(e) => setNewClient({ ...newClient, phone: e.target.value })}
-              />
-            </Field>
-            <Field label="Empresa (opcional)">
-              <Input value={newClient.company} onChange={(e) => setNewClient({ ...newClient, company: e.target.value })} />
-            </Field>
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <button onClick={() => setManualEntry(false)} className="text-sm text-brand-blue">
-                🤖 Que el asistente me pregunte
-              </button>
-              <button onClick={() => setCreatingNew(false)} className="text-sm text-gray-500 dark:text-gray-400">
-                ← Buscar un cliente existente
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <ClientCombobox
-              inputId="client-search"
-              clients={clients ?? []}
-              value={null}
-              onSelect={setSelected}
-              onCreateNew={(typed) => startNewClient(typed)}
-            />
-            {/* Visible siempre: antes de escribir nada no hay lista, así que el alta no puede
-                depender solo del renglón "Crear cliente nuevo" del menú. */}
-            <Button variant="secondary" onClick={() => startNewClient('', false)}>
-              ＋ Cliente nuevo · el asistente te pregunta
-            </Button>
-          </div>
-        )}
-      </Card>
-
-      <Card className="space-y-3">
-        <p className="font-medium text-gray-800 dark:text-gray-200">2 · Ubicación</p>
-        <Button variant="secondary" onClick={gps.capture} disabled={gps.locating}>
-          {gps.locating ? 'Buscando señal GPS…' : locationUrl ? '📍 Actualizar mi ubicación' : '📍 Usar mi ubicación actual'}
-        </Button>
-        {gps.note && <p className="text-sm text-gray-600 dark:text-gray-400">{gps.note}</p>}
-        <Field label="Dirección o referencia (opcional)">
-          <Input placeholder="Ej. Calle 5 #12, frente al colmado" value={address} onChange={(e) => setAddress(e.target.value)} />
-        </Field>
-        <Field label="Enlace de Google Maps (opcional)">
-          <Input placeholder="Se llena solo con el GPS, o pega uno" value={locationUrl} onChange={(e) => setLocationUrl(e.target.value)} />
-        </Field>
-        <MapPreview place={{ address, location_url: locationUrl }} />
-      </Card>
-
-      {!(creatingNew && !manualEntry) && (
-        <Card className="space-y-3">
-          <p className="font-medium text-gray-800 dark:text-gray-200">3 · Tipo de levantamiento</p>
-          <div className="flex flex-wrap gap-2">
-            {SURVEY_TYPES.map((t) => (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={surveyType === t}
-                onClick={() => setSurveyType(surveyType === t ? '' : t)}
-                className={`rounded-full px-4 py-2 text-sm font-medium ${
-                  surveyType === t
-                    ? 'bg-brand-blue text-white'
-                    : 'bg-brand-gray text-gray-800 dark:bg-gray-800 dark:text-gray-100'
-                }`}
-              >
-                {t}
-              </button>
-            ))}
           </div>
         </Card>
       )}
 
+      {locationBar}
+
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {/* Con el asistente, su propio botón final arranca el levantamiento. */}
-      {!(creatingNew && !manualEntry) && (
+      {!assistantMode && (selected || creatingNew) && (
         <Button onClick={() => start()} disabled={!canStart}>
           {busy ? 'Preparando…' : '🎙️ Comenzar levantamiento'}
         </Button>

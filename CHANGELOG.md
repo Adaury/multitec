@@ -8,6 +8,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Levantamiento rápido sin scroll y sin esperas en el celular** (`/nuevo`):
+  - **Una cosa por pantalla:** primero el cliente (saludo corto, buscador y dos botones grandes);
+    con el cliente elegido, el tipo de levantamiento y "Comenzar". La ubicación va plegada en un
+    renglón ("📍 Ubicación capturada · Ver mapa ▾") y solo despliega el mapa y los campos al
+    pedirlo (`LocationBar`). Ambas pantallas caben sin scroll en un celular.
+  - **La IA ya no bloquea:** el dictado se procesa en segundo plano (`VoiceRecorderCard` en modo
+    grande). Mientras tanto se puede tomar fotos o grabar otra nota; se muestra un cronómetro y la
+    etapa ("Escuchando…", "La IA ordena notas, medidas y observaciones…") y, al terminar, aparece
+    "✅ Tu dictado está listo" (con vibración donde se pueda) para revisarlo al tocar. Los dictados
+    listos se encolan.
+  - **Mejor dictado de términos técnicos:** `DOMAIN_PROMPT` de Whisper ampliado con marcas y
+    equipos (Hikvision, Dahua, patch panel, megapíxeles, gabinete 12U, UPS…). Con una grabación
+    real, "metodopiceles / Marqueehibition / Pashpanen" pasaron a "megapíxeles / Hikvision / patch
+    panel", sin costo de velocidad.
 - **Asistente de IA que saluda por su nombre** (`/nuevo`): al abrir el levantamiento rápido
   aparece solo, dice "Hola, Ing. X. Soy tu asistente de levantamientos", explica en qué puede
   ayudar y ofrece "Cliente nuevo", "Decir todo de una vez" y "Buscar un cliente". Cada usuario

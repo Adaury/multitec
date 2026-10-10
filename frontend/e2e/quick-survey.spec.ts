@@ -6,16 +6,22 @@ test.use({
   permissions: ['geolocation'],
 })
 
+/** Abre el renglón plegado de ubicación para ver el mapa y los campos. */
+async function openLocation(page: import('@playwright/test').Page) {
+  await page.getByRole('button', { name: /Ver mapa/ }).click()
+}
+
 test('quick survey: GPS is captured automatically and the assistant creates the client', async ({ page }) => {
   const name = unique('Cliente Asistente')
   const phoneDigits = '8095551234'
 
   await page.goto('/nuevo')
 
-  // La ubicación se toma sola al abrir la pantalla, sin tocar nada.
+  // La ubicación se toma sola al abrir la pantalla, sin tocar nada, y se resume en un renglón.
+  await expect(page.getByText('Ubicación capturada')).toBeVisible({ timeout: 15000 })
+  await openLocation(page)
   const maps = page.getByPlaceholder('Se llena solo con el GPS, o pega uno')
-  await expect(maps).toHaveValue(/18\.486100,-69\.931200/, { timeout: 15000 })
-  await expect(page.getByText('Ubicación capturada')).toBeVisible()
+  await expect(maps).toHaveValue(/18\.486100,-69\.931200/)
   // El mapa de la vista previa es el de OpenStreetMap (carga siempre, el de Google se quedaba en
   // blanco en iPhone) y lleva el marcador en el punto capturado.
   await expect(page.locator('iframe[title="Mapa de la ubicación"]')).toHaveAttribute(
@@ -62,11 +68,10 @@ test('the assistant greets by name as soon as the screen opens, and the technici
   // Aparece solo, sin tocar nada, y dice en qué puede ayudar. Por defecto: "Ing." + primer nombre.
   await page.goto('/nuevo')
   await expect(page.getByText('Hola, Ing. Administrador. Soy tu asistente de levantamientos.')).toBeVisible()
-  await expect(page.getByText('Te puedo ayudar a:')).toBeVisible()
-  await expect(page.getByText(/Tomar tu ubicación actual/)).toBeVisible()
+  await expect(page.getByText(/Te ayudo a buscar o crear el cliente, tomar tu ubicación y armar la cotización/)).toBeVisible()
   await expect(page.getByRole('button', { name: '🆕 Cliente nuevo' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '🎙️ Decir todo de una vez' })).toBeVisible()
-  await expect(page.getByRole('button', { name: '🔎 Buscar un cliente' })).toBeVisible()
+  await expect(page.getByRole('button', { name: '🎙️ Decir todo' })).toBeVisible()
+  await expect(page.locator('input[role="combobox"]')).toBeVisible()
 
   // El técnico configura cómo lo llama en su perfil.
   await page.goto('/perfil')
@@ -77,12 +82,12 @@ test('the assistant greets by name as soon as the screen opens, and the technici
   await page.goto('/nuevo')
   await expect(page.getByText('Hola, Ing. Pérez. Soy tu asistente de levantamientos.')).toBeVisible()
 
-  // "Decir todo de una vez" abre directo el cuadro para dictar o escribir todo junto.
-  await page.getByRole('button', { name: '🎙️ Decir todo de una vez' }).click()
+  // "Decir todo" abre directo el cuadro para dictar o escribir todo junto.
+  await page.getByRole('button', { name: '🎙️ Decir todo' }).click()
   await expect(page.getByText('Dime todo de una vez').last()).toBeVisible()
   await expect(page.getByPlaceholder(/Juan Pérez, 809 555 1234/)).toBeVisible()
-  // Una vez que arranca el alta, el saludo largo se oculta para no estorbar.
-  await expect(page.getByText('Te puedo ayudar a:')).toHaveCount(0)
+  // Una vez que arranca el alta, el saludo se oculta para no estorbar.
+  await expect(page.getByText(/Soy tu asistente de levantamientos/)).toHaveCount(0)
 
   // Dejar el perfil como estaba para no afectar otras pruebas.
   await page.goto('/perfil')
@@ -91,10 +96,38 @@ test('the assistant greets by name as soon as the screen opens, and the technici
   await expect(page.getByText('Perfil actualizado')).toBeVisible()
 })
 
+test('the quick survey fits on a phone screen without scrolling', async ({ page }) => {
+  const clientName = unique('Cliente Pantalla')
+  await page.goto('/clientes')
+  await page.click('button:has-text("+ Nuevo")')
+  await page.locator('label:has-text("Nombre") input').fill(clientName)
+  await page.click('button:has-text("Guardar cliente")')
+  await expect(page.getByText(clientName)).toBeVisible({ timeout: 10000 })
+
+  const overflow = () =>
+    page.evaluate(() => document.documentElement.scrollHeight - window.innerHeight)
+
+  // Pantalla inicial: saludo, buscador y dos botones; la ubicación va plegada en un renglón.
+  await page.goto('/nuevo')
+  await expect(page.getByText('Ubicación capturada')).toBeVisible({ timeout: 15000 })
+  expect(await overflow()).toBeLessThanOrEqual(1)
+
+  // Con un cliente ya elegido: el tipo de levantamiento y el botón de comenzar, también sin scroll.
+  await page.locator('input[role="combobox"]').fill(clientName)
+  await page.getByRole('option', { name: clientName, exact: true }).click()
+  await expect(page.getByRole('button', { name: /Comenzar levantamiento/ })).toBeVisible()
+  expect(await overflow()).toBeLessThanOrEqual(1)
+
+  // El mapa solo aparece al pedirlo.
+  await expect(page.locator('iframe[title="Mapa de la ubicación"]')).toHaveCount(0)
+  await openLocation(page)
+  await expect(page.locator('iframe[title="Mapa de la ubicación"]')).toHaveCount(1)
+})
+
 test('the assistant asks for the name first when nothing was typed', async ({ page }) => {
   await page.goto('/nuevo')
   // El alta es un botón visible desde el principio (no depende de abrir la lista del buscador).
-  await page.getByRole('button', { name: '＋ Cliente nuevo · el asistente te pregunta' }).click()
+  await page.getByRole('button', { name: '🆕 Cliente nuevo' }).click()
   await expect(page.getByText('¿Cómo se llama el cliente?').last()).toBeVisible()
   // "Siguiente" no avanza con el nombre vacío.
   await expect(page.getByRole('button', { name: 'Siguiente' })).toBeDisabled()
