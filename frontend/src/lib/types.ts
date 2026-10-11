@@ -7,6 +7,8 @@ export interface CurrentUser {
   role: Role
   /** Cómo lo llama el asistente de IA; null = "Ing." + primer nombre. */
   assistant_alias: string | null
+  /** Contraseña temporal: hasta cambiarla solo puede ver su perfil. */
+  must_change_password?: boolean
 }
 
 export interface ManagedUser {

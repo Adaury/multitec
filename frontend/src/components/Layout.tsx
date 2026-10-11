@@ -1,5 +1,5 @@
 import { Suspense, useEffect, useState } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { api, logout } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import type { CurrentUser } from '../lib/types'
@@ -112,6 +112,11 @@ export function Layout() {
         .catch(() => {})
     }
   }, [user, setUser])
+
+  // Contraseña temporal: el servidor ya bloquea todo menos el perfil; aquí se lleva al usuario ahí.
+  if (user?.must_change_password && location.pathname !== '/perfil') {
+    return <Navigate to="/perfil" replace />
+  }
 
   const sidebarItems = user?.role === 'admin' ? [...sidebarBaseItems, ...adminSidebarItems] : sidebarBaseItems
   const moreItems: NavItem[] = [

@@ -8,6 +8,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Cambio obligatorio de la contraseña temporal** (`users.must_change_password`, migración
+  `f7a3c1e9b2d4`): un usuario creado por un admin, o cuya contraseña restableció otro admin, queda
+  marcado y **el servidor** (`get_current_user`) bloquea con 403 todo salvo `/api/auth/me`,
+  `/api/auth/change-password` y `/api/auth/logout` hasta que la cambie; la app lo lleva a `/perfil`
+  con un aviso. Un admin que se pone su propia contraseña no queda marcado. Los usuarios existentes
+  no se tocan.
 - **Importación masiva de productos al catálogo** (Catálogo → "⬆ Importar", solo admin): carga una
   lista de precios desde un CSV (el que guarda Excel) en vez de crear producto por producto.
   Plantilla descargable (`GET /api/catalog/import-template`, con `sep=;` para que Excel separe las

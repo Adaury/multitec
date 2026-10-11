@@ -99,6 +99,7 @@ def change_password(
         raise HTTPException(status_code=400, detail="La nueva contraseña debe ser distinta de la actual")
 
     current_user.hashed_password = hash_password(payload.new_password)
+    current_user.must_change_password = False
     # Cierra las demás sesiones (otros dispositivos, tokens robados) y devuelve un par
     # nuevo para que ésta siga activa.
     revoke_all_refresh_tokens(db, current_user.id)

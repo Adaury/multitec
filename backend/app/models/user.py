@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, false, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -15,6 +15,9 @@ class User(Base):
     hashed_password: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(20), default="oficina")  # admin | oficina | tecnico
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # La contraseña actual es temporal (la puso un admin o se restableció): hasta que el usuario la
+    # cambie solo puede ver su perfil y cambiarla. Ver core/security.py::get_current_user.
+    must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     # Cómo lo llama el asistente de IA ("Ing. Pérez"). Lo configura cada usuario en su perfil;
     # vacío = el asistente usa "Ing." + el primer nombre.
     assistant_alias: Mapped[str | None] = mapped_column(String(60), nullable=True)

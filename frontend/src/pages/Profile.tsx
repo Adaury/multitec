@@ -46,6 +46,8 @@ export function Profile() {
     onSuccess: (data) => {
       // Las demás sesiones se cierran; esta sigue activa con el par de tokens nuevo.
       setTokens(data.access_token, data.refresh_token)
+      // Ya no es temporal: se libera el resto de la app.
+      if (user) setUser({ ...user, must_change_password: false })
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
@@ -62,6 +64,19 @@ export function Profile() {
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
       <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Mi perfil</h1>
+
+      {user?.must_change_password && (
+        <div
+          role="alert"
+          className="rounded-3xl border border-amber-300 bg-amber-50 p-5 text-sm text-amber-800 md:max-w-xl dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+        >
+          <p className="font-semibold">Tu contraseña es temporal</p>
+          <p className="mt-1">
+            Por seguridad, cámbiala ahora por una que solo tú conozcas. Hasta entonces el resto de la
+            aplicación está bloqueado.
+          </p>
+        </div>
+      )}
 
       <Card className="space-y-3 md:max-w-xl">
         <div className="flex items-center justify-between gap-2">

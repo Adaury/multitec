@@ -24,6 +24,7 @@ class CurrentUser(BaseModel):
     email: EmailStr
     role: str
     assistant_alias: str | None = None
+    must_change_password: bool = False
 
     class Config:
         from_attributes = True

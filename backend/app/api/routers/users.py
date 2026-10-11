@@ -37,6 +37,8 @@ def create_user(payload: UserCreate, db: Session = Depends(get_db), current_user
         name=payload.name,
         email=payload.email,
         hashed_password=hash_password(payload.password),
+        # La contraseña la eligió el admin: el usuario debe cambiarla en su primer ingreso.
+        must_change_password=True,
         role=payload.role,
         created_by=current_user.id,
     )
@@ -72,6 +74,8 @@ def update_user(
         password = data.pop("password")
         if password:
             user.hashed_password = hash_password(password)
+            # Una contraseña puesta por otro admin es temporal; la propia no.
+            user.must_change_password = user.id != current_user.id
             revoke_all_refresh_tokens(db, user.id)
 
     if data.get("is_active") is False:
