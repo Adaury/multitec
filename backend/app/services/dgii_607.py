@@ -9,6 +9,17 @@ from app.services.csv_export import build_csv
 # este negocio (instalación/servicios), no hay ingresos financieros/extraordinarios/etc.
 INCOME_TYPE_SERVICES = "01"
 
+# Forma de pago -> posición de su columna en REPORT_607_HEADERS (Efectivo ... Otras Formas de Venta).
+PAYMENT_COLUMN = {
+    "efectivo": 16,
+    "cheque_transferencia": 17,
+    "tarjeta": 18,
+    "credito": 19,
+    "bonos": 20,
+    "permuta": 21,
+    "otras": 22,
+}
+
 REPORT_607_HEADERS = [
     "RNC/Cédula Comprador",
     "Tipo Identificación",
@@ -47,10 +58,11 @@ def _identification_type(rnc: str | None) -> str:
 
 def build_607_report(db: Session, year: int, month: int) -> bytes:
     """Reporte de Ventas (formato 607 de la DGII) para un período. Cubre lo que este
-    sistema sabe con certeza: NCF, RNC del cliente, fecha, monto facturado e ITBIS. No
-    trackeamos forma de pago (efectivo/tarjeta/crédito/etc.) ni retenciones, así que esas
-    columnas quedan vacías — hay que completarlas a mano si aplican antes de enviar a la
-    DGII. Verificar las columnas contra la plantilla oficial vigente antes de remitir."""
+    sistema sabe con certeza: NCF, RNC del cliente, fecha, monto facturado e ITBIS, y — si se
+    registraron en la factura — la forma de pago (en su columna, con el total cobrado) y las
+    retenciones de ITBIS y renta con su fecha. Lo que no se registró queda vacío: hay que
+    completarlo a mano antes de enviar a la DGII. Verificar las columnas contra la plantilla
+    oficial vigente antes de remitir."""
     invoices = (
         db.query(Invoice)
         .options(joinedload(Invoice.project).joinedload(Project.client))
@@ -66,32 +78,28 @@ def build_607_report(db: Session, year: int, month: int) -> bytes:
     rows = []
     for inv, issued in period_invoices:
         client = inv.project.client
-        rows.append(
-            [
-                client.rnc or "",
-                _identification_type(client.rnc),
-                inv.ncf or "",
-                "",
-                INCOME_TYPE_SERVICES,
-                issued.strftime("%Y%m%d"),
-                "",
-                float(inv.subtotal),
-                float(inv.itbis),
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-            ]
-        )
+        itbis_withheld = float(inv.itbis_withheld or 0)
+        isr_withheld = float(inv.isr_withheld or 0)
+        has_retention = itbis_withheld > 0 or isr_withheld > 0
+        row = [""] * len(REPORT_607_HEADERS)
+        row[0] = client.rnc or ""
+        row[1] = _identification_type(client.rnc)
+        row[2] = inv.ncf or ""
+        row[4] = INCOME_TYPE_SERVICES
+        row[5] = issued.strftime("%Y%m%d")
+        row[7] = float(inv.subtotal)
+        row[8] = float(inv.itbis)
+        if has_retention:
+            if inv.retention_date:
+                row[6] = inv.retention_date.strftime("%Y%m%d")
+            if itbis_withheld > 0:
+                row[9] = itbis_withheld
+            if isr_withheld > 0:
+                row[12] = isr_withheld
+        # La forma de pago va en su columna con el total cobrado (monto facturado + ITBIS).
+        column = PAYMENT_COLUMN.get(inv.payment_method or "")
+        if column is not None:
+            row[column] = float(inv.total)
+        rows.append(row)
 
     return build_csv(REPORT_607_HEADERS, rows)

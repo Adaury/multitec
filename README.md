@@ -303,11 +303,20 @@ En `/ncf` (solo admin/oficina), botón para exportar en CSV las facturas de un m
 columnas del formato 607 de la DGII (RNC/cédula del comprador, NCF, fecha, monto
 facturado, ITBIS...).
 
+**Forma de pago y retenciones:** en la pestaña **Factura** de un proyecto, al desplegar una
+factura emitida, el bloque "Cobro y retenciones (para el 607)" permite registrar cómo se cobró
+(efectivo, cheque/transferencia/depósito, tarjeta, crédito, bonos, permuta, otra), el ITBIS
+retenido, la renta retenida y la fecha de la retención (`PUT /api/invoices/{id}/payment`,
+admin y oficina; no se puede retener más ITBIS que el de la factura ni más renta que el
+subtotal). El 607 pone el total cobrado en la columna de la forma de pago y las retenciones
+en las suyas. Las facturas sin registrar siguen saliendo con esas columnas vacías.
+
 **Alcance limitado, léelo antes de usarlo para remitir de verdad:**
 
-- No se trackea forma de pago (efectivo/tarjeta/crédito) ni retenciones de ITBIS/ISR en
-  las ventas, así que esas columnas del 607 salen vacías — hay que completarlas a mano si
-  aplican.
+- Una factura lleva **una sola forma de pago** por el total; un cobro dividido (parte en
+  efectivo, parte en tarjeta) no se puede repartir entre columnas.
+- Las facturas anteriores al registro de cobro no tienen forma de pago hasta que se
+  complete a mano en cada una.
 - La estructura de columnas es la mejor aproximación posible a partir de fuentes públicas
   de la DGII; no se pudo verificar campo por campo contra la plantilla oficial vigente
   (requiere descargar un ZIP de dgii.gov.do). **Verifica el archivo contra la plantilla

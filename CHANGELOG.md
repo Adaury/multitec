@@ -8,6 +8,14 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Forma de pago y retenciones en las facturas, y reporte 607 completo**: nuevos campos de
+  `invoices` (`payment_method`, `itbis_withheld`, `isr_withheld`, `retention_date`, migración
+  `e4c7a9b2d5f1`; las facturas existentes quedan sin registrar) y `PUT /api/invoices/{id}/payment`
+  (admin y oficina; valida que no se retenga más ITBIS que el de la factura ni más renta que el
+  subtotal, y exige fecha cuando hay retención). Se registran desde el bloque "Cobro y
+  retenciones" de la factura (`InvoicePaymentForm`). El 607 pone el total cobrado en la columna
+  de la forma de pago y las retenciones con su fecha en las suyas; antes esas columnas salían
+  siempre vacías.
 - **Respaldo diario de la base sin administrador** (`deploy/register-backup-task-user.ps1`):
   registra una tarea programada con el usuario de Windows (02:00, o apenas haya sesión si la PC
   estaba apagada) que corre `backup-postgres.ps1`. `backup-postgres.ps1` acepta ahora

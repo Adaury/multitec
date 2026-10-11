@@ -51,6 +51,7 @@ import { Badge, Button, Card, Field, IconButton, Textarea } from '../components/
 import { LineItemsEditor } from '../components/LineItemsEditor'
 import { shrinkImage } from '../lib/imageUpload'
 import { ProjectLocationCard } from '../components/ProjectLocationCard'
+import { InvoicePaymentForm } from '../components/InvoicePaymentForm'
 import { VoiceRecorderCard, VoiceReviewCard, transcribeAsset } from '../components/VoiceSurvey'
 
 function DictationField({
@@ -2257,6 +2258,7 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
             </div>
             {isAdmin && <MarginRow endpoint={`/invoices/${invoice.id}/margin`} enabled={expanded} />}
           </div>
+          <InvoicePaymentForm invoice={invoice} />
           <div className="space-y-3">
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Factura (con precios)</p>

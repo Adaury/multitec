@@ -13,7 +13,13 @@ from app.models.invoice import Invoice, InvoiceHistory, InvoiceItem, PreInvoice,
 from app.models.project import Project
 from app.models.quote import Quote
 from app.models.user import User
-from app.schemas.invoice import InvoiceHistoryOut, InvoiceOut, PreInvoiceCreate, PreInvoiceOut
+from app.schemas.invoice import (
+    InvoiceHistoryOut,
+    InvoiceOut,
+    InvoicePaymentUpdate,
+    PreInvoiceCreate,
+    PreInvoiceOut,
+)
 from app.schemas.margin import MarginSummary
 from app.schemas.ncf import ConvertToInvoiceRequest
 from app.services.code_generator import next_code
@@ -216,6 +222,44 @@ def get_invoice(invoice_id: int, db: Session = Depends(get_db), _=Depends(allowe
     invoice = db.query(Invoice).options(joinedload(Invoice.items)).filter(Invoice.id == invoice_id).one_or_none()
     if invoice is None:
         raise HTTPException(status_code=404, detail="Factura no encontrada")
+    return invoice
+
+
+@router.put("/api/invoices/{invoice_id}/payment", response_model=InvoiceOut)
+def update_invoice_payment(
+    invoice_id: int,
+    payload: InvoicePaymentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(allowed_roles),
+):
+    """Forma de pago y retenciones de una factura emitida: alimentan las columnas del 607."""
+    invoice = db.query(Invoice).options(joinedload(Invoice.items)).filter(Invoice.id == invoice_id).one_or_none()
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
+    if payload.itbis_withheld > float(invoice.itbis) + 0.005:
+        raise HTTPException(status_code=400, detail="El ITBIS retenido no puede ser mayor que el ITBIS de la factura")
+    if payload.isr_withheld > float(invoice.subtotal) + 0.005:
+        raise HTTPException(status_code=400, detail="La retención de renta no puede ser mayor que el subtotal")
+    has_retention = payload.itbis_withheld > 0 or payload.isr_withheld > 0
+    if has_retention and payload.retention_date is None:
+        raise HTTPException(status_code=400, detail="Indica la fecha de la retención")
+
+    invoice.payment_method = payload.payment_method
+    invoice.itbis_withheld = payload.itbis_withheld
+    invoice.isr_withheld = payload.isr_withheld
+    invoice.retention_date = payload.retention_date if has_retention else None
+    db.add(
+        InvoiceHistory(
+            invoice_id=invoice.id,
+            action="pago actualizado",
+            note=(
+                f"Forma de pago: {payload.payment_method or 'sin definir'}; "
+                f"ITBIS retenido {payload.itbis_withheld:.2f}; renta retenida {payload.isr_withheld:.2f}"
+            ),
+        )
+    )
+    db.commit()
+    db.refresh(invoice)
     return invoice
 
 

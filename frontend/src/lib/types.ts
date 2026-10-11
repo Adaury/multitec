@@ -556,6 +556,15 @@ export interface InvoiceItem {
   note: string | null
 }
 
+export type PaymentMethod =
+  | 'efectivo'
+  | 'cheque_transferencia'
+  | 'tarjeta'
+  | 'credito'
+  | 'bonos'
+  | 'permuta'
+  | 'otras'
+
 export interface Invoice {
   id: number
   code: string
@@ -566,6 +575,11 @@ export interface Invoice {
   subtotal: number
   itbis: number
   total: number
+  /** Cobro y retenciones: insumo del reporte 607 (null / 0 = no registrado). */
+  payment_method: PaymentMethod | null
+  itbis_withheld: number
+  isr_withheld: number
+  retention_date: string | null
   created_at: string
   items: InvoiceItem[]
 }

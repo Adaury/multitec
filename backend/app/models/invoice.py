@@ -1,9 +1,20 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+# Forma de pago de la venta: cada una cae en su propia columna del reporte 607 de la DGII.
+PAYMENT_METHODS = (
+    "efectivo",
+    "cheque_transferencia",  # cheque / transferencia / depósito
+    "tarjeta",  # débito / crédito
+    "credito",  # venta a crédito
+    "bonos",  # bonos o certificados de regalo
+    "permuta",
+    "otras",
+)
 
 
 class PreInvoice(Base):
@@ -58,6 +69,12 @@ class Invoice(Base):
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     itbis: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    # Cobro y retenciones (insumo del 607). Se completan después de emitir; vacío = no se sabe y
+    # esas columnas del reporte salen en blanco, como antes.
+    payment_method: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    itbis_withheld: Mapped[float] = mapped_column(Numeric(12, 2), default=0, server_default="0")
+    isr_withheld: Mapped[float] = mapped_column(Numeric(12, 2), default=0, server_default="0")
+    retention_date: Mapped[date | None] = mapped_column(Date, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

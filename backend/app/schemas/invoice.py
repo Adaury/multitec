@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -72,12 +73,27 @@ class InvoiceOut(BaseModel):
     subtotal: float
     itbis: float
     total: float
+    payment_method: str | None = None
+    itbis_withheld: float = 0
+    isr_withheld: float = 0
+    retention_date: date | None = None
     created_by: int | None = None
     created_at: datetime
     items: list[InvoiceItemOut] = []
 
     class Config:
         from_attributes = True
+
+
+class InvoicePaymentUpdate(BaseModel):
+    """Forma de pago y retenciones de una factura ya emitida (para el reporte 607)."""
+
+    payment_method: Literal[
+        "efectivo", "cheque_transferencia", "tarjeta", "credito", "bonos", "permuta", "otras"
+    ] | None = None
+    itbis_withheld: float = Field(default=0, ge=0)
+    isr_withheld: float = Field(default=0, ge=0)
+    retention_date: date | None = None
 
 
 class InvoiceHistoryOut(BaseModel):
