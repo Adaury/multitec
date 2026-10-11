@@ -14,6 +14,8 @@ import type {
   TechnicalRuleActionType,
 } from '../lib/types'
 import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
+import { CatalogImport } from '../components/CatalogImport'
+import { useAuthStore } from '../lib/authStore'
 
 interface CategoryOption {
   category: Category
@@ -279,6 +281,8 @@ function ProductFormFields({
 export function Catalog() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
+  const [showImport, setShowImport] = useState(false)
+  const isAdmin = useAuthStore((s) => s.user?.role) === 'admin'
   const [form, setForm] = useState<ProductForm>(emptyForm())
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
@@ -306,13 +310,24 @@ export function Catalog() {
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Catálogo</h1>
-        <button
-          onClick={() => setShowForm((v) => !v)}
-          className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
-        >
-          {showForm ? 'Cancelar' : '+ Nuevo'}
-        </button>
+        <div className="flex gap-2">
+          {isAdmin && (
+            <button
+              onClick={() => setShowImport(true)}
+              className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              ⬆ Importar
+            </button>
+          )}
+          <button
+            onClick={() => setShowForm((v) => !v)}
+            className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
+          >
+            {showForm ? 'Cancelar' : '+ Nuevo'}
+          </button>
+        </div>
       </div>
+      <CatalogImport open={showImport} onClose={() => setShowImport(false)} />
 
       {showForm && (
         <Card className="md:max-w-2xl">

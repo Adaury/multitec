@@ -8,6 +8,19 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Importación masiva de productos al catálogo** (Catálogo → "⬆ Importar", solo admin): carga una
+  lista de precios desde un CSV (el que guarda Excel) en vez de crear producto por producto.
+  Plantilla descargable (`GET /api/catalog/import-template`, con `sep=;` para que Excel separe las
+  columnas) y vista previa obligatoria antes de aplicar (`POST /api/catalog/import?dry_run=true|false`).
+  Reconoce productos existentes por `codigo` o por nombre (sin importar tildes ni mayúsculas) y los
+  actualiza; una celda vacía **nunca** borra un dato ya guardado; la categoría se busca por nombre o
+  por ruta ("CCTV > Cámaras IP") y si el nombre se repite en varias ramas pide la ruta; las filas con
+  error se informan una por una sin frenar al resto; acepta números como `1,250.50`, `1.250,50` o
+  `RD$ 3,500`. Las filas que empiezan con "EJEMPLO" se ignoran. Motivo: el catálogo real tenía solo 8
+  productos y la IA no podía cotizar casi nada de lo que se dicta.
+- **Redondeo de cajas y rollos en el margen de cable:** el margen de desperdicio ya no produce "2.1
+  cajas"; las unidades indivisibles (caja, rollo, unidad…) se redondean hacia arriba y los metros
+  conservan dos decimales.
 - **Forma de pago y retenciones en las facturas, y reporte 607 completo**: nuevos campos de
   `invoices` (`payment_method`, `itbis_withheld`, `isr_withheld`, `retention_date`, migración
   `e4c7a9b2d5f1`; las facturas existentes quedan sin registrar) y `PUT /api/invoices/{id}/payment`

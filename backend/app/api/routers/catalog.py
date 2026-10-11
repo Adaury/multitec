@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
 
@@ -27,6 +28,7 @@ from app.schemas.technical_rule import (
     TechnicalRuleOut,
     TechnicalRuleUpdate,
 )
+from app.services.catalog_import import import_catalog, template_csv
 from app.services.code_generator import next_code
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
@@ -61,6 +63,33 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db), curren
     db.commit()
     db.refresh(product)
     return product
+
+
+@router.get("/import-template")
+def download_import_template(_=Depends(allowed_roles)):
+    """Plantilla CSV (abre bien en Excel) para cargar productos de golpe."""
+    return Response(
+        content=template_csv(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="plantilla_catalogo.csv"'},
+    )
+
+
+@router.post("/import")
+def import_products(
+    file: UploadFile = File(...),
+    dry_run: bool = True,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_only),
+):
+    """Importa productos desde un CSV. Por defecto es una VISTA PREVIA (dry_run=true): devuelve qué
+    se crearía, actualizaría u omitiría sin tocar nada; con dry_run=false aplica los cambios."""
+    data = file.file.read(2 * 1024 * 1024 + 1)
+    try:
+        return import_catalog(db, data, current_user.id, dry_run)
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.put("/{product_id}", response_model=ProductOut)
