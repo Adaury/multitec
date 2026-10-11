@@ -1,8 +1,21 @@
+import { useState } from 'react'
 import { directionsUrl, embedUrl, viewUrl, type Place } from '../lib/maps'
 
-/** Mapa de Google incrustado + botones "Cómo llegar" / "Ver en Maps". No renderiza nada si el
- * lugar no tiene ni dirección ni enlace de ubicación. */
-export function MapPreview({ place, className = '' }: { place: Place; className?: string }) {
+/** Mapa incrustado + botones "Cómo llegar" / "Ver en Maps". No renderiza nada si el lugar no tiene
+ * ni dirección ni enlace de ubicación.
+ *
+ * Con `collapsible` el mapa arranca plegado: solo se ven los botones y un "Ver mapa ▾". En el celular
+ * un mapa de 12 rem arriba del todo empujaba el contenido del proyecto fuera de la pantalla. */
+export function MapPreview({
+  place,
+  className = '',
+  collapsible = false,
+}: {
+  place: Place
+  className?: string
+  collapsible?: boolean
+}) {
+  const [open, setOpen] = useState(!collapsible)
   const embed = embedUrl(place)
   const directions = directionsUrl(place)
   const view = viewUrl(place)
@@ -11,7 +24,7 @@ export function MapPreview({ place, className = '' }: { place: Place; className?
   const buttonBase = 'flex flex-1 items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold'
   return (
     <div className={`space-y-2 ${className}`}>
-      {embed && (
+      {embed && open && (
         <div className="relative">
           <iframe
             title="Mapa de la ubicación"
@@ -49,6 +62,16 @@ export function MapPreview({ place, className = '' }: { place: Place; className?
           </a>
         )}
       </div>
+      {collapsible && embed && (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+          className="w-full text-center text-sm font-medium text-brand-blue"
+        >
+          {open ? 'Ocultar mapa ▴' : 'Ver mapa ▾'}
+        </button>
+      )}
     </div>
   )
 }

@@ -103,7 +103,7 @@ export function ProjectLocationCard({ project }: { project: ProjectDetail }) {
         <>
           {place.address && <p className="text-sm text-gray-600 dark:text-gray-400">{place.address}</p>}
           {!own && <p className="text-xs text-gray-400">Es la ubicación del cliente; esta obra aún no tiene la suya.</p>}
-          <MapPreview place={place} />
+          <MapPreview place={place} collapsible />
         </>
       ) : (
         <p className="text-sm text-gray-500 dark:text-gray-400">

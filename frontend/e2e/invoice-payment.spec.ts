@@ -37,6 +37,7 @@ test('register how an invoice was paid and its retentions, and see them in the 6
   const { project, invoice, headers } = await issueInvoice(page, unique('Cliente Cobro'))
 
   await page.goto(`/proyectos/${project.id}`)
+  await page.getByRole('button', { name: 'Facturación', exact: true }).click()
   await page.getByRole('button', { name: 'Factura', exact: true }).click()
   await page.getByText(invoice.code).click() // despliega la factura
 

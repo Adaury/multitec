@@ -20,6 +20,8 @@ test('budget -> convert to quote -> approve, with correct ITBIS math', async ({ 
   await expect(page).toHaveURL(/\/proyectos\/\d+/)
 
   // Presupuesto: una línea de texto libre, 4 x 100 = 400
+  // Las pestañas están agrupadas por fase: Presupuesto y Cotización viven en "Comercial".
+  await page.getByRole('button', { name: 'Comercial', exact: true }).click()
   await page.click('button:has-text("Presupuesto")')
   await page.click('button:has-text("+ Nuevo")')
   await page.click('button:has-text("+ Agregar línea")')
@@ -46,6 +48,7 @@ test('budget -> convert to quote -> approve, with correct ITBIS math', async ({ 
   await expect(page.getByText('Aprobada').first()).toBeVisible({ timeout: 10000 })
 
   // La aprobación genera materiales automáticamente
+  await page.getByRole('button', { name: 'Obra', exact: true }).click()
   await page.click('button:has-text("Compras")')
   await expect(page.getByText('Cámara domo 4MP')).toBeVisible({ timeout: 10000 })
 })

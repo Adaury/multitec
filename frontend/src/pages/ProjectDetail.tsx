@@ -154,6 +154,24 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'tickets', label: 'Tickets' },
 ]
 
+/** Las 12 pestañas, agrupadas por fase del trabajo. En el celular una sola fila de 12 obligaba a
+ * deslizar varias veces para llegar a "Factura"; así hay 4 grupos que caben en pantalla y, debajo, las
+ * 2-4 pestañas del grupo activo. */
+const PHASES: { key: string; label: string; tabs: Tab[] }[] = [
+  { key: 'datos', label: 'Datos', tabs: ['info', 'levantamiento', 'ingenieria'] },
+  { key: 'comercial', label: 'Comercial', tabs: ['presupuesto', 'cotizacion', 'ampliaciones'] },
+  { key: 'obra', label: 'Obra', tabs: ['compras', 'ejecucion', 'bitacora', 'tickets'] },
+  { key: 'facturacion', label: 'Facturación', tabs: ['prefactura', 'factura'] },
+]
+
+/** Teléfono dominicano de 10 dígitos → formato internacional para WhatsApp (wa.me). */
+function whatsappUrl(phone: string | null | undefined): string | null {
+  const digits = (phone ?? '').replace(/\D/g, '')
+  if (digits.length === 10) return `https://wa.me/1${digits}`
+  if (digits.length === 11 && digits.startsWith('1')) return `https://wa.me/${digits}`
+  return null
+}
+
 const MARGIN_BASIS_LABELS: Record<MarginSummary['basis'], string> = {
   facturado: 'Según lo facturado',
   cotizado: 'Proyectado según cotización aprobada',
@@ -225,27 +243,78 @@ export function ProjectDetail() {
           {tab !== 'tickets' && <Badge>{PROJECT_STATUS_LABELS[project.status] ?? project.status}</Badge>}
         </div>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{project.client.name}</p>
+        {(project.survey_type || project.description) && (
+          <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+            {project.survey_type && <span className="font-medium text-brand-blue">{project.survey_type}</span>}
+            {project.survey_type && project.description ? ' · ' : ''}
+            {project.description}
+          </p>
+        )}
+        {project.client.phone && (
+          <div className="mt-3 flex gap-2">
+            <a
+              href={`tel:${project.client.phone.replace(/[^+\d]/g, '')}`}
+              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-brand-gray px-4 py-3 text-sm font-semibold text-gray-800 dark:bg-gray-800 dark:text-gray-100"
+            >
+              📞 Llamar
+            </a>
+            {whatsappUrl(project.client.phone) && (
+              <a
+                href={whatsappUrl(project.client.phone) ?? undefined}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-brand-gray px-4 py-3 text-sm font-semibold text-gray-800 dark:bg-gray-800 dark:text-gray-100"
+              >
+                💬 WhatsApp
+              </a>
+            )}
+          </div>
+        )}
       </Card>
 
       <ProjectLocationCard project={project} />
 
       {isAdmin && <ProjectMarginCard projectId={project.id} />}
 
-      <div className="flex gap-2 overflow-x-auto rounded-2xl bg-brand-gray p-1 dark:bg-gray-800">
-        {TABS.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setTab(t.key)}
-            className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium ${
-              tab === t.key
-                ? 'bg-white text-brand-blue shadow-sm dark:bg-gray-700 dark:text-blue-300'
-                : 'text-gray-500 dark:text-gray-400'
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <nav aria-label="Secciones del proyecto" className="space-y-2">
+        <div className="grid grid-cols-4 gap-1 rounded-2xl bg-brand-gray p-1 dark:bg-gray-800">
+          {PHASES.map((phase) => {
+            const active = phase.tabs.includes(tab)
+            return (
+              <button
+                key={phase.key}
+                aria-current={active ? 'true' : undefined}
+                onClick={() => !active && setTab(phase.tabs[0])}
+                className={`rounded-xl px-1 py-2 text-xs font-semibold sm:text-sm ${
+                  active
+                    ? 'bg-brand-blue text-white shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}
+              >
+                {phase.label}
+              </button>
+            )
+          })}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {(PHASES.find((p) => p.tabs.includes(tab)) ?? PHASES[0]).tabs.map((key) => {
+            const t = TABS.find((x) => x.key === key)!
+            return (
+              <button
+                key={t.key}
+                onClick={() => setTab(t.key)}
+                className={`rounded-full px-4 py-2 text-sm font-medium ${
+                  tab === t.key
+                    ? 'bg-white text-brand-blue shadow-sm ring-1 ring-brand-blue/30 dark:bg-gray-700 dark:text-blue-300'
+                    : 'bg-brand-gray text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                }`}
+              >
+                {t.label}
+              </button>
+            )
+          })}
+        </div>
+      </nav>
 
       {generateWarnings.length > 0 && (
         <div className="rounded-3xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950">

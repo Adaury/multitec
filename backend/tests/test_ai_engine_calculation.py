@@ -263,3 +263,30 @@ def test_calculate_capacity_no_warning_without_any_hub_in_budget():
     warnings = calculate_capacity_warnings(items, CAPACITY_CATALOG, {2: 8, 3: 8})
 
     assert warnings == []
+
+
+def test_boxes_are_rounded_up_to_whole_units():
+    # 2 cajas de 305 m + 5% de margen = 2.1 cajas de cable reales -> hay que comprar 3.
+    catalog = [{"id": 5, "name": "Caja de cable UTP (305m)", "tags": ["cable"], "unit": "caja"}]
+    items = [{"product_id": 5, "description": "Cable UTP", "quantity": 2}]
+
+    result = apply_cable_waste_margin(items, catalog, 0.05)
+
+    assert result[0]["quantity"] == 3
+
+
+def test_a_box_that_already_fits_is_not_bumped():
+    # 100 cajas * 1.05 = 105.0000000001 por redondeo binario no debe saltar a 106.
+    catalog = [{"id": 5, "name": "Caja de cable", "tags": ["cable"], "unit": "caja"}]
+
+    exact = apply_cable_waste_margin([{"product_id": 5, "description": "Cable", "quantity": 100}], catalog, 0.05)
+
+    assert exact[0]["quantity"] == 105
+
+
+def test_meters_keep_two_decimals():
+    catalog = [{"id": 6, "name": "Cable UTP por metro", "tags": ["cable"], "unit": "metro"}]
+
+    result = apply_cable_waste_margin([{"product_id": 6, "description": "Cable", "quantity": 33}], catalog, 0.1)
+
+    assert result[0]["quantity"] == 36.3

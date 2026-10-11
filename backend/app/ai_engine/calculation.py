@@ -14,6 +14,12 @@ from app.models.calculation_parameter import CalculationParameter
 
 CABLE_TAG = "cable"
 CAMERA_TAG = "camara"
+
+# Unidades de venta que no se pueden fraccionar: la cantidad siempre es un entero.
+INDIVISIBLE_UNITS = {
+    "caja", "cajas", "unidad", "unidades", "rollo", "rollos", "bobina", "bobinas",
+    "pieza", "piezas", "paquete", "paquetes", "kit", "kits",
+}
 NVR_TAG = "nvr"
 SWITCH_TAG = "poe-switch"
 
@@ -76,16 +82,19 @@ def apply_cable_waste_margin(items: list[dict], catalog: list[dict], waste_margi
     if not waste_margin_pct:
         return items
 
-    cable_product_ids = {p["id"] for p in catalog if CABLE_TAG in (p.get("tags") or [])}
-    if not cable_product_ids:
+    cable_products = {p["id"]: p for p in catalog if CABLE_TAG in (p.get("tags") or [])}
+    if not cable_products:
         return items
 
-    return [
-        {**item, "quantity": round(item["quantity"] * (1 + waste_margin_pct), 2)}
-        if item.get("product_id") in cable_product_ids
-        else item
-        for item in items
-    ]
+    def with_margin(item: dict) -> dict:
+        quantity = item["quantity"] * (1 + waste_margin_pct)
+        unit = str(cable_products[item["product_id"]].get("unit") or "").strip().lower()
+        # Una caja o un rollo no se compra a medias: 2 cajas + 5% de margen son 2.1 cajas de
+        # cable reales, o sea 3 a comprar. El epsilon evita que 2.0000000001 salte a 3.
+        quantity = math.ceil(quantity - 1e-9) if unit in INDIVISIBLE_UNITS else round(quantity, 2)
+        return {**item, "quantity": quantity}
+
+    return [with_margin(item) if item.get("product_id") in cable_products else item for item in items]
 
 
 def calculate_labor(
