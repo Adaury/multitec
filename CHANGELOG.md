@@ -8,6 +8,22 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **La IA ya puede trabajar con un catálogo grande** (probado con 54 productos): antes el prompt
+  llevaba el catálogo completo, no cabía en el contexto del modelo (4096 tokens), se truncaba y la
+  generación se desbocaba (>20 min con la CPU al 100%). Ahora (`catalog_matching.py`): (1) se empareja
+  primero por texto con puntaje (sinónimos > nombre > etiquetas > categoría, y los NÚMEROS cuentan:
+  "16 puertos" suma, "8 puertos" resta), (2) a la IA solo van las entidades realmente ambiguas, con
+  un máximo de 40 candidatos y una respuesta compacta (`product_ids`), (3) lo que no se parece a nada
+  queda sin producto en vez de dejar que la IA invente uno, y (4) si la IA falla la cotización sigue
+  con lo resuelto por texto. Catálogos de 25 productos o menos conservan el comportamiento anterior.
+  Todas las llamadas a Ollama tienen un tope de 2048 tokens de salida (`MAX_RESPONSE_TOKENS`).
+- **Menos basura al interpretar el levantamiento** (`nlu.py`): las medidas del sitio ("40 metros",
+  "Altura de instalación 3.5 m") ya no se toman como materiales —inflaban cálculos: 40 cámaras
+  fantasma pedían 26 discos— pero "200 metros de cable UTP" sí se conserva; la interpretación usa
+  temperatura 0 (mismo levantamiento, misma lista) y conserva canales/puertos/megapíxeles. Un error
+  de respuesta incompleta ya no se reporta como "Ollama no está corriendo".
+  Medido con un dictado de 16 cámaras: de >3 min (y con error) a 23 s, con NVR de 32 canales, switch
+  de 16 puertos y 8 discos en vez de 26.
 - **Correo por Gmail, con activación segura** (`backend/scripts/setup_smtp.py`): pide la contraseña
   de aplicación de Google sin mostrarla, envía un correo de PRUEBA y solo si llega escribe
   `SMTP_HOST` y `SMTP_PASSWORD` en `backend/.env` (si falla no cambia nada, así la app nunca queda

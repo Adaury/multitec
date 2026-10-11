@@ -7,6 +7,8 @@ catálogo — resolver una entidad contra un producto real es responsabilidad de
 """
 
 import json
+import re
+import unicodedata
 
 from app.ai_engine.ollama_client import OLLAMA_OPTIONS, _call, get_client, load_image_paths, looks_like_refusal
 from app.core.config import get_settings
@@ -178,6 +180,24 @@ SURVEY_ENTITIES_SCHEMA = {
 }
 
 
+# Medidas del sitio (no son materiales): "40 metros", "Altura de instalación 3.5 metros", "Distancia
+# promedio por cámara 40 m". Si llegan como entidades se emparejan con productos al azar y, peor,
+# inflan los cálculos (almacenamiento, capacidad): 40 "cámaras" fantasma pedían 26 discos de 4TB.
+_MEASUREMENT_ONLY = re.compile(
+    r"^(?:metros?|mts?|m|pies?|ft|cm|centimetros?|pulgadas?|kilometros?|km)$"
+)
+_MEASUREMENT_LEAD = re.compile(
+    r"^(?:distancia|altura|longitud|profundidad|ancho|largo|metraje|recorrido|separacion)\b"
+)
+
+
+def is_measurement_entity(description: str) -> bool:
+    """True si la descripción es una medida del sitio y no un material o servicio."""
+    text = re.sub(r"\s+", " ", unicodedata.normalize("NFD", description).encode("ascii", "ignore").decode().lower()).strip()
+    text = re.sub(r"[\d.,]+", "", text).strip()
+    return bool(not text or _MEASUREMENT_ONLY.match(text) or _MEASUREMENT_LEAD.match(text))
+
+
 def interpret_survey_items(project_context: str) -> list[dict]:
     """Extrae del expediente del proyecto los materiales, equipos, accesorios o mano de
     obra mencionados explícitamente por el técnico, con su cantidad — sin intentar
@@ -201,7 +221,12 @@ def interpret_survey_items(project_context: str) -> list[dict]:
         "él indique — no agregues accesorios ni productos por tu cuenta; eso se calcula "
         "aparte con reglas del catálogo.\n"
         "3. Usa la descripción tal como la usó el técnico, sin intentar normalizarla "
-        "contra ningún catálogo — eso es un paso aparte.\n\n"
+        "contra ningún catálogo — eso es un paso aparte.\n"
+        "4. Las MEDIDAS (distancias, alturas, metrajes del sitio) y las OBSERVACIONES del cliente "
+        "NO son materiales: no las incluyas. Solo incluye metros cuando sean de un cable o "
+        "canalización (ej. \"200 metros de cable UTP\").\n"
+        "5. Conserva en la descripción los datos que distinguen el equipo (canales, puertos, "
+        "megapíxeles, tamaño U) — \"NVR de 32 canales\", no solo \"NVR\".\n\n"
         f"Expediente del proyecto:\n{project_context}"
     )
 
@@ -210,8 +235,11 @@ def interpret_survey_items(project_context: str) -> list[dict]:
             model=settings.ai_model,
             format=SURVEY_ENTITIES_SCHEMA,
             messages=[{"role": "user", "content": prompt}],
-            options=OLLAMA_OPTIONS,
+            # temperature 0: el mismo levantamiento debe dar siempre la misma lista (antes cambiaba
+            # de una corrida a otra: a veces "NVR", a veces "NVR de 32 canales").
+            options={**OLLAMA_OPTIONS, "temperature": 0},
         )
         return json.loads(response.message.content)["entities"]
 
-    return _call(run)
+    entities = _call(run)
+    return [e for e in entities if not is_measurement_entity(str(e.get("description", "")))]

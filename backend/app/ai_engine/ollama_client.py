@@ -16,6 +16,11 @@ logger = logging.getLogger("multitec.ai")
 # llamadas hasta que se resuelva el driver/GPU. Más lento, pero confiable.
 OLLAMA_OPTIONS = {"num_gpu": 0}
 
+# Red de seguridad para TODA llamada: ninguna respuesta debería pasar de esto. Sin tope, un modelo
+# que se desboca (p. ej. por un prompt truncado) genera hasta llenar el contexto: >20 minutos de CPU
+# al 100% en esta máquina. Quien necesite menos pasa su propio `num_predict`.
+MAX_RESPONSE_TOKENS = 2048
+
 
 class _KeepAliveClient(ollama.Client):
     """Cliente que mantiene el modelo cargado entre llamadas sin tocar cada punto de uso: inyecta
@@ -27,6 +32,7 @@ class _KeepAliveClient(ollama.Client):
 
     def chat(self, *args, **kwargs):
         kwargs.setdefault("keep_alive", self._keep_alive)
+        kwargs["options"] = {"num_predict": MAX_RESPONSE_TOKENS, **(kwargs.get("options") or {})}
         return super().chat(*args, **kwargs)
 
     def generate(self, *args, **kwargs):
@@ -48,6 +54,11 @@ def _call(fn):
         # El detalle completo de la excepción se registra en el log del servidor, no se
         # le manda al cliente — puede incluir rutas internas o detalles de conexión.
         logger.exception("Fallo llamando a Ollama")
+        if isinstance(e, ValueError):  # json.JSONDecodeError y respuestas mal formadas
+            raise HTTPException(
+                status_code=400,
+                detail="La IA devolvió una respuesta incompleta. Intenta de nuevo.",
+            )
         raise HTTPException(
             status_code=400,
             detail=(
