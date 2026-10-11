@@ -15,6 +15,10 @@ param(
     [string]$EnvFile = (Join-Path (Split-Path $PSScriptRoot -Parent) "backend\.env"),
     # Fuera del repositorio a proposito: asi un `git add` nunca sube datos de clientes.
     [string]$BackupDir = (Join-Path $env:USERPROFILE "MultitecBackups"),
+    # Segunda copia fuera de este disco (disco externo, OneDrive PERSONAL ya iniciado, unidad de
+    # red). Evita la carpeta de OneDrive de una cuenta de trabajo/escuela: los datos de clientes
+    # quedarian en la nube de otra organizacion.
+    [string]$CopyTo,
     [string]$TaskName = "MultitecPostgresBackup",
     [string]$Time = "02:00"
 )
@@ -23,6 +27,7 @@ $scriptPath = Join-Path $PSScriptRoot "backup-postgres.ps1"
 if (-not (Test-Path $EnvFile)) { throw "No se encontro $EnvFile" }
 
 $argumentList = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$scriptPath`" -EnvFile `"$EnvFile`" -BackupDir `"$BackupDir`""
+if ($CopyTo) { $argumentList += " -CopyTo `"$CopyTo`"" }
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $argumentList
 $trigger = New-ScheduledTaskTrigger -Daily -At $Time
 $user = "$env:USERDOMAIN\$env:USERNAME"

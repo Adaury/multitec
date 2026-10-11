@@ -25,6 +25,10 @@ param(
     # (asi la contrasena no queda escrita en la definicion de la tarea programada).
     [string]$EnvFile,
     [string]$BackupDir = (Join-Path $PSScriptRoot "backups"),
+    # Segunda copia fuera de este disco (disco externo, carpeta sincronizada de OneDrive personal,
+    # unidad de red...). Si no esta disponible en ese momento, el backup local igual se conserva y
+    # el script termina con error para que se note.
+    [string]$CopyTo,
     [int]$RetentionDays = 14
 )
 
@@ -65,10 +69,33 @@ if ($exitCode -ne 0) {
 
 Write-Output "Backup creado: $outFile"
 
-$cutoff = (Get-Date).AddDays(-$RetentionDays)
-Get-ChildItem -Path $BackupDir -Filter "multitec_*.dump" |
-    Where-Object { $_.LastWriteTime -lt $cutoff } |
-    ForEach-Object {
-        Remove-Item $_.FullName -Force
-        Write-Output "Backup viejo eliminado: $($_.Name)"
+function Remove-OldBackups([string]$dir) {
+    $cutoff = (Get-Date).AddDays(-$RetentionDays)
+    Get-ChildItem -Path $dir -Filter "multitec_*.dump" |
+        Where-Object { $_.LastWriteTime -lt $cutoff } |
+        ForEach-Object {
+            Remove-Item $_.FullName -Force
+            Write-Output "Backup viejo eliminado: $($_.Name)"
+        }
+}
+
+Remove-OldBackups $BackupDir
+
+$copyFailed = $false
+if ($CopyTo) {
+    try {
+        New-Item -ItemType Directory -Path $CopyTo -Force -ErrorAction Stop | Out-Null
+        Copy-Item -Path $outFile -Destination $CopyTo -Force -ErrorAction Stop
+        $copied = Join-Path $CopyTo (Split-Path $outFile -Leaf)
+        if ((Get-Item $copied).Length -ne (Get-Item $outFile).Length) {
+            throw "La copia no coincide en tamano con el original"
+        }
+        Write-Output "Copia externa creada: $copied"
+        Remove-OldBackups $CopyTo
+    } catch {
+        $copyFailed = $true
+        Write-Output "ATENCION: no se pudo copiar a '$CopyTo': $($_.Exception.Message)"
     }
+}
+
+if ($copyFailed) { exit 2 }
