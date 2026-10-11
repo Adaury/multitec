@@ -8,10 +8,20 @@ from app.models.project import Project
 from app.models.quote import Quote
 from app.models.ticket import Ticket
 from app.models.user import User
+from app.core.config import get_settings
 from app.services import email
 from app.services.pdf import build_invoice_pdf
 
 logger = logging.getLogger("multitec.notifications")
+
+
+def _admin_email_recipients(admins: list[User]) -> list[str]:
+    """Correos a los que van las alertas de admin: NOTIFICATION_EMAIL si está definido (un buzón
+    real), y si no, el correo de inicio de sesión de cada admin activo."""
+    override = get_settings().notification_email.strip()
+    if override:
+        return [override]
+    return [admin.email for admin in admins]
 
 
 def _notify_user(db: Session, user_id: int, title: str, body: str, link: str | None = None) -> None:
@@ -38,8 +48,9 @@ def notify_quote_pending(db: Session, quote: Quote) -> None:
         f"Total: RD$ {float(quote.total):,.2f}\n"
     )
     link = f"/proyectos/{quote.project_id}?tab=cotizacion"
+    for recipient in _admin_email_recipients(admins):
+        email.send_email(recipient, subject, body)
     for admin in admins:
-        email.send_email(admin.email, subject, body)
         _notify_user(db, admin.id, subject, body, link)
 
 
@@ -55,8 +66,9 @@ def notify_quote_approved_by_client(db: Session, quote: Quote) -> None:
         f"Total: RD$ {float(quote.total):,.2f}\n"
     )
     link = f"/proyectos/{quote.project_id}?tab=cotizacion"
+    for recipient in _admin_email_recipients(admins):
+        email.send_email(recipient, subject, body)
     for admin in admins:
-        email.send_email(admin.email, subject, body)
         _notify_user(db, admin.id, subject, body, link)
 
 
@@ -115,8 +127,9 @@ def notify_portal_first_viewed(db: Session, project: Project) -> None:
         f"Proyecto: {project.code} — {project.client.name}\n"
     )
     link = f"/proyectos/{project.id}"
+    for recipient in _admin_email_recipients(admins):
+        email.send_email(recipient, subject, body)
     for admin in admins:
-        email.send_email(admin.email, subject, body)
         _notify_user(db, admin.id, subject, body, link)
 
 
@@ -135,6 +148,7 @@ def notify_quote_stale(db: Session, quote: Quote, days_pending: int) -> None:
         f"Total: RD$ {float(quote.total):,.2f}\n"
     )
     link = f"/proyectos/{quote.project_id}?tab=cotizacion"
+    for recipient in _admin_email_recipients(admins):
+        email.send_email(recipient, subject, body)
     for admin in admins:
-        email.send_email(admin.email, subject, body)
         _notify_user(db, admin.id, subject, body, link)

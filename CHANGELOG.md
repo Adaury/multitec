@@ -8,6 +8,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Correo por Gmail, con activación segura** (`backend/scripts/setup_smtp.py`): pide la contraseña
+  de aplicación de Google sin mostrarla, envía un correo de PRUEBA y solo si llega escribe
+  `SMTP_HOST` y `SMTP_PASSWORD` en `backend/.env` (si falla no cambia nada, así la app nunca queda
+  esperando a un SMTP que no responde). Nuevo `NOTIFICATION_EMAIL`: las alertas de admin (cotización
+  pendiente, aprobación del cliente, portal, cotización vencida) llegan a ese buzón real en vez de al
+  correo de inicio de sesión de cada admin (p. ej. `admin@multitec.com`, que no existe como buzón).
+  Las pruebas ya no leen el `.env` real (SMTP y destinatario vacíos en `conftest.py`).
+- **Doble clic para dejar PostgreSQL como servicio** (`deploy/activar-servicio-postgres.bat`):
+  pide permiso de administrador y ejecuta `enable-postgres-service.ps1`.
 - **Cotización con IA en la mitad del tiempo:** el borrador de ingeniería era el 54% de la espera
   (~42 s) y la cotización no lo necesita. `POST /api/projects/{id}/generate-from-survey?background_engineering=true`
   entrega la cotización de inmediato (`engineering_pending: true`) y redacta la ingeniería en un hilo

@@ -13,6 +13,11 @@ os.environ["UPLOAD_DIR"] = tempfile.mkdtemp(prefix="multitec_test_uploads_")
 os.environ["JWT_SECRET"] = "test-secret-not-for-production"
 os.environ["ADMIN_EMAIL"] = "admin@multitec.com"
 os.environ["ADMIN_PASSWORD"] = "test-admin-password"
+# Las pruebas no deben depender del .env real del desarrollador: sin correo de verdad ni destinatario
+# de alertas propio (los tests de notificaciones esperan el correo de cada admin).
+os.environ["SMTP_HOST"] = ""
+os.environ["SMTP_PASSWORD"] = ""
+os.environ["NOTIFICATION_EMAIL"] = ""
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

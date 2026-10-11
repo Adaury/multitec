@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from: str = "no-reply@multitec.local"
     smtp_use_tls: bool = True
+    # Si se define, las alertas para admins (cotización pendiente, aprobación del cliente, portal,
+    # cotización vencida) llegan a esta dirección en vez de al correo de inicio de sesión de cada
+    # admin (que puede ser uno interno como admin@multitec.com y no existir como buzón real).
+    notification_email: str = ""
 
     anthropic_api_key: str = ""
 

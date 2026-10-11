@@ -160,3 +160,21 @@ def test_invoice_conversion_survives_pdf_generation_failure(client, admin_token,
 
     resp = client.post(f"/api/pre-invoices/{pre_invoice['id']}/convert-to-invoice", headers=headers)
     assert resp.status_code == 201
+
+
+def test_admin_alerts_go_to_notification_email_when_defined(client, admin_token, monkeypatch):
+    """NOTIFICATION_EMAIL sustituye al correo de inicio de sesión del admin (que puede no ser un
+    buzón real, como admin@multitec.com); sin definirlo, el comportamiento anterior no cambia."""
+    from app.core.config import get_settings
+    from app.services import notifications
+
+    class FakeUser:
+        def __init__(self, email):
+            self.email = email
+
+    admins = [FakeUser("admin@multitec.com"), FakeUser("otro@multitec.com")]
+    monkeypatch.setattr(get_settings(), "notification_email", "")
+    assert notifications._admin_email_recipients(admins) == ["admin@multitec.com", "otro@multitec.com"]
+
+    monkeypatch.setattr(get_settings(), "notification_email", "  dueno@gmail.com ")
+    assert notifications._admin_email_recipients(admins) == ["dueno@gmail.com"]

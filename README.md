@@ -290,6 +290,13 @@ Tres eventos disparan un correo automático:
 - **Factura emitida**: al correo del cliente (si tiene uno registrado), con el PDF de la
   factura adjunto.
 
+**Con Gmail (recomendado):** en `backend/.env` deja `SMTP_USER`, `SMTP_FROM` y
+`NOTIFICATION_EMAIL` con tu Gmail, crea una *contraseña de aplicación* de Google (Cuenta de Google →
+Seguridad → Verificación en dos pasos → Contraseñas de aplicaciones) y ejecuta en `backend`:
+`venv\Scripts\python.exe scripts\setup_smtp.py`. El script pide la contraseña sin mostrarla,
+envía un correo de prueba y solo si llega activa el envío. `NOTIFICATION_EMAIL` hace que las alertas
+de admin lleguen a ese buzón en vez de al correo de inicio de sesión de cada admin.
+
 Configurar `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` / `SMTP_FROM` /
 `SMTP_USE_TLS` en `backend/.env`. **Sin `SMTP_HOST` configurado** (el default), los
 correos no se envían de verdad — solo quedan registrados en `backend/logs/app.log`
