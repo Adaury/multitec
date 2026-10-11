@@ -148,3 +148,81 @@ def test_generate_from_survey_does_not_overwrite_existing_engineering(client, ad
 
     engineering = client.get(f"/api/projects/{project['id']}/engineering", headers=headers).json()
     assert engineering["recommended_equipment"] == "Ya definido a mano"
+
+
+def test_background_engineering_returns_the_quote_first_and_fills_engineering_after(client, admin_token):
+    """Con background_engineering=true la cotización no espera al borrador de ingeniería (el paso
+    más lento de la IA): la respuesta trae engineering_pending y el borrador se guarda después."""
+    from app.ai_engine import documents
+
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    product = _create_product(client, headers)
+    engineering_draft = {
+        "recommended_equipment": "8 cámaras domo IP",
+        "distribution": "Perímetro",
+        "conduits": "PVC 3/4",
+        "wiring": "UTP cat6",
+        "technical_design": "NVR central",
+        "observations": "Ninguna",
+    }
+
+    def run_inline(project_id, context, notes):
+        # El hilo real se sustituye por una ejecución inmediata: misma lógica, sin carreras.
+        documents.draft_engineering_in_background(project_id, context, notes)
+
+    with (
+        patch(
+            "app.ai_engine.documents.suggest_budget_items",
+            return_value=[{"product_id": product["id"], "description": product["name"], "quantity": 8}],
+        ),
+        patch("app.ai_engine.documents.draft_engineering", return_value=engineering_draft) as mocked_draft,
+        patch("app.api.routers.ai.start_engineering_draft", side_effect=run_inline) as mocked_start,
+        patch("app.api.routers.ai.reindex_project"),
+    ):
+        resp = client.post(
+            f"/api/projects/{project['id']}/generate-from-survey?background_engineering=true", headers=headers
+        )
+
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["quote"]["status"] == "pendiente"
+        assert body["engineering_drafted"] is False
+        assert body["engineering_pending"] is True
+        mocked_start.assert_called_once()
+        mocked_draft.assert_called_once()  # lo ejecutó el "segundo plano", no la petición
+
+    engineering = client.get(f"/api/projects/{project['id']}/engineering", headers=headers).json()
+    assert engineering["recommended_equipment"] == "8 cámaras domo IP"
+    assert engineering["ai_generated"] is True
+
+
+def test_background_engineering_does_not_overwrite_what_someone_wrote_meanwhile(client, admin_token):
+    from app.ai_engine import documents
+
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    # Alguien escribió la ingeniería a mano antes de que terminara la IA.
+    manual = client.put(
+        f"/api/projects/{project['id']}/engineering",
+        json={"recommended_equipment": "Equipo elegido por oficina"},
+        headers=headers,
+    )
+    assert manual.status_code == 200, manual.text
+
+    draft = {k: "IA" for k in ("recommended_equipment", "distribution", "conduits", "wiring", "technical_design", "observations")}
+    with patch("app.ai_engine.documents.draft_engineering", return_value=draft):
+        saved = documents.draft_engineering_in_background(project["id"], "contexto", [])
+
+    assert saved is False
+    engineering = client.get(f"/api/projects/{project['id']}/engineering", headers=headers).json()
+    assert engineering["recommended_equipment"] == "Equipo elegido por oficina"
+
+
+def test_background_engineering_failure_never_raises(client, admin_token):
+    from app.ai_engine import documents
+
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    with patch("app.ai_engine.documents.draft_engineering", side_effect=RuntimeError("ollama caído")):
+        assert documents.draft_engineering_in_background(project["id"], "contexto", []) is False

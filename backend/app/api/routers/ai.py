@@ -4,8 +4,14 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.orm import Session, joinedload
 
-from app.ai_engine.documents import compute_survey_items, draft_engineering, generate_documents_from_survey
+from app.ai_engine.documents import (
+    compute_survey_items,
+    draft_engineering,
+    generate_documents_from_survey,
+    start_engineering_draft,
+)
 from app.ai_engine.intake import parse_intake
+from app.ai_engine.warmup import start_warmup
 from app.ai_engine.learning import recent_voice_examples, record_voice_feedback
 from app.ai_engine.nlu import classify_voice_transcript, summarize_survey
 from app.ai_engine.qa import answer_question
@@ -219,7 +225,10 @@ def ai_budget_suggestions(project_id: int, db: Session = Depends(get_db), _=Depe
 
 @router.post("/api/projects/{project_id}/generate-from-survey", response_model=GenerateFromSurveyOut)
 def generate_from_survey(
-    project_id: int, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)
+    project_id: int,
+    background_engineering: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(allowed_roles),
 ):
     """Genera Presupuesto + Cotización (y, si aplica, un borrador de Ingeniería) de una
     sola vez a partir del levantamiento — § levantamiento inteligente. La cotización queda
@@ -231,18 +240,32 @@ def generate_from_survey(
     context = _build_project_context(db, project)
     _reindex_quietly(db, project, context)
 
-    document_set = generate_documents_from_survey(db, project_id, context, current_user.id)
+    document_set = generate_documents_from_survey(
+        db, project_id, context, current_user.id, defer_engineering=background_engineering
+    )
 
     db.commit()
     db.refresh(document_set.budget)
     db.refresh(document_set.quote)
     notify_quote_pending(db, document_set.quote)
+    if document_set.engineering_pending:
+        # Ya está comiteada la cotización: el borrador de ingeniería se redacta aparte.
+        start_engineering_draft(project_id, context, document_set.engineering_notes)
     return GenerateFromSurveyOut(
         budget=document_set.budget,
         quote=document_set.quote,
         engineering_drafted=document_set.engineering_drafted,
         warnings=document_set.warnings,
+        engineering_pending=document_set.engineering_pending,
     )
+
+
+@router.post("/api/ai/warmup", status_code=status.HTTP_202_ACCEPTED)
+def ai_warmup(_=Depends(allowed_roles)):
+    """Precarga los modelos de IA (texto y voz) en segundo plano. La app lo llama al abrir un
+    levantamiento, para que el primer dictado o la primera frase no paguen el arranque en frío.
+    Responde de inmediato y nunca falla: si Ollama no está, simplemente no hace nada."""
+    return {"started": start_warmup()}
 
 
 @router.post("/api/ai/intake-parse", response_model=IntakeParseOut)

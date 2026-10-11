@@ -67,6 +67,9 @@ class Settings(BaseSettings):
     ai_model: str = "llama3.2"
     ai_vision_model: str = "llava"
     ai_embedding_model: str = "nomic-embed-text"
+    # Cuánto tiempo Ollama mantiene el modelo en memoria tras la última llamada. Por defecto lo
+    # descarta a los 5 min y el siguiente uso paga un arranque en frío (~10-12 s extra en CPU).
+    ai_keep_alive: str = "30m"
 
     # Transcripción de voz local (faster-whisper) — ver app/ai_engine/transcription.py. El
     # modelo se descarga solo la primera vez que se usa (small ≈ 500 MB, buen español en CPU;

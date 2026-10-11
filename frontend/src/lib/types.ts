@@ -408,6 +408,8 @@ export interface GenerateFromSurveyOut {
   budget: Budget
   quote: Quote
   engineering_drafted: boolean
+  /** El borrador de ingeniería se está redactando en segundo plano. */
+  engineering_pending?: boolean
   warnings: string[]
 }
 

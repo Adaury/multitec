@@ -56,3 +56,6 @@ class GenerateFromSurveyOut(BaseModel):
     quote: QuoteOut
     engineering_drafted: bool
     warnings: list[str] = []
+    # El borrador de ingeniería se está redactando en segundo plano (generate-from-survey con
+    # background_engineering=true): aparece solo en la pestaña Ingeniería al terminar.
+    engineering_pending: bool = False

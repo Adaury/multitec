@@ -14,6 +14,7 @@ router) decide cuándo comitear y cuándo disparar efectos secundarios como noti
 
 import json
 import logging
+import threading
 from dataclasses import dataclass, field
 
 from fastapi import HTTPException
@@ -206,9 +207,81 @@ class DocumentSet:
     quote: Quote
     engineering_drafted: bool
     warnings: list[str] = field(default_factory=list)
+    # Con `defer_engineering`, el borrador no se redacta dentro de la petición: queda pendiente
+    # para `start_engineering_draft`, con las notas del Motor 4 que hay que anexarle.
+    engineering_pending: bool = False
+    engineering_notes: list[str] = field(default_factory=list)
 
 
-def generate_documents_from_survey(db: Session, project_id: int, context: str, created_by: int | None) -> DocumentSet:
+def _engineering_is_empty(engineering: Engineering | None) -> bool:
+    return engineering is not None and not any(
+        [
+            engineering.recommended_equipment,
+            engineering.distribution,
+            engineering.conduits,
+            engineering.wiring,
+            engineering.technical_design,
+            engineering.observations,
+        ]
+    )
+
+
+def _fill_engineering(engineering: Engineering, draft: dict, engineering_notes: list[str]) -> None:
+    engineering.recommended_equipment = draft["recommended_equipment"]
+    engineering.distribution = draft["distribution"]
+    engineering.conduits = draft["conduits"]
+    engineering.wiring = draft["wiring"]
+    engineering.technical_design = draft["technical_design"]
+    observations = draft["observations"]
+    if engineering_notes:
+        # Motor 4 -> Motor 6: notas de flag_engineering_note activadas por productos presentes en
+        # el presupuesto (ver resolve_engineering_notes).
+        extra = "\n".join(engineering_notes)
+        observations = f"{observations}\n{extra}" if observations else extra
+    engineering.observations = observations
+    engineering.ai_generated = True
+
+
+def draft_engineering_in_background(project_id: int, context: str, engineering_notes: list[str]) -> bool:
+    """Redacta y guarda el borrador de ingeniería fuera de la petición HTTP (abre su propia
+    sesión). Solo escribe si la ingeniería sigue vacía cuando termina la IA, para no pisar lo que
+    alguien haya editado mientras tanto. Nunca lanza: devuelve si llegó a guardar el borrador."""
+    from app.db.session import SessionLocal
+
+    try:
+        draft = draft_engineering(context)
+    except Exception as exc:
+        logger.warning("Borrador de ingeniería en segundo plano omitido (proyecto %s): %s", project_id, exc)
+        return False
+    db = SessionLocal()
+    try:
+        engineering = db.query(Engineering).filter(Engineering.project_id == project_id).one_or_none()
+        if not _engineering_is_empty(engineering):
+            return False
+        _fill_engineering(engineering, draft, engineering_notes)
+        db.commit()
+        return True
+    except Exception:
+        db.rollback()
+        logger.exception("No se pudo guardar el borrador de ingeniería del proyecto %s", project_id)
+        return False
+    finally:
+        db.close()
+
+
+def start_engineering_draft(project_id: int, context: str, engineering_notes: list[str]) -> None:
+    """Lanza `draft_engineering_in_background` en un hilo y vuelve de inmediato."""
+    threading.Thread(
+        target=draft_engineering_in_background,
+        args=(project_id, context, list(engineering_notes)),
+        name=f"engineering-draft-{project_id}",
+        daemon=True,
+    ).start()
+
+
+def generate_documents_from_survey(
+    db: Session, project_id: int, context: str, created_by: int | None, defer_engineering: bool = False
+) -> DocumentSet:
     """Orquestador de Motor 6 — genera Presupuesto + Cotización (siempre) y un borrador
     de Ingeniería (best-effort, solo si el proyecto no tiene ingeniería propia todavía,
     para no pisar lo que oficina ya haya editado a mano). No comitea, no notifica — el
@@ -229,34 +302,25 @@ def generate_documents_from_survey(db: Session, project_id: int, context: str, c
     # la cotización ya generada no se pierde. Solo se rellena si el proyecto no tiene
     # ingeniería propia todavía (no pisa lo que oficina ya haya editado a mano).
     engineering_drafted = False
+    engineering_pending = False
     engineering = db.query(Engineering).filter(Engineering.project_id == project_id).one_or_none()
-    if engineering is not None and not any(
-        [
-            engineering.recommended_equipment,
-            engineering.distribution,
-            engineering.conduits,
-            engineering.wiring,
-            engineering.technical_design,
-            engineering.observations,
-        ]
-    ):
-        try:
-            draft = draft_engineering(context)
-            engineering.recommended_equipment = draft["recommended_equipment"]
-            engineering.distribution = draft["distribution"]
-            engineering.conduits = draft["conduits"]
-            engineering.wiring = draft["wiring"]
-            engineering.technical_design = draft["technical_design"]
-            observations = draft["observations"]
-            if engineering_notes:
-                # Motor 4 -> Motor 6: notas de flag_engineering_note activadas por
-                # productos presentes en el presupuesto (ver resolve_engineering_notes).
-                extra = "\n".join(engineering_notes)
-                observations = f"{observations}\n{extra}" if observations else extra
-            engineering.observations = observations
-            engineering.ai_generated = True
-            engineering_drafted = True
-        except HTTPException as e:
-            logger.warning("Borrador de ingeniería omitido para el proyecto %s: %s", project_id, e.detail)
+    if _engineering_is_empty(engineering):
+        if defer_engineering:
+            # La redacción es el paso más lento (~40 s): se entrega la cotización ya y el borrador
+            # se completa en segundo plano (ver start_engineering_draft).
+            engineering_pending = True
+        else:
+            try:
+                _fill_engineering(engineering, draft_engineering(context), engineering_notes)
+                engineering_drafted = True
+            except HTTPException as e:
+                logger.warning("Borrador de ingeniería omitido para el proyecto %s: %s", project_id, e.detail)
 
-    return DocumentSet(budget=budget, quote=quote, engineering_drafted=engineering_drafted, warnings=warnings)
+    return DocumentSet(
+        budget=budget,
+        quote=quote,
+        engineering_drafted=engineering_drafted,
+        warnings=warnings,
+        engineering_pending=engineering_pending,
+        engineering_notes=engineering_notes,
+    )

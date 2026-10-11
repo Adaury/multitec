@@ -8,6 +8,20 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Cotización con IA en la mitad del tiempo:** el borrador de ingeniería era el 54% de la espera
+  (~42 s) y la cotización no lo necesita. `POST /api/projects/{id}/generate-from-survey?background_engineering=true`
+  entrega la cotización de inmediato (`engineering_pending: true`) y redacta la ingeniería en un hilo
+  aparte, que solo escribe si la ingeniería sigue vacía al terminar (no pisa lo que alguien editó).
+  El levantamiento rápido del celular usa este modo; el comportamiento por defecto no cambia. Medido
+  con Ollama real: cotización a los 47 s en vez de 101 s, ingeniería lista a los ~104 s.
+- **IA local más ágil (modelo precalentado y en memoria):** Ollama descargaba el modelo a los 5
+  minutos de inactividad y el siguiente uso pagaba un arranque en frío. Ahora el cliente de IA
+  (`get_client`) inyecta `keep_alive` (configurable con `AI_KEEP_ALIVE`, por defecto 30 min) en
+  todas las llamadas, y `POST /api/ai/warmup` precarga en segundo plano el modelo de texto y el de
+  voz; el levantamiento rápido lo pide al abrirse. Medido con Ollama real: la primera frase tras
+  inactividad pasó de 12.6 s a 6.6 s; con el modelo ya cargado se mantiene en ~5 s. El
+  precalentamiento nunca falla ni bloquea (si Ollama no está, no hace nada) y no se repite más
+  seguido que cada 2 minutos.
 - **Cambio obligatorio de la contraseña temporal** (`users.must_change_password`, migración
   `f7a3c1e9b2d4`): un usuario creado por un admin, o cuya contraseña restableció otro admin, queda
   marcado y **el servidor** (`get_current_user`) bloquea con 403 todo salvo `/api/auth/me`,

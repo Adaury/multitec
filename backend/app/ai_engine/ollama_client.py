@@ -17,9 +17,26 @@ logger = logging.getLogger("multitec.ai")
 OLLAMA_OPTIONS = {"num_gpu": 0}
 
 
+class _KeepAliveClient(ollama.Client):
+    """Cliente que mantiene el modelo cargado entre llamadas sin tocar cada punto de uso: inyecta
+    `keep_alive` (configurable con AI_KEEP_ALIVE) salvo que quien llama ya lo indique."""
+
+    def __init__(self, *args, keep_alive: str, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._keep_alive = keep_alive
+
+    def chat(self, *args, **kwargs):
+        kwargs.setdefault("keep_alive", self._keep_alive)
+        return super().chat(*args, **kwargs)
+
+    def generate(self, *args, **kwargs):
+        kwargs.setdefault("keep_alive", self._keep_alive)
+        return super().generate(*args, **kwargs)
+
+
 def get_client() -> ollama.Client:
     settings = get_settings()
-    return ollama.Client(host=settings.ollama_host)
+    return _KeepAliveClient(host=settings.ollama_host, keep_alive=settings.ai_keep_alive)
 
 
 def _call(fn):

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
@@ -52,6 +52,12 @@ export function QuickSurvey() {
   const [locationUrl, setLocationUrl] = useState('')
   // En un levantamiento el técnico ya está en la obra: la ubicación se toma sola al abrir la pantalla.
   const gps = useGeolocation(setLocationUrl, { auto: true })
+
+  // Precalienta la IA (texto y voz) mientras el técnico elige el cliente: así el primer dictado no
+  // espera el arranque en frío del modelo. Es best-effort: si falla no pasa nada.
+  useEffect(() => {
+    api.post('/ai/warmup').catch(() => {})
+  }, [])
 
   // --- Paso 2: narración ---
   const [project, setProject] = useState<Project | null>(null)
@@ -153,12 +159,22 @@ export function QuickSurvey() {
     setBusy(true)
     setError(null)
     try {
-      const data = (await api.post<GenerateFromSurveyOut>(`/projects/${project.id}/generate-from-survey`)).data
+      // El borrador de ingeniería es lo más lento (~40 s) y la cotización no lo necesita: se pide en
+      // segundo plano para tener la cotización cuanto antes.
+      const data = (
+        await api.post<GenerateFromSurveyOut>(`/projects/${project.id}/generate-from-survey?background_engineering=true`)
+      ).data
       queryClient.invalidateQueries({ queryKey: ['quotes', project.id] })
       queryClient.invalidateQueries({ queryKey: ['budgets', project.id] })
       queryClient.invalidateQueries({ queryKey: ['engineering', project.id] })
       setResult(data)
       setStep('listo')
+      if (data.engineering_pending) {
+        // El borrador llega solo; se refresca la pestaña Ingeniería un par de veces mientras tanto.
+        for (const delay of [45_000, 90_000]) {
+          window.setTimeout(() => queryClient.invalidateQueries({ queryKey: ['engineering', project.id] }), delay)
+        }
+      }
     } catch (err) {
       setError(apiError(err, 'No se pudo generar la cotización. Tu levantamiento quedó guardado; intenta de nuevo.'))
     } finally {
@@ -219,6 +235,15 @@ export function QuickSurvey() {
             {result.quote.code} · queda <b>pendiente</b>: tú o el cliente la aprueban después.
           </p>
         </Card>
+        {result.engineering_pending && (
+          <Card className="space-y-1 bg-blue-50 ring-blue-100 dark:bg-blue-950 dark:ring-blue-900">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">🛠 Redactando el borrador de ingeniería…</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400">
+              Tu cotización ya está lista. El borrador técnico aparece solo en la pestaña Ingeniería en
+              aproximadamente un minuto.
+            </p>
+          </Card>
+        )}
         {result.warnings.length > 0 && (
           <Card className="space-y-1">
             <p className="text-sm font-medium text-amber-600 dark:text-amber-400">Revisa antes de enviarla</p>
