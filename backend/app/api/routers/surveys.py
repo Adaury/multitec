@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.config import get_settings
 from app.core.security import require_role
 from app.db.session import get_db
-from app.models.survey import Survey, SurveyAsset
-from app.schemas.survey import SurveyAssetOut, SurveyOut, SurveyUpdate
+from app.models.survey import Survey, SurveyAsset, SurveyMarker
+from app.schemas.survey import SurveyAssetOut, SurveyMarkersUpdate, SurveyOut, SurveyUpdate
 from app.services.uploads import enforce_upload_size
 
 router = APIRouter(prefix="/api/projects/{project_id}/survey", tags=["surveys"])
@@ -25,7 +25,7 @@ ALLOWED_CONTENT_TYPES = {
 def _get_survey(db: Session, project_id: int) -> Survey:
     survey = (
         db.query(Survey)
-        .options(joinedload(Survey.assets))
+        .options(joinedload(Survey.assets).joinedload(SurveyAsset.markers))
         .filter(Survey.project_id == project_id)
         .one_or_none()
     )
@@ -87,6 +87,38 @@ async def upload_asset(
         description=description,
     )
     db.add(asset)
+    db.commit()
+    db.refresh(asset)
+    return asset
+
+
+@router.put("/assets/{asset_id}/markers", response_model=SurveyAssetOut)
+def update_markers(
+    project_id: int,
+    asset_id: int,
+    payload: SurveyMarkersUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
+    """Reemplaza los marcadores de una foto y renumera todo el levantamiento de corrido
+    (1, 2, 3...) según el orden de las fotos, para que la numeración que ve el cliente en el
+    anexo de la cotización no tenga huecos."""
+    survey = _get_survey(db, project_id)
+    asset = next((a for a in survey.assets if a.id == asset_id), None)
+    if asset is None or asset.kind != "photo":
+        raise HTTPException(status_code=404, detail="Foto no encontrada")
+
+    asset.markers.clear()
+    db.flush()
+    for item in payload.markers:
+        asset.markers.append(SurveyMarker(x=item.x, y=item.y, label=(item.label or "").strip() or None, number=0))
+    db.flush()
+
+    number = 1
+    for photo in sorted(survey.assets, key=lambda a: a.id):
+        for marker in sorted(photo.markers, key=lambda m: m.id):
+            marker.number = number
+            number += 1
     db.commit()
     db.refresh(asset)
     return asset

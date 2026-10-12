@@ -10,6 +10,10 @@ EXPENSE_TYPES = tuple(f"{i:02d}" for i in range(1, 12))
 # Forma de pago (última columna del 606): 01 efectivo, 02 cheque/transferencia/depósito,
 # 03 tarjeta, 04 compra a crédito, 05 permuta, 06 notas de crédito, 07 mixto.
 PAYMENT_TYPES = tuple(f"{i:02d}" for i in range(1, 8))
+# Tipo de Retención en ISR (columna 17 del 606): 01 alquileres, 02 honorarios por servicios, 03 otras
+# rentas, 04 otras rentas (presuntas), 05 intereses a personas jurídicas, 06 intereses a personas
+# físicas, 07 proveedores del Estado, 08 juegos telefónicos, 09 ganadería de carne bovina.
+ISR_RETENTION_TYPES = tuple(f"{i:02d}" for i in range(1, 10))
 
 
 class PurchaseInvoice(Base):
@@ -33,6 +37,7 @@ class PurchaseInvoice(Base):
     itbis_invoiced: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     itbis_withheld: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     isr_withheld: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    isr_retention_type: Mapped[str | None] = mapped_column(String(2), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

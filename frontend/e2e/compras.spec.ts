@@ -37,7 +37,7 @@ test('register a purchase invoice, reject a duplicate NCF and download the 606',
 
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.click('button:has-text("Descargar reporte 606")'),
+    page.click('button:has-text("Revisar (CSV)")'),
   ])
   expect(download.suggestedFilename()).toMatch(/^606_\d{6}\.csv$/)
   const stream = await download.createReadStream()

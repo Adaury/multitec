@@ -38,7 +38,7 @@ def test_payment_and_retentions_fill_the_607_columns(client, admin_token, db_ses
     row = dict(zip(header, rows[0]))
     assert row["Tarjeta Débito/Crédito"] == "118.0"  # total cobrado
     assert row["Efectivo"] == "" and row["Venta a Crédito"] == ""
-    assert row["ITBIS Retenido"] == "9.0"
+    assert row["ITBIS Retenido por Terceros"] == "9.0"
     assert row["Retención Renta por Terceros"] == "5.0"
     assert row["Fecha Retención"] == date.today().strftime("%Y%m%d")
 
@@ -55,7 +55,7 @@ def test_payment_and_retentions_fill_the_607_columns(client, admin_token, db_ses
         header, rows = _row_607(client, headers)
         row = dict(zip(header, rows[0]))
         assert row[column] == "118.0", method
-        assert row["ITBIS Retenido"] == ""  # sin retención, aunque antes la hubiera
+        assert row["ITBIS Retenido por Terceros"] == ""  # sin retención, aunque antes la hubiera
 
     # Queda en el historial de la factura.
     history = client.get(f"/api/invoices/{invoice['id']}/history", headers=headers).json()

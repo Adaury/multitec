@@ -14,6 +14,8 @@ import { ClientCombobox } from '../components/ClientCombobox'
 import { IntakeAssistant, type IntakeData } from '../components/IntakeAssistant'
 import { LocationBar } from '../components/LocationBar'
 import { VoiceRecorderCard, VoiceReviewCard } from '../components/VoiceSurvey'
+import { OfflineSurveyForm } from '../components/OfflineSurveyForm'
+import { useOnline } from '../lib/useOnline'
 
 type Step = 'datos' | 'narrar' | 'listo'
 type Fields = Pick<VoiceSurveyResult, 'notes' | 'measurements' | 'observations'>
@@ -29,6 +31,7 @@ export function QuickSurvey() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const online = useOnline()
 
   const [step, setStep] = useState<Step>('datos')
   const [error, setError] = useState<string | null>(null)
@@ -221,6 +224,9 @@ export function QuickSurvey() {
   }
 
   // ---------------------------------------------------------------- render
+  // Sin señal no hay servidor (ni IA): se captura lo esencial y se envía solo al volver la conexión.
+  if (!online && step === 'datos') return <OfflineSurveyForm />
+
   if (step === 'listo' && result && project) {
     return (
       <div className="space-y-4 py-4">

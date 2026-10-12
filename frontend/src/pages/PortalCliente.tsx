@@ -9,7 +9,7 @@ import {
   type TicketStatus,
 } from '../lib/types'
 import { formatDOP } from '../lib/format'
-import { Badge, Button, Card } from '../components/ui'
+import { Badge, Button, Card, Input, Textarea } from '../components/ui'
 
 const PROJECT_STAGES = ['levantamiento', 'ingenieria', 'presupuesto', 'cotizacion', 'ejecucion', 'cerrado']
 
@@ -150,6 +150,9 @@ export function PortalCliente() {
   const [loading, setLoading] = useState(true)
   const [approvingId, setApprovingId] = useState<number | null>(null)
   const [approveError, setApproveError] = useState<string | null>(null)
+  const [signerName, setSignerName] = useState('')
+  const [rejectingId, setRejectingId] = useState<number | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
 
   useEffect(() => {
     if (!token) return
@@ -168,11 +171,36 @@ export function PortalCliente() {
     setApproveError(null)
     setApprovingId(quoteId)
     try {
-      const res = await fetch(`/api/public/projects/${token}/quotes/${quoteId}/approve`, { method: 'POST' })
+      const res = await fetch(`/api/public/projects/${token}/quotes/${quoteId}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signer_name: signerName.trim() || null }),
+      })
       if (!res.ok) throw new Error('approve-failed')
       setProject(await res.json())
     } catch {
       setApproveError('No se pudo aprobar la cotización. Intenta de nuevo.')
+    } finally {
+      setApprovingId(null)
+    }
+  }
+
+  const rejectQuote = async (quoteId: number) => {
+    if (!token) return
+    setApproveError(null)
+    setApprovingId(quoteId)
+    try {
+      const res = await fetch(`/api/public/projects/${token}/quotes/${quoteId}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: rejectReason.trim() || null, signer_name: signerName.trim() || null }),
+      })
+      if (!res.ok) throw new Error('reject-failed')
+      setProject(await res.json())
+      setRejectingId(null)
+      setRejectReason('')
+    } catch {
+      setApproveError('No se pudo registrar tu respuesta. Intenta de nuevo.')
     } finally {
       setApprovingId(null)
     }
@@ -285,14 +313,58 @@ export function PortalCliente() {
                               <span>{formatDOP(quote.total)}</span>
                             </div>
                           </div>
+                          <a
+                            href={`/api/public/projects/${token}/quotes/${quote.id}/pdf`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="mt-3 block w-full rounded-2xl border border-gray-200 px-5 py-3 text-center text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300"
+                          >
+                            Ver cotización en PDF
+                          </a>
                           {quote.status === 'pendiente' && (
-                            <Button
-                              className="mt-3"
-                              onClick={() => approveQuote(quote.id)}
-                              disabled={approvingId === quote.id}
-                            >
-                              {approvingId === quote.id ? 'Aprobando…' : 'Aprobar cotización'}
-                            </Button>
+                            <div className="mt-3 space-y-3">
+                              <Input
+                                placeholder="Tu nombre (queda como constancia)"
+                                value={signerName}
+                                maxLength={120}
+                                onChange={(e) => setSignerName(e.target.value)}
+                              />
+                              {rejectingId === quote.id ? (
+                                <div className="space-y-2">
+                                  <Textarea
+                                    placeholder="¿Qué te gustaría cambiar? (opcional)"
+                                    value={rejectReason}
+                                    maxLength={1000}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                  />
+                                  <div className="flex gap-2">
+                                    <Button variant="ghost" className="!w-auto flex-1" onClick={() => setRejectingId(null)}>
+                                      Volver
+                                    </Button>
+                                    <Button
+                                      variant="secondary"
+                                      className="!w-auto flex-1"
+                                      onClick={() => rejectQuote(quote.id)}
+                                      disabled={approvingId === quote.id}
+                                    >
+                                      Confirmar rechazo
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <>
+                                  <Button onClick={() => approveQuote(quote.id)} disabled={approvingId === quote.id}>
+                                    {approvingId === quote.id ? 'Aprobando…' : 'Aprobar cotización'}
+                                  </Button>
+                                  <button
+                                    className="w-full text-center text-sm text-gray-500 underline dark:text-gray-400"
+                                    onClick={() => setRejectingId(quote.id)}
+                                  >
+                                    No me interesa o quiero cambios
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           )}
                         </Card>
                       ))}

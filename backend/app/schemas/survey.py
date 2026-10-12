@@ -9,12 +9,36 @@ class SurveyUpdate(BaseModel):
     observations: str | None = Field(default=None, max_length=10000)
 
 
+class SurveyMarkerOut(BaseModel):
+    id: int
+    number: int
+    label: str | None
+    x: float
+    y: float
+
+    class Config:
+        from_attributes = True
+
+
+class SurveyMarkerIn(BaseModel):
+    x: float = Field(ge=0, le=1)
+    y: float = Field(ge=0, le=1)
+    label: str | None = Field(default=None, max_length=80)
+
+
+class SurveyMarkersUpdate(BaseModel):
+    """Reemplaza todos los marcadores de una foto."""
+
+    markers: list[SurveyMarkerIn] = Field(default_factory=list, max_length=60)
+
+
 class SurveyAssetOut(BaseModel):
     id: int
     kind: str
     file_path: str
     description: str | None
     created_at: datetime
+    markers: list[SurveyMarkerOut] = []
 
     class Config:
         from_attributes = True

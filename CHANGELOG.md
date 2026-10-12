@@ -8,6 +8,26 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Reporte 608 y anulación de facturas**: el admin anula una factura con un tipo de anulación
+  de la DGII (migración `a1d5c8e2f9b7`); sale del 607, del dashboard y del margen y entra al 608.
+  Los reportes 606/607/608 se descargan como CSV (revisar) o como `.txt` de envío
+  (`DGII_F_<formato>_<RNC>_<AAAAMM>.TXT`, requiere `COMPANY_RNC`).
+- **606: tipo de retención de ISR** (migración `c3f7a2b8d4e1`), obligatorio con retención de renta,
+  y fecha de pago obligatoria con ITBIS/renta retenidos, según el instructivo.
+- **Marcadores numerados sobre las fotos del levantamiento** (migración `b2e6f1a7c3d9`) y anexo
+  fotográfico en el PDF de la cotización (`?photos=marked|all`).
+- **Portal del cliente**: PDF de la cotización, rechazo con motivo, nombre de quien aprueba o
+  rechaza (historial + aviso a admins), y sin facturas anuladas.
+- **Envío por WhatsApp** del enlace del portal desde la cotización.
+- **Levantamiento sin conexión**: cola en IndexedDB que se envía sola al volver la señal.
+
+### Corregido
+
+- **607**: la retención de renta iba en la columna 13 (ISR percibido) y va en la 12; nombres de
+  las columnas 10 a 14 alineados al instructivo; las facturas de consumo (B02) menores de
+  RD$250,000 ya no se detallan (van al resumen de la Oficina Virtual); el tipo de identificación
+  "3" ya no se asigna a quien no tiene documento (es pasaporte / ID tributaria).
+
 - **La IA ya puede trabajar con un catálogo grande** (probado con 54 productos): antes el prompt
   llevaba el catálogo completo, no cabía en el contexto del modelo (4096 tokens), se truncaba y la
   generación se desbocaba (>20 min con la CPU al 100%). Ahora (`catalog_matching.py`): (1) se empareja

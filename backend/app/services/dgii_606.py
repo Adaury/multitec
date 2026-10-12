@@ -37,7 +37,7 @@ def _identification_type(rnc: str | None) -> str:
     return "2" if len(digits) == 11 else "1"
 
 
-def build_606_report(db: Session, year: int, month: int) -> bytes:
+def build_606_rows(db: Session, year: int, month: int) -> list[list]:
     """Reporte de Compras (formato 606 de la DGII) para un período, según la fecha del
     comprobante. Cubre lo que el sistema registra: NCF, proveedor, montos, ITBIS y
     retenciones capturadas a mano. Proporcionalidad, ITBIS al costo, percepciones, ISC,
@@ -74,7 +74,7 @@ def build_606_report(db: Session, year: int, month: int) -> bytes:
                 "",
                 itbis,
                 "",
-                "",
+                (inv.isr_retention_type or "") if float(inv.isr_withheld) > 0 else "",
                 float(inv.isr_withheld) or "",
                 "",
                 "",
@@ -83,4 +83,8 @@ def build_606_report(db: Session, year: int, month: int) -> bytes:
                 inv.payment_type,
             ]
         )
-    return build_csv(REPORT_606_HEADERS, rows)
+    return rows
+
+
+def build_606_report(db: Session, year: int, month: int) -> bytes:
+    return build_csv(REPORT_606_HEADERS, build_606_rows(db, year, month))

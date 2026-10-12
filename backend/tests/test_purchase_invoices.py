@@ -79,7 +79,7 @@ def test_requires_auth(client):
 def test_dgii_606_export(client, admin_token):
     headers = auth_headers(admin_token)
     supplier = _supplier(client, headers, rnc="101000001")
-    client.post("/api/purchase-invoices", json=_payload(supplier["id"], itbis_withheld=5), headers=headers)
+    client.post("/api/purchase-invoices", json=_payload(supplier["id"], itbis_withheld=5, payment_date=date.today().isoformat()), headers=headers)
     client.post(
         "/api/purchase-invoices",
         json=_payload(supplier["id"], ncf="B0100000002", invoice_date="2020-01-15"),
@@ -107,3 +107,48 @@ def test_dgii_606_export(client, admin_token):
 def test_dgii_606_rejects_invalid_month(client, admin_token):
     resp = client.get("/api/reports/dgii-606", params={"year": 2026, "month": 13}, headers=auth_headers(admin_token))
     assert resp.status_code == 400
+
+
+def test_isr_retention_requires_its_type_and_the_payment_date(client, admin_token):
+    """Instructivo 606: con retención de renta son obligatorios el tipo (col. 17) y la fecha de pago."""
+    headers = auth_headers(admin_token)
+    supplier = _supplier(client, headers)
+
+    no_type = client.post(
+        "/api/purchase-invoices",
+        json=_payload(supplier["id"], isr_withheld=10, payment_date=date.today().isoformat()),
+        headers=headers,
+    )
+    no_date = client.post(
+        "/api/purchase-invoices",
+        json=_payload(supplier["id"], ncf="B0100000002", isr_withheld=10, isr_retention_type="02"),
+        headers=headers,
+    )
+    itbis_no_date = client.post(
+        "/api/purchase-invoices",
+        json=_payload(supplier["id"], ncf="B0100000003", itbis_withheld=5),
+        headers=headers,
+    )
+    ok = client.post(
+        "/api/purchase-invoices",
+        json=_payload(
+            supplier["id"],
+            ncf="B0100000004",
+            isr_withheld=10,
+            isr_retention_type="02",
+            payment_date=date.today().isoformat(),
+        ),
+        headers=headers,
+    )
+
+    assert no_type.status_code == 422
+    assert no_date.status_code == 422
+    assert itbis_no_date.status_code == 422
+    assert ok.status_code == 201, ok.text
+
+    today = date.today()
+    _, rows = _parse_csv(
+        client.get("/api/reports/dgii-606", params={"year": today.year, "month": today.month}, headers=headers)
+    )
+    assert rows[0][16] == "02"  # Tipo de Retención en ISR
+    assert rows[0][17] == "10.0"  # Monto Retención Renta

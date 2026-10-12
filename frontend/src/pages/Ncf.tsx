@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, downloadFile } from '../lib/api'
+import { api } from '../lib/api'
+import { DgiiDownloads } from '../components/DgiiDownloads'
+import { formatDOP } from '../lib/format'
 import { NCF_TYPE_LABELS, NCF_TYPES, type NcfSequence, type NcfType } from '../lib/types'
 import { useAuthStore } from '../lib/authStore'
 import { Badge, Button, Card, Field, Input } from '../components/ui'
@@ -21,6 +23,17 @@ export function Ncf() {
   const today = new Date()
   const [reportYear, setReportYear] = useState(today.getFullYear())
   const [reportMonth, setReportMonth] = useState(today.getMonth() + 1)
+
+  const { data: consumption } = useQuery({
+    queryKey: ['dgii-607-consumo', reportYear, reportMonth],
+    queryFn: async () =>
+      (
+        await api.get<{ count: number; subtotal: number; total: number }>(
+          `/reports/dgii-607/consumo-resumen?year=${reportYear}&month=${reportMonth}`,
+        )
+      ).data,
+    enabled: isAdmin,
+  })
 
   const { data: sequences, isLoading } = useQuery({
     queryKey: ['ncf-sequences'],
@@ -82,12 +95,12 @@ export function Ncf() {
 
       <div className="md:grid md:grid-cols-2 md:items-start md:gap-4">
         <Card className="space-y-3">
-          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Reporte 607 (Ventas) para la DGII</p>
+          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Reportes 607 (Ventas) y 608 (Anulados)</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">
-            Exporta las facturas del mes seleccionado con las columnas del formato 607. Cubre lo que el sistema sabe
-            con certeza (NCF, RNC del cliente, fecha, monto e ITBIS) — no registramos forma de pago ni retenciones,
-            así que esas columnas salen vacías. <strong>Verifica el archivo contra la plantilla oficial vigente en
-            dgii.gov.do antes de remitirlo.</strong>
+            El 607 lleva las facturas vigentes del mes con la forma de pago y las retenciones que registraste en cada
+            factura (lo que falte sale vacío). El 608 lleva los comprobantes anulados desde el sistema. "Revisar" baja
+            un CSV para Excel; "Archivo DGII" baja el .txt de envío y requiere COMPANY_RNC en backend/.env.{' '}
+            <strong>Verifica el archivo contra la plantilla oficial vigente en dgii.gov.do antes de remitirlo.</strong>
           </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Mes">
@@ -107,17 +120,15 @@ export function Ncf() {
               <Input type="number" value={reportYear} onChange={(e) => setReportYear(Number(e.target.value))} />
             </Field>
           </div>
-          <Button
-            variant="secondary"
-            onClick={() =>
-              downloadFile(
-                `/reports/dgii-607?year=${reportYear}&month=${reportMonth}`,
-                `607_${reportYear}${String(reportMonth).padStart(2, '0')}.csv`,
-              )
-            }
-          >
-            Descargar reporte 607
-          </Button>
+          {consumption && consumption.count > 0 && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+              Este mes hay <b>{consumption.count}</b> facturas de consumo menores de RD$250,000 que no van en el
+              archivo: se digitan en el "Resumen General de Facturas de Consumo" de la Oficina Virtual. Cantidad:{' '}
+              <b>{consumption.count}</b> · Monto facturado: <b>{formatDOP(consumption.subtotal)}</b>.
+            </p>
+          )}
+          <DgiiDownloads form="607" year={reportYear} month={reportMonth} />
+          <DgiiDownloads form="608" year={reportYear} month={reportMonth} />
         </Card>
 
         {showForm && (

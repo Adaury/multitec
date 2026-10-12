@@ -10,11 +10,16 @@ from app.core.security import require_role
 from app.db.session import get_db
 from app.models.invoice import Invoice
 from app.models.project import Project
-from app.models.quote import Quote
+from app.models.quote import Quote, QuoteHistory
 from app.models.ticket import Ticket
-from app.schemas.public import PublicLinkOut, PublicProjectOut
-from app.services.notifications import notify_portal_first_viewed, notify_quote_approved_by_client
-from app.services.pdf import build_invoice_pdf
+from app.schemas.public import PublicApproveIn, PublicLinkOut, PublicProjectOut, PublicRejectIn
+from app.services.notifications import (
+    notify_portal_first_viewed,
+    notify_quote_approved_by_client,
+    notify_quote_rejected_by_client,
+)
+from app.services.pdf import build_invoice_pdf, build_quote_pdf
+from app.services.photo_annex import collect_photos
 from app.services.quote_approval import mark_quote_approved
 
 router = APIRouter(tags=["public"])
@@ -53,6 +58,7 @@ def _get_project_by_token(db: Session, token: str) -> Project:
             joinedload(Project.quotes).joinedload(Quote.items),
             joinedload(Project.invoices).joinedload(Invoice.items),
             joinedload(Project.tickets).joinedload(Ticket.technician),
+            joinedload(Project.survey),
         )
         .filter(Project.public_token == token)
         .one_or_none()
@@ -70,7 +76,7 @@ def _serialize_public_project(project: Project) -> dict:
         "description": project.description,
         "client_name": project.client.name,
         "quotes": project.quotes,
-        "invoices": project.invoices,
+        "invoices": [inv for inv in project.invoices if inv.voided_at is None],
         "tickets": [
             {
                 "code": ticket.code,
@@ -103,7 +109,13 @@ def get_public_project(request: Request, token: str, db: Session = Depends(get_d
 
 @router.post("/api/public/projects/{token}/quotes/{quote_id}/approve", response_model=PublicProjectOut)
 @limiter.limit("30/minute")
-def approve_public_quote(request: Request, token: str, quote_id: int, db: Session = Depends(get_db)):
+def approve_public_quote(
+    request: Request,
+    token: str,
+    quote_id: int,
+    payload: PublicApproveIn | None = None,
+    db: Session = Depends(get_db),
+):
     project = _get_project_by_token(db, token)
     if not any(q.id == quote_id for q in project.quotes):
         raise HTTPException(status_code=404, detail="Cotización no encontrada")
@@ -114,11 +126,64 @@ def approve_public_quote(request: Request, token: str, quote_id: int, db: Sessio
     quote = db.get(Quote, quote_id, with_for_update=True)
     if quote.status != "pendiente":
         raise HTTPException(status_code=400, detail=f"No se puede aprobar una cotización '{quote.status}'")
-    mark_quote_approved(db, quote, created_by=None, note="Aprobada por el cliente desde el portal")
+    signer = (payload.signer_name or "").strip() if payload else ""
+    note = "Aprobada por el cliente desde el portal" + (f" — firmó: {signer}" if signer else "")
+    mark_quote_approved(db, quote, created_by=None, note=note)
     db.commit()
     notify_quote_approved_by_client(db, quote)
     project = _get_project_by_token(db, token)
     return _serialize_public_project(project)
+
+
+@router.post("/api/public/projects/{token}/quotes/{quote_id}/reject", response_model=PublicProjectOut)
+@limiter.limit("30/minute")
+def reject_public_quote(
+    request: Request,
+    token: str,
+    quote_id: int,
+    payload: PublicRejectIn | None = None,
+    db: Session = Depends(get_db),
+):
+    """El cliente rechaza la cotización desde su enlace (con motivo opcional). Queda 'no
+    aprobada' igual que si la hubiera rechazado la oficina, y se avisa a los admins."""
+    project = _get_project_by_token(db, token)
+    if not any(q.id == quote_id for q in project.quotes):
+        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+
+    quote = db.get(Quote, quote_id, with_for_update=True)
+    if quote.status != "pendiente":
+        raise HTTPException(status_code=400, detail=f"No se puede rechazar una cotización '{quote.status}'")
+    reason = (payload.reason or "").strip() if payload else ""
+    signer = (payload.signer_name or "").strip() if payload else ""
+    note = "Rechazada por el cliente desde el portal"
+    if signer:
+        note += f" — {signer}"
+    if reason:
+        note += f": {reason}"
+    quote.status = "no_aprobada"
+    quote.decided_at = datetime.now(timezone.utc)
+    db.add(QuoteHistory(quote_id=quote.id, action="rechazada", note=note))
+    db.commit()
+    notify_quote_rejected_by_client(db, quote, reason)
+    project = _get_project_by_token(db, token)
+    return _serialize_public_project(project)
+
+
+@router.get("/api/public/projects/{token}/quotes/{quote_id}/pdf")
+@limiter.limit("30/minute")
+def get_public_quote_pdf(request: Request, token: str, quote_id: int, db: Session = Depends(get_db)):
+    """PDF de la cotización con el anexo de fotos marcadas (si el levantamiento las tiene)."""
+    project = _get_project_by_token(db, token)
+    quote = next((q for q in project.quotes if q.id == quote_id), None)
+    if quote is None:
+        raise HTTPException(status_code=404, detail="Cotización no encontrada")
+    annex = collect_photos(project.survey, "marked")
+    pdf_bytes = build_quote_pdf(quote, photo_annex=annex)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{quote.code}.pdf"'},
+    )
 
 
 @router.get("/api/public/projects/{token}/invoices/{invoice_id}/pdf")

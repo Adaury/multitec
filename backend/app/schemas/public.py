@@ -1,6 +1,17 @@
 from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class PublicApproveIn(BaseModel):
+    """Quién aprueba (el cliente escribe su nombre: queda en el historial como constancia)."""
+
+    signer_name: str | None = Field(default=None, max_length=120)
+
+
+class PublicRejectIn(BaseModel):
+    reason: str | None = Field(default=None, max_length=1000)
+    signer_name: str | None = Field(default=None, max_length=120)
 
 
 class PublicQuoteItemOut(BaseModel):

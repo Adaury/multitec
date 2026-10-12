@@ -306,9 +306,13 @@ cotización, asignar el ticket, emitir la factura) — solo se registra el error
 
 ### Reporte 607 (Ventas DGII)
 
-En `/ncf` (solo admin/oficina), botón para exportar en CSV las facturas de un mes con las
-columnas del formato 607 de la DGII (RNC/cédula del comprador, NCF, fecha, monto
-facturado, ITBIS...).
+En `/ncf` (solo admin/oficina), dos descargas por formato: **"Revisar (CSV)"** para abrir en
+Excel y **"Archivo DGII (.txt)"**, el de envío (`607|RNC|AAAAMM|cantidad` y un registro por
+línea, llamado `DGII_F_607_<RNC>_<AAAAMM>.TXT`). El .txt necesita `COMPANY_RNC` en
+`backend/.env`; sin él la pantalla lo dice. Las columnas siguen el instructivo oficial (23
+columnas). Las **facturas de consumo (B02) menores de RD$250,000 no van en el detalle**
+(Norma 10-18): la pantalla `/ncf` muestra su cantidad y monto para el "Resumen General de
+Facturas de Consumo" de la Oficina Virtual. Las facturas anuladas salen del 607 y van al 608.
 
 **Forma de pago y retenciones:** en la pestaña **Factura** de un proyecto, al desplegar una
 factura emitida, el bloque "Cobro y retenciones (para el 607)" permite registrar cómo se cobró
@@ -324,23 +328,48 @@ en las suyas. Las facturas sin registrar siguen saliendo con esas columnas vací
   efectivo, parte en tarjeta) no se puede repartir entre columnas.
 - Las facturas anteriores al registro de cobro no tienen forma de pago hasta que se
   complete a mano en cada una.
-- La estructura de columnas es la mejor aproximación posible a partir de fuentes públicas
-  de la DGII; no se pudo verificar campo por campo contra la plantilla oficial vigente
-  (requiere descargar un ZIP de dgii.gov.do). **Verifica el archivo contra la plantilla
-  oficial actual antes de remitirlo** — la pantalla lo recuerda explícitamente.
+- Nombres y orden de las columnas verificados contra el instructivo oficial (octubre 2026). No
+  verificado: si el TXT acepta los códigos como `01` o `1` (el instructivo los imprime sin cero)
+  ni el interior del encabezado. **Pasa el primer archivo por el pre-validador de la DGII
+  antes de remitirlo.**
+- Una factura de consumo de RD$250,000 o más se detalla, pero necesita el documento del
+  comprador: sin él la DGII la rechazará.
+
+### Reporte 608 (Comprobantes anulados)
+
+En la pestaña **Factura**, el admin puede **anular** una factura (`POST /api/invoices/{id}/void`)
+con uno de los 10 tipos de anulación de la DGII. El NCF queda consumido, la factura sale del
+607, del dashboard y del margen, y entra al 608 (`/ncf`, mismas descargas CSV y .txt). Para
+volver a facturar el trabajo se genera una prefactura nueva desde la cotización aprobada. El
+608 solo cubre lo anulado desde el sistema: un NCF que nunca se usó se suma a mano.
 
 ### Compras y reporte 606 (Compras DGII)
 
 En `/compras` (admin/oficina) se registran las **facturas de proveedores** (proveedor, NCF,
 NCF modificado, fechas de comprobante y pago, tipo de gasto 01-11, forma de pago 01-07,
 montos en servicios y bienes, ITBIS facturado/retenido y retención de ISR). No se permite
-repetir el mismo NCF para un proveedor. El botón **"Descargar reporte 606"** exporta en CSV
-las facturas de un mes (por fecha del comprobante) con las columnas del formato 606.
+repetir el mismo NCF para un proveedor. Mismas descargas CSV / .txt que el 607, por fecha del
+comprobante. Con retención de renta el formulario exige el **tipo de retención de ISR** (01-09)
+y la **fecha de pago**, como pide el instructivo; lo mismo con ITBIS retenido (fecha de pago).
 
-Mismo alcance limitado que el 607: proporcionalidad, ITBIS llevado al costo, percepciones,
-ISC, otros impuestos y propina salen vacíos, el ITBIS facturado se reporta completo como
-"por adelantar", y las columnas no se pudieron verificar contra la plantilla oficial. **Verifica
-el archivo en dgii.gov.do antes de remitirlo.**
+Alcance: proporcionalidad, ITBIS llevado al costo, percepciones, ISC, otros impuestos y
+propina salen vacíos, y el ITBIS facturado se reporta completo como "por adelantar". Columnas
+verificadas contra el instructivo oficial; **pasa el archivo por el pre-validador de la DGII
+antes de remitirlo.**
+
+## Herramientas de campo y cierre de ventas
+
+- **Marcar equipos sobre las fotos** del levantamiento (botón 📍 en cada foto): puntos
+  numerados de corrido con nombre (`PUT /api/projects/{id}/survey/assets/{asset_id}/markers`).
+- **Cotización con fotos**: `GET /api/quotes/{id}/pdf?photos=marked|all` agrega un anexo con las
+  fotos y su leyenda (las fotos HEIC no se pueden dibujar y se omiten).
+- **Portal del cliente** (`/portal/<token>`): PDF de la cotización, aprobar o rechazar con
+  motivo y nombre (queda en el historial y avisa a los admins). Las facturas anuladas no se ven.
+- **Enviar por WhatsApp** desde la cotización: crea el enlace del portal si falta y abre el
+  mensaje. El enlace usa la dirección desde la que abriste la app (no sirve con `localhost`).
+- **Levantamiento sin conexión** (`/nuevo` sin señal): se guardan cliente, tipo, GPS, notas y
+  fotos en el teléfono (IndexedDB) y se envían solos al volver la conexión. Sin servidor no hay
+  voz ni IA: la cotización se genera después.
 
 ## Frontend — arrancar en desarrollo
 

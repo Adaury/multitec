@@ -77,6 +77,8 @@ class InvoiceOut(BaseModel):
     itbis_withheld: float = 0
     isr_withheld: float = 0
     retention_date: date | None = None
+    voided_at: datetime | None = None
+    void_reason: str | None = None
     created_by: int | None = None
     created_at: datetime
     items: list[InvoiceItemOut] = []
@@ -94,6 +96,13 @@ class InvoicePaymentUpdate(BaseModel):
     itbis_withheld: float = Field(default=0, ge=0)
     isr_withheld: float = Field(default=0, ge=0)
     retention_date: date | None = None
+
+
+class InvoiceVoidRequest(BaseModel):
+    """Anulación de una factura emitida: el código es el "tipo de anulación" del formato 608."""
+
+    reason_code: str = Field(pattern=r"^(0[1-9]|10)$")
+    note: str | None = Field(default=None, max_length=300)
 
 
 class InvoiceHistoryOut(BaseModel):

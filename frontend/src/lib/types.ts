@@ -65,6 +65,7 @@ export interface PurchaseInvoice {
   itbis_invoiced: number | string
   itbis_withheld: number | string
   isr_withheld: number | string
+  isr_retention_type: string | null
   notes: string | null
 }
 
@@ -147,12 +148,23 @@ export interface PublicProject {
   tickets: PublicTicket[]
 }
 
+export interface SurveyMarker {
+  id: number
+  /** Numeración corrida en todo el levantamiento (la asigna el servidor). */
+  number: number
+  label: string | null
+  /** Posición de 0 a 1 sobre el ancho / alto de la foto. */
+  x: number
+  y: number
+}
+
 export interface SurveyAsset {
   id: number
   kind: 'photo' | 'audio'
   file_path: string
   description: string | null
   created_at: string
+  markers: SurveyMarker[]
 }
 
 export interface VoiceSurveyResult {
@@ -584,6 +596,9 @@ export interface Invoice {
   itbis_withheld: number
   isr_withheld: number
   retention_date: string | null
+  /** Anulación (formato 608): con fecha, la factura ya no cuenta como venta. */
+  voided_at: string | null
+  void_reason: string | null
   created_at: string
   items: InvoiceItem[]
 }

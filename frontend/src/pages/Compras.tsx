@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, downloadFile } from '../lib/api'
+import { api } from '../lib/api'
+import { DgiiDownloads } from '../components/DgiiDownloads'
 import type { PurchaseInvoice, Supplier } from '../lib/types'
 import { formatDOP } from '../lib/format'
 import { Button, Card, Field, Input, Textarea } from '../components/ui'
@@ -32,6 +33,18 @@ const PAYMENT_TYPES: Record<string, string> = {
   '07': '07 · Mixto',
 }
 
+const ISR_RETENTION_TYPES: Record<string, string> = {
+  '01': '01 · Alquileres',
+  '02': '02 · Honorarios por servicios',
+  '03': '03 · Otras rentas',
+  '04': '04 · Otras rentas (rentas presuntas)',
+  '05': '05 · Intereses pagados a personas jurídicas residentes',
+  '06': '06 · Intereses pagados a personas físicas residentes',
+  '07': '07 · Retención por proveedores del Estado',
+  '08': '08 · Juegos telefónicos',
+  '09': '09 · Retenciones subsector ganadería de carne bovina',
+}
+
 interface PurchaseForm {
   supplier_id: string
   ncf: string
@@ -45,6 +58,7 @@ interface PurchaseForm {
   itbis_invoiced: string
   itbis_withheld: string
   isr_withheld: string
+  isr_retention_type: string
   notes: string
 }
 
@@ -63,6 +77,7 @@ const EMPTY_FORM: PurchaseForm = {
   itbis_invoiced: '',
   itbis_withheld: '',
   isr_withheld: '',
+  isr_retention_type: '',
   notes: '',
 }
 
@@ -80,6 +95,7 @@ function formPayload(form: PurchaseForm) {
     itbis_invoiced: Number(form.itbis_invoiced) || 0,
     itbis_withheld: Number(form.itbis_withheld) || 0,
     isr_withheld: Number(form.isr_withheld) || 0,
+    isr_retention_type: Number(form.isr_withheld) > 0 ? form.isr_retention_type || null : null,
     notes: form.notes || null,
   }
 }
@@ -161,17 +177,7 @@ export function Compras() {
             <Input type="number" value={reportYear} onChange={(e) => setReportYear(Number(e.target.value))} />
           </Field>
         </div>
-        <Button
-          variant="secondary"
-          onClick={() =>
-            downloadFile(
-              `/reports/dgii-606?year=${reportYear}&month=${reportMonth}`,
-              `606_${reportYear}${String(reportMonth).padStart(2, '0')}.csv`,
-            )
-          }
-        >
-          Descargar reporte 606
-        </Button>
+        <DgiiDownloads form="606" year={reportYear} month={reportMonth} />
       </Card>
 
       {showForm && (
@@ -242,6 +248,22 @@ export function Compras() {
               <Field label="Retención de renta (ISR)">
                 <Input type="number" min="0" step="0.01" value={form.isr_withheld} onChange={(e) => set({ isr_withheld: e.target.value })} />
               </Field>
+              {Number(form.isr_withheld) > 0 && (
+                <Field label="Tipo de retención de ISR">
+                  <select
+                    className={SELECT_CLASS}
+                    value={form.isr_retention_type}
+                    onChange={(e) => set({ isr_retention_type: e.target.value })}
+                  >
+                    <option value="">Elige el tipo…</option>
+                    {Object.entries(ISR_RETENTION_TYPES).map(([code, label]) => (
+                      <option key={code} value={code}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+              )}
               <Field label="NCF modificado (opcional)">
                 <Input maxLength={19} value={form.ncf_modified} onChange={(e) => set({ ncf_modified: e.target.value })} />
               </Field>

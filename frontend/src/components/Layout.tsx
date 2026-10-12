@@ -5,6 +5,7 @@ import { useAuthStore } from '../lib/authStore'
 import type { CurrentUser } from '../lib/types'
 import { GlobalSearch } from './GlobalSearch'
 import { NotificationBell } from './NotificationBell'
+import { PendingSync } from './PendingSync'
 import { PageLoader } from './PageLoader'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -188,6 +189,8 @@ export function Layout() {
             </button>
           </div>
         </header>
+
+        <PendingSync />
 
         <main className="flex-1 px-5 md:px-10 md:pb-10">
           <Suspense fallback={<PageLoader />}>

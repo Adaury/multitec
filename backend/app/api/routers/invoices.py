@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,7 +10,7 @@ from app.core.config import get_settings
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.client import Client
-from app.models.invoice import Invoice, InvoiceHistory, InvoiceItem, PreInvoice, PreInvoiceItem
+from app.models.invoice import VOID_REASONS, Invoice, InvoiceHistory, InvoiceItem, PreInvoice, PreInvoiceItem
 from app.models.project import Project
 from app.models.quote import Quote
 from app.models.user import User
@@ -17,6 +18,7 @@ from app.schemas.invoice import (
     InvoiceHistoryOut,
     InvoiceOut,
     InvoicePaymentUpdate,
+    InvoiceVoidRequest,
     PreInvoiceCreate,
     PreInvoiceOut,
 )
@@ -258,6 +260,36 @@ def update_invoice_payment(
             ),
         )
     )
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+@router.post("/api/invoices/{invoice_id}/void", response_model=InvoiceOut)
+def void_invoice(
+    invoice_id: int,
+    payload: InvoiceVoidRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_only),
+):
+    """Anula una factura emitida (solo admin). El NCF queda consumido y se reporta en el 608; la
+    factura deja de contar en el 607, el dashboard y el margen. Para volver a facturar el mismo
+    trabajo se genera una prefactura nueva desde la cotización aprobada."""
+    invoice = (
+        db.query(Invoice).options(joinedload(Invoice.items)).filter(Invoice.id == invoice_id).with_for_update().one_or_none()
+    )
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
+    if invoice.voided_at is not None:
+        raise HTTPException(status_code=400, detail="Esta factura ya está anulada")
+
+    invoice.voided_at = datetime.now(timezone.utc)
+    invoice.void_reason = payload.reason_code
+    invoice.voided_by = current_user.id
+    note = f"{payload.reason_code} - {VOID_REASONS[payload.reason_code]}"
+    if payload.note:
+        note += f": {payload.note}"
+    db.add(InvoiceHistory(invoice_id=invoice.id, action="anulada", note=note))
     db.commit()
     db.refresh(invoice)
     return invoice

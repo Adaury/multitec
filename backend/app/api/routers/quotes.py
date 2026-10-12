@@ -25,6 +25,7 @@ from app.services.code_generator import next_code
 from app.services.margin import compute_margin
 from app.services.notifications import notify_quote_pending
 from app.services.pdf import build_quote_pdf
+from app.services.photo_annex import collect_photos
 from app.services.quote_approval import build_material_rows_from_quote, mark_quote_approved
 from app.services.document_items import resolve_item_fields
 from app.services.quote_archiver import archive_stale_quotes
@@ -109,6 +110,7 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_ro
 def get_quote_pdf(
     quote_id: int,
     variant: Literal["detallada", "ejecutiva"] = "detallada",
+    photos: Literal["none", "marked", "all"] = "none",
     db: Session = Depends(get_db),
     _=Depends(allowed_roles),
 ):
@@ -120,7 +122,10 @@ def get_quote_pdf(
             products = db.query(Product).options(joinedload(Product.category)).filter(Product.id.in_(product_ids)).all()
             category_by_product_id = {p.id: p.category_name for p in products}
 
-    pdf_bytes = build_quote_pdf(quote, variant=variant, category_by_product_id=category_by_product_id)
+    annex = collect_photos(quote.project.survey, photos)
+    pdf_bytes = build_quote_pdf(
+        quote, variant=variant, category_by_product_id=category_by_product_id, photo_annex=annex
+    )
     suffix = "-ejecutiva" if variant == "ejecutiva" else ""
     return Response(
         content=pdf_bytes,

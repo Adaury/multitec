@@ -72,6 +72,24 @@ def notify_quote_approved_by_client(db: Session, quote: Quote) -> None:
         _notify_user(db, admin.id, subject, body, link)
 
 
+def notify_quote_rejected_by_client(db: Session, quote: Quote, reason: str | None) -> None:
+    """Avisa a los admins activos que el cliente rechazó la cotización desde el portal."""
+    admins = db.query(User).filter(User.role == "admin", User.is_active.is_(True)).all()
+    subject = f"Cotización {quote.code} rechazada por el cliente"
+    body = (
+        "El cliente rechazó la cotización desde el portal de seguimiento.\n\n"
+        f"Código: {quote.code}\n"
+        f"Proyecto: {quote.project.code} — {quote.project.client.name}\n"
+        f"Total: RD$ {float(quote.total):,.2f}\n"
+        + (f"Motivo: {reason}\n" if reason else "")
+    )
+    link = f"/proyectos/{quote.project_id}?tab=cotizacion"
+    for recipient in _admin_email_recipients(admins):
+        email.send_email(recipient, subject, body)
+    for admin in admins:
+        _notify_user(db, admin.id, subject, body, link)
+
+
 def notify_ticket_assigned(db: Session, ticket: Ticket) -> None:
     """Avisa al técnico que se le acaba de asignar un ticket."""
     if ticket.technician_id is None:

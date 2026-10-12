@@ -79,7 +79,9 @@ def dashboard_summary(db: Session) -> dict:
     months = _last_n_months(6)
     range_start = date(int(months[0][:4]), int(months[0][5:7]), 1)
     monthly_totals = {m: 0.0 for m in months}
-    for created_at, total in db.query(Invoice.created_at, Invoice.total).filter(Invoice.created_at >= range_start):
+    for created_at, total in db.query(Invoice.created_at, Invoice.total).filter(
+        Invoice.created_at >= range_start, Invoice.voided_at.is_(None)
+    ):
         local = to_local(created_at)
         key = f"{local.year:04d}-{local.month:02d}"
         if key in monthly_totals:

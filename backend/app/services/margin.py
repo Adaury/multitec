@@ -74,7 +74,7 @@ def project_margin(db: Session, project_id: int) -> dict:
     todavía no hay facturas, cae a un margen *proyectado* sobre las líneas de sus
     cotizaciones aprobadas (`basis='cotizado'`, lo que se espera facturar); si no hay
     ninguna de las dos, devuelve ceros con `basis='ninguno'`."""
-    invoice_items = db.query(InvoiceItem).join(Invoice).filter(Invoice.project_id == project_id).all()
+    invoice_items = db.query(InvoiceItem).join(Invoice).filter(Invoice.project_id == project_id, Invoice.voided_at.is_(None)).all()
     if invoice_items:
         return compute_margin(db, invoice_items, basis="facturado")
 
@@ -102,5 +102,5 @@ def company_margin_last_months(db: Session, months: int = 6) -> dict:
             year -= 1
     range_start = date(year, month, 1)
 
-    items = db.query(InvoiceItem).join(Invoice).filter(Invoice.created_at >= range_start).all()
+    items = db.query(InvoiceItem).join(Invoice).filter(Invoice.created_at >= range_start, Invoice.voided_at.is_(None)).all()
     return compute_margin(db, items, basis="facturado")

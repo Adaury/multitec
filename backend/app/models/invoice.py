@@ -16,6 +16,20 @@ PAYMENT_METHODS = (
     "otras",
 )
 
+# Tipos de anulación del formato 608 de la DGII (código de 2 dígitos -> descripción).
+VOID_REASONS = {
+    "01": "Deterioro de factura preimpresa",
+    "02": "Errores de impresión (factura preimpresa)",
+    "03": "Impresión defectuosa",
+    "04": "Corrección de la información",
+    "05": "Cambio de productos",
+    "06": "Devolución de productos",
+    "07": "Omisión de productos",
+    "08": "Errores en secuencia de NCF",
+    "09": "Por cese de operaciones",
+    "10": "Pérdida o hurto de talonarios",
+}
+
 
 class PreInvoice(Base):
     """Prefactura (§13) — documento previo, subtotal/ITBIS/total."""
@@ -75,6 +89,10 @@ class Invoice(Base):
     itbis_withheld: Mapped[float] = mapped_column(Numeric(12, 2), default=0, server_default="0")
     isr_withheld: Mapped[float] = mapped_column(Numeric(12, 2), default=0, server_default="0")
     retention_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Anulación (formato 608): el NCF queda consumido pero la factura deja de contar como venta.
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    void_reason: Mapped[str | None] = mapped_column(String(2), nullable=True)
+    voided_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -38,3 +38,24 @@ class SurveyAsset(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     survey: Mapped["Survey"] = relationship(back_populates="assets")
+    markers: Mapped[list["SurveyMarker"]] = relationship(
+        back_populates="asset", cascade="all, delete-orphan", order_by="SurveyMarker.number"
+    )
+
+
+class SurveyMarker(Base):
+    """Punto numerado sobre una foto (cámara 1, NVR, switch...). `x`/`y` van de 0 a 1 sobre el
+    ancho y alto de la imagen, así que no dependen de cómo se muestre. La numeración es corrida
+    en todo el levantamiento y la reasigna el backend."""
+
+    __tablename__ = "survey_markers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    asset_id: Mapped[int] = mapped_column(ForeignKey("survey_assets.id", ondelete="CASCADE"), index=True)
+    number: Mapped[int] = mapped_column(Integer)
+    label: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    x: Mapped[float] = mapped_column(Float)
+    y: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    asset: Mapped["SurveyAsset"] = relationship(back_populates="markers")

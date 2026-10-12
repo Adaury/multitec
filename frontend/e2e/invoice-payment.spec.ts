@@ -15,13 +15,15 @@ async function issueInvoice(page: import('@playwright/test').Page, clientName: s
   const nextYear = new Date()
   nextYear.setFullYear(nextYear.getFullYear() + 1)
   await post('/ncf-sequences', {
-    ncf_type: 'B02',
+    ncf_type: 'B01',
     description: 'E2E',
     range_start: 1,
     range_end: 9999,
     expires_at: nextYear.toISOString().slice(0, 10),
   })
-  const client = await post('/clients', { name: clientName })
+  // Con RNC: es crédito fiscal (B01) y por eso va en el detalle del 607 (el consumo menor de
+  // RD$250,000 solo va en el resumen).
+  const client = await post('/clients', { name: clientName, rnc: '130000001' })
   const project = await post('/projects', { client_id: client.id, description: unique('Proyecto Cobro') })
   const budget = await post(`/projects/${project.id}/budgets`, {
     items: [{ description: 'Cámara IP', quantity: 1, unit_price: 1000 }],
@@ -63,7 +65,7 @@ test('register how an invoice was paid and its retentions, and see them in the 6
   const header = lines[0].split(',')
   const row = lines.find((l) => l.includes(invoice.ncf))!.split(',')
   expect(row[header.indexOf('Tarjeta Débito/Crédito')]).toBe('1180.0') // 1000 + 18% de ITBIS
-  expect(row[header.indexOf('ITBIS Retenido')]).toBe('50.0')
+  expect(row[header.indexOf('ITBIS Retenido por Terceros')]).toBe('50.0')
 
   // Un valor inválido lo rechaza el servidor y la pantalla lo muestra.
   await page.getByLabel('ITBIS retenido').fill('9999')

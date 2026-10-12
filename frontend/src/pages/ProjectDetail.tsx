@@ -52,6 +52,8 @@ import { LineItemsEditor } from '../components/LineItemsEditor'
 import { shrinkImage } from '../lib/imageUpload'
 import { ProjectLocationCard } from '../components/ProjectLocationCard'
 import { InvoicePaymentForm } from '../components/InvoicePaymentForm'
+import { InvoiceVoidForm } from '../components/InvoiceVoidForm'
+import { PhotoMarkerEditor } from '../components/PhotoMarkerEditor'
 import { VoiceRecorderCard, VoiceReviewCard, transcribeAsset } from '../components/VoiceSurvey'
 
 function DictationField({
@@ -350,7 +352,7 @@ export function ProjectDetail() {
       )}
       {tab === 'ingenieria' && <IngenieriaTab projectId={project.id} />}
       {tab === 'presupuesto' && <BudgetTab projectId={project.id} onConverted={() => setTab('cotizacion')} />}
-      {tab === 'cotizacion' && <QuoteTab projectId={project.id} />}
+      {tab === 'cotizacion' && <QuoteTab projectId={project.id} project={project} />}
       {tab === 'compras' && <PurchasesTab projectId={project.id} />}
       {tab === 'ejecucion' && <ExecutionTab projectId={project.id} />}
       {tab === 'bitacora' && <LogbookTab projectId={project.id} />}
@@ -607,6 +609,7 @@ function LevantamientoTab({
   const [notes, setNotes] = useState('')
   const [measurements, setMeasurements] = useState('')
   const [observations, setObservations] = useState('')
+  const [markingAssetId, setMarkingAssetId] = useState<number | null>(null)
 
   const notesInitialized = useRef(false)
   if (survey && !notesInitialized.current) {
@@ -818,9 +821,29 @@ function LevantamientoTab({
                 >
                   ✕
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setMarkingAssetId(asset.id)}
+                  aria-label="Marcar equipos en la foto"
+                  className="absolute bottom-1 left-1 rounded-full bg-black/60 px-2 py-1 text-xs text-white"
+                >
+                  📍 {asset.markers.length > 0 ? asset.markers.length : 'Marcar'}
+                </button>
               </div>
             ))}
         </div>
+
+        {survey && markingAssetId !== null && (
+          <PhotoMarkerEditor
+            key={markingAssetId}
+            projectId={projectId}
+            asset={survey.assets.find((a) => a.id === markingAssetId)!}
+            numberOffset={survey.assets
+              .filter((a) => a.kind === 'photo' && a.id < markingAssetId)
+              .reduce((sum, a) => sum + a.markers.length, 0)}
+            onClose={() => setMarkingAssetId(null)}
+          />
+        )}
 
         <div className="space-y-2">
           {survey?.assets
@@ -1221,7 +1244,7 @@ function BudgetCard({
   )
 }
 
-function QuoteTab({ projectId }: { projectId: number }) {
+function QuoteTab({ projectId, project }: { projectId: number; project: ProjectDetailType }) {
   const queryClient = useQueryClient()
   const { data: products } = useProducts()
   const { data: quotes } = useQuery({
@@ -1276,11 +1299,63 @@ function QuoteTab({ projectId }: { projectId: number }) {
             expanded={expandedId === quote.id}
             onToggle={() => setExpandedId(expandedId === quote.id ? null : quote.id)}
             projectId={projectId}
+            project={project}
             products={products ?? []}
           />
         ))}
         {quotes?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay cotizaciones.</p>}
       </div>
+    </div>
+  )
+}
+
+/** Envía al cliente por WhatsApp el enlace de su portal (donde ve la cotización con fotos y puede
+ * aprobarla o pedir cambios). Si el proyecto aún no tiene enlace, lo crea al momento. */
+function QuoteWhatsAppButton({ quote, project }: { quote: Quote; project: ProjectDetailType }) {
+  const queryClient = useQueryClient()
+  const [error, setError] = useState<string | null>(null)
+  const base = whatsappUrl(project.client.phone)
+  const isLocalOrigin = /localhost|127\.0\.0\.1|192\.168\.|\.test$/.test(window.location.hostname)
+
+  const send = useMutation({
+    mutationFn: async () => {
+      let token = project.public_token
+      if (!token) {
+        token = ((await api.post<{ token: string }>(`/projects/${project.id}/public-link`)).data as { token: string })
+          .token
+        queryClient.invalidateQueries({ queryKey: ['projects'] })
+      }
+      return token
+    },
+    onSuccess: (token) => {
+      const link = `${window.location.origin}/portal/${token}`
+      const text =
+        `Hola ${project.client.name}, le comparto la cotización ${quote.code} de Multitec por ` +
+        `${formatDOP(quote.total)}. Puede verla, descargarla y aprobarla aquí: ${link}`
+      window.open(`${base}?text=${encodeURIComponent(text)}`, '_blank')
+    },
+    onError: () => setError('No se pudo preparar el enlace del cliente.'),
+  })
+
+  if (!base) {
+    return (
+      <p className="text-xs text-gray-400 dark:text-gray-500">
+        Para enviarla por WhatsApp, el cliente necesita un teléfono de 10 dígitos.
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-1.5">
+      <Button variant="secondary" className="!w-auto px-3 py-2 text-sm" onClick={() => send.mutate()} disabled={send.isPending}>
+        {send.isPending ? 'Preparando…' : 'Enviar al cliente por WhatsApp'}
+      </Button>
+      {isLocalOrigin && (
+        <p className="text-xs text-amber-600 dark:text-amber-400">
+          Estás en una dirección local: el cliente no podrá abrir el enlace. Entra a la app por tu dirección pública
+          (túnel o dominio) antes de enviarlo.
+        </p>
+      )}
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
     </div>
   )
 }
@@ -1297,12 +1372,14 @@ function QuoteCard({
   expanded,
   onToggle,
   projectId,
+  project,
   products,
 }: {
   quote: Quote
   expanded: boolean
   onToggle: () => void
   projectId: number
+  project: ProjectDetailType
   products: Product[]
 }) {
   const queryClient = useQueryClient()
@@ -1466,6 +1543,28 @@ function QuoteCard({
                 </Button>
               </div>
             </div>
+            <div className="space-y-1.5">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                Con fotos del levantamiento (puntos numerados)
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  className="!w-auto flex-1 px-3 py-2 text-sm"
+                  onClick={() => viewFile(`/quotes/${quote.id}/pdf?photos=marked`)}
+                >
+                  Ver
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="!w-auto flex-1 px-3 py-2 text-sm"
+                  onClick={() => downloadFile(`/quotes/${quote.id}/pdf?photos=marked`, `${quote.code}-fotos.pdf`)}
+                >
+                  Descargar
+                </Button>
+              </div>
+            </div>
+            <QuoteWhatsAppButton quote={quote} project={project} />
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
                 Cotización ejecutiva (resumen por categoría)
@@ -2293,8 +2392,15 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
           <div>
             <p className="font-medium text-gray-900 dark:text-gray-100">{invoice.code}</p>
             {invoice.ncf && <p className="text-xs text-gray-500 dark:text-gray-400">NCF: {invoice.ncf}</p>}
+            {invoice.voided_at && (
+              <p className="text-xs font-semibold text-red-600 dark:text-red-400">ANULADA (tipo {invoice.void_reason})</p>
+            )}
           </div>
-          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">{formatDOP(invoice.total)}</p>
+          <p
+            className={`text-sm font-semibold ${invoice.voided_at ? 'text-gray-400 line-through' : 'text-gray-800 dark:text-gray-200'}`}
+          >
+            {formatDOP(invoice.total)}
+          </p>
         </div>
       </button>
       {expanded && (
@@ -2327,7 +2433,8 @@ function InvoiceCard({ invoice, expanded, onToggle }: { invoice: Invoice; expand
             </div>
             {isAdmin && <MarginRow endpoint={`/invoices/${invoice.id}/margin`} enabled={expanded} />}
           </div>
-          <InvoicePaymentForm invoice={invoice} />
+          {!invoice.voided_at && <InvoicePaymentForm invoice={invoice} />}
+          {isAdmin && !invoice.voided_at && <InvoiceVoidForm invoice={invoice} />}
           <div className="space-y-3">
             <div className="space-y-1.5">
               <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Factura (con precios)</p>

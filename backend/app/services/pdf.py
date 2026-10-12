@@ -15,6 +15,7 @@ from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.quote import Quote
+from app.services.photo_annex import AnnexPhoto, build_annex_flowables
 
 # Paleta alineada a frontend/src/index.css (--color-brand-*) para que los PDF se vean
 # consistentes con el resto de la app en vez de usar grises genéricos de reportlab.
@@ -73,6 +74,7 @@ def _build_pdf(
     quantity_first: bool = False,
     integer_quantities: bool = False,
     category_totals: list[tuple[str, float]] | None = None,
+    photo_annex: list[AnnexPhoto] | None = None,
 ) -> bytes:
     settings = get_settings()
     buf = BytesIO()
@@ -254,6 +256,9 @@ def _build_pdf(
             if line.strip():
                 story.append(Paragraph(line.strip(), _meta_style))
 
+    if photo_annex:
+        story.extend(build_annex_flowables(photo_annex))
+
     doc.build(story)
     return buf.getvalue()
 
@@ -277,7 +282,10 @@ def _category_totals(items: list, category_by_product_id: dict[int, str | None])
 
 
 def build_quote_pdf(
-    quote: Quote, variant: str = "detallada", category_by_product_id: dict[int, str | None] | None = None
+    quote: Quote,
+    variant: str = "detallada",
+    category_by_product_id: dict[int, str | None] | None = None,
+    photo_annex: list[AnnexPhoto] | None = None,
 ) -> bytes:
     is_executive = variant == "ejecutiva"
     return _build_pdf(
@@ -293,6 +301,7 @@ def build_quote_pdf(
         status_label=quote.status.replace("_", " ").capitalize(),
         notes=quote.notes,
         category_totals=_category_totals(quote.items, category_by_product_id or {}) if is_executive else None,
+        photo_annex=photo_annex,
     )
 
 
