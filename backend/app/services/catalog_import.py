@@ -67,6 +67,7 @@ for _field, _names in {
     "resolution_mp": ["resolucion_mp", "megapixeles", "mp", "resolucion"],
     "storage_capacity_gb": ["almacenamiento_gb", "capacidad_gb", "storage_capacity_gb"],
     "channel_capacity": ["canales", "puertos", "capacidad_canales", "channel_capacity"],
+    "pack_size": ["unidades_por_paquete", "unidades_por_bolsa", "unidades_por_caja", "pack_size", "paquete_de"],
     "priority": ["prioridad", "priority"],
     "code": ["codigo", "code", "sku"],
 }.items():
@@ -74,7 +75,7 @@ for _field, _names in {
         _ALIASES[_n] = _field
 
 _NUMERIC = {"price", "cost", "install_minutes", "resolution_mp", "storage_capacity_gb"}
-_INTEGER = {"channel_capacity", "priority"}
+_INTEGER = {"channel_capacity", "priority", "pack_size"}
 _LISTS = {"tags", "synonyms"}
 
 

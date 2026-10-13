@@ -6,6 +6,7 @@ import type { CurrentUser } from '../lib/types'
 import { GlobalSearch } from './GlobalSearch'
 import { NotificationBell } from './NotificationBell'
 import { PendingSync } from './PendingSync'
+import { SystemStatus } from './SystemStatus'
 import { PageLoader } from './PageLoader'
 import { ThemeToggle } from './ThemeToggle'
 
@@ -179,6 +180,7 @@ export function Layout() {
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ThemeToggle className="md:hidden" />
+            <SystemStatus />
             <NotificationBell />
             <GlobalSearch />
             <button

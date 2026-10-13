@@ -38,7 +38,7 @@ test('import products from a CSV: preview first, then apply, and they show in th
   // Aplicar: solo entra la fila válida.
   await page.getByRole('button', { name: 'Importar 1 producto(s)' }).click()
   await expect(page.getByRole('status')).toContainText('Importación terminada')
-  await page.getByRole('button', { name: 'Listo' }).click()
+  await page.getByRole('button', { name: 'Listo', exact: true }).click()
 
   await expect(page.getByText(name)).toBeVisible({ timeout: 10000 })
   await expect(page.getByText('Producto con categoria inventada')).toHaveCount(0)

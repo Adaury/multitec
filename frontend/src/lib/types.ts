@@ -1,5 +1,41 @@
 export type Role = 'admin' | 'oficina' | 'tecnico'
 
+/** Respuesta de GET /assistant/today: lo que hay para hoy según el usuario. */
+export interface TodaySummary {
+  today: string
+  visits: {
+    id: number
+    project_id: number
+    project_code: string
+    client_name: string
+    scheduled_time: string | null
+    address: string | null
+    location_url: string | null
+    phone: string | null
+    notes: string | null
+  }[]
+  ready_to_quote: TodayProject[]
+  quotes_waiting: {
+    quote_id: number
+    code: string
+    project_id: number
+    client_name: string
+    total: number
+    days_pending: number
+  }[]
+  tickets: { id: number; code: string; project_id: number; client_name: string; problem: string; status: string }[]
+  /** Últimos proyectos abiertos del usuario, para continuar donde lo dejó. */
+  continue_projects: TodayProject[]
+}
+
+export interface TodayProject {
+  project_id: number
+  project_code: string
+  client_name: string
+  survey_type: string | null
+  status?: string | null
+}
+
 export interface CurrentUser {
   id: number
   name: string
@@ -235,6 +271,7 @@ export interface Product {
   resolution_mp: number | null
   storage_capacity_gb: number | null
   channel_capacity: number | null
+  pack_size: number | null
   tags: string[]
   synonyms: string[]
 }

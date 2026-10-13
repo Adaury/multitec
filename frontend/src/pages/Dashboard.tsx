@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { api, downloadFile } from '../lib/api'
 import { Card } from '../components/ui'
+import { TodayAssistant } from '../components/TodayAssistant'
 import { useAuthStore } from '../lib/authStore'
 import { formatDOP } from '../lib/format'
 import { PROJECT_STATUS_LABELS, type DashboardSummary, type MarginSummary } from '../lib/types'
@@ -194,23 +195,12 @@ export function Dashboard() {
   const user = useAuthStore((s) => s.user)
   const role = user?.role
   const canSeeReports = role === 'admin' || role === 'oficina'
-  const firstName = user?.name?.split(' ')[0]
 
   return (
     <div className="space-y-6 py-4 md:space-y-8 md:py-8">
       {/* Móvil: un botón principal enorme + cuatro accesos grandes. */}
       <div className="space-y-4 md:hidden">
-        {firstName && <p className="text-lg text-gray-500 dark:text-gray-400">Hola, {firstName} 👋</p>}
-        <Link
-          to="/nuevo"
-          className="flex items-center gap-4 rounded-3xl bg-brand-blue p-6 text-white shadow-lg active:scale-[0.98]"
-        >
-          <span className="text-6xl">🎙️</span>
-          <span>
-            <span className="block text-2xl font-bold leading-tight">Nuevo levantamiento</span>
-            <span className="mt-1 block text-sm text-blue-100">Cliente, ubicación y narras</span>
-          </span>
-        </Link>
+        <TodayAssistant />
         <div className="grid grid-cols-2 gap-4">
           {mobileTiles.map((tile) => (
             <Link
@@ -225,7 +215,11 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Escritorio: acciones rápidas (la barra lateral cubre el resto de la navegación). */}
+      {/* Escritorio: el asistente del día y las acciones rápidas (la barra lateral cubre el resto). */}
+      <div className="hidden max-w-3xl md:block">
+        <TodayAssistant />
+      </div>
+
       <div className="hidden md:block">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Acciones rápidas</h1>
         <div className="mt-3 grid max-w-xl grid-cols-3 gap-4">

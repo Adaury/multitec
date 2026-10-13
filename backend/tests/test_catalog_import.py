@@ -148,3 +148,19 @@ def test_bad_files_and_permissions(client, admin_token, oficina_token, tecnico_t
     # La plantilla la pueden bajar admin y oficina, no el técnico.
     assert client.get("/api/catalog/import-template", headers=auth_headers(oficina_token)).status_code == 200
     assert client.get("/api/catalog/import-template", headers=auth_headers(tecnico_token)).status_code == 403
+
+
+def test_pack_size_column_is_imported_as_an_integer(client, admin_token):
+    headers = auth_headers(admin_token)
+    _tree(client, headers)
+    body = (
+        "Nombre;Categoria;Unidad;Precio;Unidades por paquete\n"
+        "Conectores RJ45 (bolsa 100);Cableado > Otros;bolsa;450;100\n"
+    )
+
+    resp = client.post("/api/catalog/import?dry_run=false", files=_csv(body), headers=headers)
+
+    assert resp.status_code == 200, resp.text
+    products = client.get("/api/catalog", headers=headers).json()
+    rj45 = next(p for p in products if p["name"].startswith("Conectores RJ45"))
+    assert rj45["pack_size"] == 100

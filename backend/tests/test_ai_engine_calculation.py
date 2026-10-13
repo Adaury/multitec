@@ -4,6 +4,7 @@ from app.ai_engine.calculation import (
     calculate_capacity_warnings,
     calculate_labor,
     calculate_storage,
+    convert_loose_units_to_packs,
 )
 
 CATALOG = [
@@ -290,3 +291,44 @@ def test_meters_keep_two_decimals():
     result = apply_cable_waste_margin([{"product_id": 6, "description": "Cable", "quantity": 33}], catalog, 0.1)
 
     assert result[0]["quantity"] == 36.3
+
+
+def test_loose_units_become_whole_packs():
+    items = [{"product_id": 7, "description": "16 conectores RJ45", "quantity": 16}]
+
+    result, notices = convert_loose_units_to_packs(items, {7: 100})
+
+    assert result[0]["quantity"] == 1
+    assert "paquete(s) de 100" in notices[0]
+
+
+def test_packs_round_up_and_never_to_zero():
+    items = [
+        {"product_id": 7, "description": "conectores RJ45", "quantity": 101},
+        {"product_id": 7, "description": "conectores RJ45", "quantity": 0.2},
+    ]
+
+    result, _ = convert_loose_units_to_packs(items, {7: 100})
+
+    assert [r["quantity"] for r in result] == [2, 1]
+
+
+def test_quantity_already_in_packs_is_respected():
+    items = [{"product_id": 7, "description": "2 bolsas de conectores RJ45", "quantity": 2}]
+
+    result, notices = convert_loose_units_to_packs(items, {7: 100})
+
+    assert result[0]["quantity"] == 2
+    assert notices == []
+
+
+def test_products_without_pack_size_are_untouched():
+    items = [
+        {"product_id": 1, "description": "Cable UTP", "quantity": 3},
+        {"product_id": None, "description": "Mano de obra", "quantity": 5},
+    ]
+
+    result, notices = convert_loose_units_to_packs(items, {1: None, 2: 50})
+
+    assert result == items
+    assert notices == []

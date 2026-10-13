@@ -60,6 +60,10 @@ class Product(Base):
     # en un switch (mismo campo para ambos: "cuántos dispositivos puede recibir este hub").
     # Nulo por defecto: un producto que no es NVR ni switch no aporta a ese cálculo.
     channel_capacity: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Unidades sueltas por paquete cuando el producto se vende en paquete/bolsa/caja (ej. conectores
+    # RJ45 en bolsa de 100). Nulo = se vende por unidad. La IA lo usa para pasar "16 conectores" a
+    # "1 bolsa" (ver ai_engine/calculation.py convert_loose_units_to_packs).
+    pack_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Catálogo "inteligente" (§ levantamiento con IA): tags/synonyms alimentan el matching
     # semántico en suggest_budget_items. Las reglas de accesorios con cantidad viven en
     # CatalogRule (source_product_id → este producto), no aquí. JSON (no ARRAY) para

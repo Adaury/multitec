@@ -31,6 +31,7 @@ from app.ai_engine.calculation import (
     calculate_capacity_warnings,
     calculate_labor,
     calculate_storage,
+    convert_loose_units_to_packs,
     get_calculation_parameter,
 )
 from app.ai_engine.catalog_matching import suggest_budget_items
@@ -165,6 +166,9 @@ def compute_survey_items(db: Session, context: str) -> tuple[list[dict], list[st
     product_prices = {p.id: float(p.price) for p in products}
 
     items = suggest_budget_items(context, catalog, get_learned_matches(db))
+    # Antes de las reglas de accesorios: solo lo que el técnico dijo en unidades sueltas se pasa a
+    # paquetes; las cantidades que generan las reglas ya las define quien escribió la regla.
+    items, pack_notices = convert_loose_units_to_packs(items, {p.id: p.pack_size for p in products})
     items = expand_with_rules(items, catalog, rules)
     param_overrides = resolve_calculation_parameter_overrides(items, technical_rules)
     engineering_notes = resolve_engineering_notes(items, technical_rules)
@@ -186,7 +190,9 @@ def compute_survey_items(db: Session, context: str) -> tuple[list[dict], list[st
     if labor_estimate is not None:
         items = items + [build_labor_budget_item(labor_estimate)]
 
-    warnings = calculate_capacity_warnings(items, catalog, _build_channel_capacity_profiles(products))
+    warnings = pack_notices + calculate_capacity_warnings(
+        items, catalog, _build_channel_capacity_profiles(products)
+    )
     for item in items:
         if item.get("product_id") is not None:
             item["unit_price"] = product_prices.get(item["product_id"], 0)

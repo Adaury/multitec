@@ -357,6 +357,21 @@ propina salen vacíos, y el ITBIS facturado se reporta completo como "por adelan
 verificadas contra el instructivo oficial; **pasa el archivo por el pre-validador de la DGII
 antes de remitirlo.**
 
+## Arranque diario, túnel y asistente
+
+- **Arrancar / detener / estado**: `iniciar-multitec.bat`, `detener-multitec.bat`, `estado-multitec.bat`
+  (`deploy/multitec.ps1`). Compila la web, arranca backend y web en segundo plano sin `--reload` y sin
+  procesos huérfanos; logs en `backend/logs`. Tras cambiar código hay que volver a iniciar.
+  `start.bat` sigue existiendo para desarrollar (con recarga automática).
+- **Túnel**: `abrir-tunel-multitec.bat` muestra la dirección pública (cambia en cada reinicio);
+  `cerrar-tunel-multitec.bat` la cierra. La primera visita desde un teléfono muestra un aviso de ngrok
+  ("Visit Site").
+- **Asistente del Inicio**: saluda, resume el día y conversa por voz ("¿Qué toca hoy?"). La voz la pone
+  el teléfono; el audio se transcribe en el servidor con Whisper y la frase se entiende con reglas y,
+  si hace falta, con la IA local. Ver `backend/app/ai_engine/conversation.py`.
+- **Estado del sistema**: el punto de color del encabezado dice si servidor, base de datos, IA y voz
+  están listos (`GET /api/system/status`).
+
 ## Herramientas de campo y cierre de ventas
 
 - **Marcar equipos sobre las fotos** del levantamiento (botón 📍 en cada foto): puntos

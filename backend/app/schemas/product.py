@@ -23,6 +23,7 @@ class ProductCreate(BaseModel):
     # cero al calcular cuántas unidades hacen falta.
     storage_capacity_gb: float | None = Field(default=None, gt=0)
     channel_capacity: int | None = None
+    pack_size: int | None = Field(default=None, gt=0)
     tags: list[str] = []
     synonyms: list[str] = []
 
@@ -44,6 +45,7 @@ class ProductUpdate(BaseModel):
     resolution_mp: float | None = None
     storage_capacity_gb: float | None = Field(default=None, gt=0)
     channel_capacity: int | None = None
+    pack_size: int | None = Field(default=None, gt=0)
     tags: list[str] | None = None
     synonyms: list[str] | None = None
 
@@ -70,6 +72,7 @@ class ProductOut(BaseModel):
     resolution_mp: float | None = None
     storage_capacity_gb: float | None = None
     channel_capacity: int | None = None
+    pack_size: int | None = None
     tags: list[str] = []
     synonyms: list[str] = []
     created_by: int | None = None

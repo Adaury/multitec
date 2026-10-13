@@ -45,7 +45,15 @@ def _get_model():
     return _model
 
 
-def transcribe_audio(path: str | Path) -> str:
+# Lo que se dice en la conversación del Inicio: órdenes cortas y nombres de personas, no equipos.
+CONVERSATION_PROMPT = (
+    "Un técnico le dice a su asistente qué va a hacer hoy. Frases como: un levantamiento de cámaras "
+    "para Juan Pérez, continuar con Ferretería López, qué tengo hoy, cotizar una alarma, atender un "
+    "ticket, visitar a don Ramón, control de acceso, cerco eléctrico, redes."
+)
+
+
+def transcribe_audio(path: str | Path, initial_prompt: str = DOMAIN_PROMPT) -> str:
     """Devuelve el texto en español del audio. Lanza HTTPException 400 si falla (modelo sin
     descargar, audio ilegible…); el detalle técnico queda solo en el log del servidor."""
     try:
@@ -54,7 +62,7 @@ def transcribe_audio(path: str | Path) -> str:
                 str(path),
                 language="es",
                 vad_filter=True,  # descarta silencios/ruido de obra, evita alucinaciones
-                initial_prompt=DOMAIN_PROMPT,
+                initial_prompt=initial_prompt,
             )
             text = " ".join(segment.text.strip() for segment in segments)
     except Exception as e:

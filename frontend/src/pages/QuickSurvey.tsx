@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { formatDOP } from '../lib/format'
@@ -61,6 +61,41 @@ export function QuickSurvey() {
   useEffect(() => {
     api.post('/ai/warmup').catch(() => {})
   }, [])
+
+  // Desde el Inicio se llega con lo que el asistente ya entendió, para no repetirlo:
+  //   ?cliente=<id>            un cliente que ya existe (queda elegido)
+  //   ?nombre=…&telefono=…     un cliente nuevo (el asistente solo pregunta lo que falte)
+  //   ?modo=voz                nada todavía: se entra directo a contarlo todo hablando
+  //   &tipo=…                  el tipo de levantamiento, en cualquiera de los casos
+  const [searchParams] = useSearchParams()
+  const prefillDone = useRef(false)
+  useEffect(() => {
+    if (prefillDone.current) return
+    const clientId = Number(searchParams.get('cliente'))
+    const name = searchParams.get('nombre')?.trim() ?? ''
+    const type = searchParams.get('tipo') ?? ''
+    const known = (SURVEY_TYPES as readonly string[]).includes(type) ? type : ''
+    if (clientId) {
+      const client = clients?.find((c) => c.id === clientId)
+      if (!client) return // la lista de clientes aún no llegó: se reintenta al cargar
+      prefillDone.current = true
+      setSelected(client)
+      if (known) setSurveyType(known)
+    } else if (name) {
+      prefillDone.current = true
+      setNewClient((prev) => ({ ...prev, name, phone: searchParams.get('telefono') ?? '' }))
+      if (known) setSurveyType(known)
+      setManualEntry(false)
+      setStartAll(false)
+      setCreatingNew(true)
+    } else if (searchParams.get('modo') === 'voz') {
+      prefillDone.current = true
+      if (known) setSurveyType(known)
+      setManualEntry(false)
+      setStartAll(true)
+      setCreatingNew(true)
+    }
+  }, [searchParams, clients])
 
   // --- Paso 2: narración ---
   const [project, setProject] = useState<Project | null>(null)

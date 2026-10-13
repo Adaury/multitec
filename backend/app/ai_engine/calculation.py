@@ -7,6 +7,8 @@ canales/puertos (`calculate_capacity_warnings`).
 """
 
 import math
+import re
+import unicodedata
 
 from sqlalchemy.orm import Session
 
@@ -95,6 +97,43 @@ def apply_cable_waste_margin(items: list[dict], catalog: list[dict], waste_margi
         return {**item, "quantity": quantity}
 
     return [with_margin(item) if item.get("product_id") in cable_products else item for item in items]
+
+
+# Si el técnico ya habló en paquetes ("2 bolsas de conectores", "una caja de cable"), esa cantidad
+# ya está en paquetes y no se convierte.
+_PACK_WORDS = re.compile(
+    r"\b(caja|cajas|bolsa|bolsas|paquete|paquetes|pack|packs|funda|fundas|rollo|rollos|bobina|bobinas|kit|kits)\b"
+)
+
+
+def _fold(text: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(c) != "Mn")
+
+
+def convert_loose_units_to_packs(
+    items: list[dict], pack_sizes: dict[int, int | None]
+) -> tuple[list[dict], list[str]]:
+    """Pasa cantidades sueltas a paquetes enteros para los productos que se venden en paquete
+    (`pack_size` cargado): "16 conectores RJ45" con bolsa de 100 -> 1 bolsa. Redondea hacia
+    arriba (un paquete no se compra a medias). Si lo que dijo el técnico ya menciona un paquete
+    (bolsa, caja...), la cantidad se respeta. Devuelve los ítems y un aviso por cada conversión."""
+    converted: list[dict] = []
+    notices: list[str] = []
+    for item in items:
+        size = pack_sizes.get(item.get("product_id")) if item.get("product_id") is not None else None
+        if not size or size <= 1 or _PACK_WORDS.search(_fold(str(item.get("description", "")))):
+            converted.append(item)
+            continue
+        loose = float(item.get("quantity") or 0)
+        packs = math.ceil(loose / size - 1e-9)
+        if packs < 1:
+            packs = 1
+        converted.append({**item, "quantity": packs})
+        notices.append(
+            f"{item.get('description', 'Producto')}: {loose:g} unidades sueltas se cotizan como "
+            f"{packs} paquete(s) de {size}."
+        )
+    return converted, notices
 
 
 def calculate_labor(

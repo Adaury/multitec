@@ -6,6 +6,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 // por esta variable; sin ella el proxy sigue apuntando al backend normal de desarrollo.
 const apiTarget = process.env.E2E_API_TARGET ?? 'http://127.0.0.1:8000'
 
+// Lo mismo en desarrollo (`vite`) y sirviendo la versión compilada (`vite preview`).
+const proxy = {
+  '/api': apiTarget,
+  '/uploads': apiTarget,
+  // Documentación interactiva de la API (Swagger/ReDoc) a través del mismo puerto de la
+  // web, para abrirla desde el celular en la red local sin exponer el puerto del backend.
+  '/docs': apiTarget,
+  '/redoc': apiTarget,
+  '/openapi.json': apiTarget,
+}
+
 export default defineConfig({
   plugins: [
     react(),
@@ -32,18 +43,17 @@ export default defineConfig({
     // Escucha en IPv4 e IPv6: multitec.test (hosts) resuelve a 127.0.0.1 y Vite por defecto
     // solo escuchaba en [::1], así que http://multitec.test:5173 no conectaba.
     host: true,
-    proxy: {
-      '/api': apiTarget,
-      '/uploads': apiTarget,
-      // Documentación interactiva de la API (Swagger/ReDoc) a través del mismo puerto de la
-      // web, para abrirla desde el celular en la red local sin exponer el puerto del backend.
-      '/docs': apiTarget,
-      '/redoc': apiTarget,
-      '/openapi.json': apiTarget,
-    },
+    proxy,
     // Permite servir la app a través del túnel de ngrok (dominio *.ngrok-free.app,
     // distinto cada vez) además de localhost — sin esto Vite rechaza la petición
     // por el chequeo de Host contra DNS rebinding.
+    allowedHosts: true,
+  },
+  // Versión compilada (la que usan los técnicos y la que va por el túnel): ~40 archivos en vez de
+  // los cientos de módulos sueltos del modo desarrollo, y con el service worker de la PWA activo.
+  preview: {
+    host: true,
+    proxy,
     allowedHosts: true,
   },
 })

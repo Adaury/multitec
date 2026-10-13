@@ -8,6 +8,47 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Conversación hablada con el asistente** en el Inicio ("Hablar con el asistente"): saluda en voz
+  alta por el nombre del técnico, pregunta "¿Qué toca hoy?", escucha la respuesta y lo lleva a donde
+  corresponde: un levantamiento nuevo (con cliente, tipo y teléfono ya entendidos; reconoce si el
+  cliente ya existe), continuar un proyecto, la agenda del día, cotizaciones o tickets
+  (`POST /api/assistant/talk` para texto, `POST /api/assistant/listen` para audio).
+  - Entender la frase: reglas primero (instantáneo); la IA local solo si las reglas no reconocen
+    la frase (~5-7 s en esta máquina) y, si falla, se pide repetir con ejemplos: nunca inventa una acción.
+  - Escuchar: el teléfono solo graba (`useVoiceTurn`, con corte automático al notar la pausa) y el
+    servidor transcribe con Whisper local (~2 s por frase). El dictado del navegador fallaba seguido en
+    iPhone. Hablar: síntesis del teléfono (`useSpeaker`), con los cuidados que pide Safari.
+  - El asistente del Inicio pregunta "¿Cómo quieres que te llame?" la primera vez y ofrece
+    "¿Cómo quieres trabajar hoy?": hablar, dictar un levantamiento, escribirlo paso a paso o continuar
+    uno de los últimos proyectos. `/nuevo` acepta `?cliente=`, `?nombre=`, `?tipo=`, `?telefono=` y `?modo=voz`.
+- **La web se sirve compilada** (`vite preview` desde `deploy/multitec.ps1`, que compila antes de
+  arrancar): unos 40 archivos en vez de los cientos del modo desarrollo, mucho más rápida por el túnel,
+  y con el service worker de la PWA activo (el modo sin conexión funciona de verdad en el teléfono).
+- **Túnel a pedido**: `abrir-tunel-multitec.bat` / `cerrar-tunel-multitec.bat` (ngrok). No se abre con
+  `iniciar-multitec.bat`: publicar la app en internet es una decisión de cada vez.
+- **Permiso de ubicación denegado**: la app explica dónde se activa en iPhone y Android en vez de un
+  aviso corto, y deja seguir escribiendo la dirección.
+- **Estado del sistema visible** (`GET /api/system/status`, `SystemStatus` en el encabezado): un punto
+  verde/ámbar/rojo que al tocarlo dice si el servidor, la base de datos, la IA de texto (apagada, sin
+  modelo, fría o lista) y la voz están listos, y avisa cuando no hay conexión. Así el técnico sabe por qué
+  algo tarda en vez de adivinar.
+- **Arranque y parada sin procesos huérfanos** (`deploy/multitec.ps1`, `iniciar-multitec.bat`,
+  `detener-multitec.bat`, `estado-multitec.bat`): se detiene por PUERTO con todo su árbol y se arranca
+  sin `--reload`, en segundo plano y con logs en `backend/logs`. Resuelve que un proceso hijo huérfano
+  siguiera sirviendo código viejo en el 8000 mientras el servidor "nuevo" no llegaba a escuchar. Tras
+  cambiar código hay que reiniciar (`iniciar-multitec.bat`).
+- **Asistente del día** en el Inicio (`GET /api/assistant/today`, `TodayAssistant`): saluda por el nombre
+  que el usuario configuró ("Buenos días, Ing. Pérez"), resume lo que hay para hoy y pregunta "¿Qué
+  desarrollamos juntos hoy?" con un toque por pendiente: visitas de hoy (con "Cómo llegar"),
+  levantamientos con notas listos para cotizar, cotizaciones esperando respuesta y tickets abiertos.
+  El técnico ve lo suyo (responsable o quien lo creó); admin y oficina ven todo. A propósito no usa
+  el modelo de IA: aparece al instante y funciona aunque Ollama no esté cargado.
+- **Unidades por paquete** (`products.pack_size`, migración `d4a8b3c6e2f5`): un producto que se vende
+  en bolsa/caja de varias piezas (ej. conectores RJ45, bolsa de 100) pasa lo que el técnico dijo
+  en unidades sueltas a paquetes enteros: "16 conectores RJ45" → 1 bolsa. Si el técnico ya habló
+  en paquetes ("2 bolsas") se respeta, y cada conversión sale como aviso. Disponible en el formulario
+  del catálogo y en la importación CSV ("Unidades por paquete"). Las cantidades que generan las
+  reglas de accesorios no se convierten: las define quien escribe la regla.
 - **Reporte 608 y anulación de facturas**: el admin anula una factura con un tipo de anulación
   de la DGII (migración `a1d5c8e2f9b7`); sale del 607, del dashboard y del margen y entra al 608.
   Los reportes 606/607/608 se descargan como CSV (revisar) o como `.txt` de envío

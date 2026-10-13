@@ -1,6 +1,27 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { mapsPointUrl } from './maps'
 
+/** Qué tocar para volver a dar el permiso: en el teléfono no es obvio y sin esto el técnico se
+ * queda atascado. Mientras tanto siempre puede escribir la dirección o pegar un enlace. */
+function deniedHelp(): string {
+  const ua = navigator.userAgent
+  if (/iPhone|iPad|iPod/.test(ua)) {
+    return (
+      'Ubicación bloqueada. En el iPhone: toca "aA" (o el ícono a la izquierda de la dirección) → ' +
+      'Configuración del sitio web → Ubicación → Permitir. Si no aparece: Ajustes → Privacidad → ' +
+      'Localización → Sitios web de Safari → Al usar la app. Luego toca "Usar mi ubicación actual". ' +
+      'También puedes escribir la dirección.'
+    )
+  }
+  if (/Android/.test(ua)) {
+    return (
+      'Ubicación bloqueada. Toca el candado junto a la dirección → Permisos → Ubicación → Permitir, ' +
+      'y luego "Usar mi ubicación actual". También puedes escribir la dirección.'
+    )
+  }
+  return 'Ubicación bloqueada. Actívala en el candado junto a la dirección del navegador, o escribe la dirección.'
+}
+
 /** Captura la ubicación GPS del dispositivo y la entrega como enlace de Google Maps. El GPS del
  * navegador solo funciona en HTTPS o localhost; si falla, `note` explica por qué.
  *
@@ -26,7 +47,7 @@ export function useGeolocation(onLocation: (mapsUrl: string) => void, options: {
       (err) => {
         setNote(
           err.code === err.PERMISSION_DENIED
-            ? 'Permiso de ubicación denegado. Actívalo en el navegador o pega un enlace de Google Maps.'
+            ? deniedHelp()
             : 'No se pudo obtener la ubicación. Intenta de nuevo o pega un enlace de Google Maps.',
         )
         setLocating(false)

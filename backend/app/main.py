@@ -12,6 +12,7 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.routers import (
     ai,
     ai_feedback_events,
+    assistant,
     auth,
     budgets,
     calculation_parameters,
@@ -35,6 +36,7 @@ from app.api.routers import (
     search,
     suppliers,
     surveys,
+    system,
     tickets,
     users,
     visits,
@@ -115,6 +117,8 @@ app.include_router(reports.router)
 app.include_router(search.router)
 app.include_router(notifications.router)
 app.include_router(visits.router)
+app.include_router(assistant.router)
+app.include_router(system.router)
 app.include_router(public.router)
 app.include_router(suppliers.router)
 app.include_router(purchase_invoices.router)

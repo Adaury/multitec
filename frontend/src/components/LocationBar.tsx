@@ -25,11 +25,15 @@ export function LocationBar({
 }) {
   const [open, setOpen] = useState(false)
   const hasLocation = Boolean(locationUrl.trim())
+  // Permiso denegado: la explicación de cómo activarlo es larga y no cabe en el renglón plegado.
+  const blocked = !hasLocation && !locating && Boolean(note?.startsWith('Ubicación bloqueada'))
   const status = locating
     ? '📍 Buscando tu ubicación…'
-    : hasLocation
-      ? (note ?? '📍 Ubicación lista')
-      : (note ?? '📍 Sin ubicación todavía')
+    : blocked
+      ? '📍 Ubicación bloqueada · toca para ver cómo activarla'
+      : hasLocation
+        ? (note ?? '📍 Ubicación lista')
+        : (note ?? '📍 Sin ubicación todavía')
 
   return (
     <div className="rounded-2xl bg-white ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
@@ -46,6 +50,11 @@ export function LocationBar({
       </button>
       {open && (
         <div className="space-y-3 px-4 pb-4">
+          {blocked && (
+            <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200">
+              {note}
+            </p>
+          )}
           <MapPreview place={{ address, location_url: locationUrl }} />
           <Button variant="secondary" onClick={onCapture} disabled={locating}>
             {locating ? 'Buscando señal GPS…' : hasLocation ? '📍 Actualizar mi ubicación' : '📍 Usar mi ubicación actual'}

@@ -57,6 +57,7 @@ interface ProductForm {
   resolution_mp: string
   storage_capacity_gb: string
   channel_capacity: string
+  pack_size: string
   tags: string
   synonyms: string
 }
@@ -79,6 +80,7 @@ function emptyForm(): ProductForm {
     resolution_mp: '',
     storage_capacity_gb: '',
     channel_capacity: '',
+    pack_size: '',
     tags: '',
     synonyms: '',
   }
@@ -99,6 +101,7 @@ function productFormPayload(form: ProductForm) {
     resolution_mp: optionalNumber(form.resolution_mp),
     storage_capacity_gb: optionalNumber(form.storage_capacity_gb),
     channel_capacity: optionalNumber(form.channel_capacity),
+    pack_size: optionalNumber(form.pack_size),
     tags: splitTags(form.tags),
     synonyms: splitTags(form.synonyms),
   }
@@ -122,6 +125,7 @@ function productToForm(product: Product): ProductForm {
     resolution_mp: product.resolution_mp != null ? String(product.resolution_mp) : '',
     storage_capacity_gb: product.storage_capacity_gb != null ? String(product.storage_capacity_gb) : '',
     channel_capacity: product.channel_capacity != null ? String(product.channel_capacity) : '',
+    pack_size: product.pack_size != null ? String(product.pack_size) : '',
     tags: product.tags.join(', '),
     synonyms: product.synonyms.join(', '),
   }
@@ -272,6 +276,15 @@ function ProductFormFields({
               onChange={(e) => setForm({ ...form, channel_capacity: e.target.value })}
             />
           </Field>
+          <Field label="Unidades por paquete (si se vende en bolsa/caja de varias piezas)">
+            <Input
+              type="number"
+              step="1"
+              min="1"
+              value={form.pack_size}
+              onChange={(e) => setForm({ ...form, pack_size: e.target.value })}
+            />
+          </Field>
         </div>
       </div>
     </>
@@ -373,6 +386,7 @@ function AiFieldsSummary({ product }: { product: Product }) {
   if (product.resolution_mp != null) entries.push(['Resolución', `${product.resolution_mp} MP`])
   if (product.storage_capacity_gb != null) entries.push(['Capacidad de almacenamiento', `${product.storage_capacity_gb} GB`])
   if (product.channel_capacity != null) entries.push(['Capacidad de canales/puertos', String(product.channel_capacity)])
+  if (product.pack_size != null) entries.push(['Unidades por paquete', String(product.pack_size)])
 
   if (entries.length === 0) return null
 
