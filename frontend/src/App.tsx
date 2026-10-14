@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { PageLoader } from './components/PageLoader'
-import { ProtectedRoute } from './components/ProtectedRoute'
+import { ProtectedRoute, RoleRoute } from './components/ProtectedRoute'
 import { Login } from './pages/Login'
 
 // Cada pantalla se descarga solo cuando se visita (antes todo iba en un único archivo de ~540 KB).
@@ -16,21 +16,17 @@ const loaders = {
   Clients: () => import('./pages/Clients'),
   ClientDetail: () => import('./pages/ClientDetail'),
   Catalog: () => import('./pages/Catalog'),
-  Categorias: () => import('./pages/Categorias'),
   Projects: () => import('./pages/Projects'),
   ProjectDetail: () => import('./pages/ProjectDetail'),
-  Budgets: () => import('./pages/Budgets'),
   Quotes: () => import('./pages/Quotes'),
   Ask: () => import('./pages/Ask'),
   Profile: () => import('./pages/Profile'),
   QuickSurvey: () => import('./pages/QuickSurvey'),
   Users: () => import('./pages/Users'),
   Ncf: () => import('./pages/Ncf'),
-  CalculationParameters: () => import('./pages/CalculationParameters'),
   AIFeedbackEvents: () => import('./pages/AIFeedbackEvents'),
   Calendario: () => import('./pages/Calendario'),
   PortalCliente: () => import('./pages/PortalCliente'),
-  Proveedores: () => import('./pages/Proveedores'),
   Compras: () => import('./pages/Compras'),
 }
 
@@ -38,21 +34,17 @@ const Dashboard = lazyPage(loaders.Dashboard, 'Dashboard')
 const Clients = lazyPage(loaders.Clients, 'Clients')
 const ClientDetail = lazyPage(loaders.ClientDetail, 'ClientDetail')
 const Catalog = lazyPage(loaders.Catalog, 'Catalog')
-const Categorias = lazyPage(loaders.Categorias, 'Categorias')
 const Projects = lazyPage(loaders.Projects, 'Projects')
 const ProjectDetail = lazyPage(loaders.ProjectDetail, 'ProjectDetail')
-const Budgets = lazyPage(loaders.Budgets, 'Budgets')
 const Quotes = lazyPage(loaders.Quotes, 'Quotes')
 const Ask = lazyPage(loaders.Ask, 'Ask')
 const Profile = lazyPage(loaders.Profile, 'Profile')
 const QuickSurvey = lazyPage(loaders.QuickSurvey, 'QuickSurvey')
 const Users = lazyPage(loaders.Users, 'Users')
 const Ncf = lazyPage(loaders.Ncf, 'Ncf')
-const CalculationParameters = lazyPage(loaders.CalculationParameters, 'CalculationParameters')
 const AIFeedbackEvents = lazyPage(loaders.AIFeedbackEvents, 'AIFeedbackEvents')
 const Calendario = lazyPage(loaders.Calendario, 'Calendario')
 const PortalCliente = lazyPage(loaders.PortalCliente, 'PortalCliente')
-const Proveedores = lazyPage(loaders.Proveedores, 'Proveedores')
 const Compras = lazyPage(loaders.Compras, 'Compras')
 
 // Las pantallas de uso diario se descargan en segundo plano cuando el navegador está libre, para
@@ -96,20 +88,27 @@ function App() {
           <Route path="/clientes/:id" element={<ClientDetail />} />
           <Route path="/proyectos" element={<Projects />} />
           <Route path="/proyectos/:id" element={<ProjectDetail />} />
-          <Route path="/catalogo" element={<Catalog />} />
-          <Route path="/clasificaciones" element={<Categorias />} />
-          <Route path="/presupuestos" element={<Budgets />} />
-          <Route path="/cotizaciones" element={<Quotes />} />
           <Route path="/preguntar" element={<Ask />} />
           <Route path="/perfil" element={<Profile />} />
           <Route path="/nuevo" element={<QuickSurvey />} />
-          <Route path="/usuarios" element={<Users />} />
-          <Route path="/ncf" element={<Ncf />} />
-          <Route path="/parametros-calculo" element={<CalculationParameters />} />
-          <Route path="/aprendizaje-ia" element={<AIFeedbackEvents />} />
           <Route path="/calendario" element={<Calendario />} />
-          <Route path="/proveedores" element={<Proveedores />} />
-          <Route path="/compras" element={<Compras />} />
+          {/* Dinero y compras: el técnico no tiene acceso (ver README → Roles y permisos). */}
+          <Route element={<RoleRoute roles={['admin', 'oficina']} />}>
+            <Route path="/catalogo" element={<Catalog />} />
+            <Route path="/cotizaciones" element={<Quotes />} />
+            <Route path="/compras" element={<Compras />} />
+            {/* Entradas antiguas: ahora viven dentro de Cotizaciones y Compras. */}
+            <Route path="/presupuestos" element={<Navigate to="/cotizaciones?vista=presupuestos" replace />} />
+            <Route path="/proveedores" element={<Navigate to="/compras?vista=proveedores" replace />} />
+          </Route>
+          <Route element={<RoleRoute roles={['admin']} />}>
+            <Route path="/usuarios" element={<Users />} />
+            <Route path="/ncf" element={<Ncf />} />
+            <Route path="/aprendizaje-ia" element={<AIFeedbackEvents />} />
+            {/* Entradas antiguas: ahora viven dentro de Ajustes de IA y de Catálogo. */}
+            <Route path="/parametros-calculo" element={<Navigate to="/aprendizaje-ia?vista=parametros" replace />} />
+            <Route path="/clasificaciones" element={<Navigate to="/catalogo?vista=clasificaciones" replace />} />
+          </Route>
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

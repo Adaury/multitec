@@ -1,11 +1,13 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import type { Project, Quote, QuoteStatus } from '../lib/types'
 import { QUOTE_STATUS_LABELS } from '../lib/types'
 import { formatDOP } from '../lib/format'
-import { Badge, Card } from '../components/ui'
+import { Badge, Card, SegmentedTabs } from '../components/ui'
+import { Budgets } from './Budgets'
 
 const STATUS_TONE: Record<string, 'blue' | 'green' | 'red' | 'gray'> = {
   pendiente: 'blue',
@@ -22,7 +24,7 @@ const FILTERS: { key: QuoteStatus | 'todas'; label: string }[] = [
   { key: 'archivada', label: 'Archivadas' },
 ]
 
-export function Quotes() {
+function QuotesList() {
   const [filter, setFilter] = useState<QuoteStatus | 'todas'>('todas')
 
   const { data: quotes, isLoading } = useQuery({
@@ -45,9 +47,7 @@ export function Quotes() {
   }
 
   return (
-    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Cotizaciones</h1>
-
+    <div className="space-y-4 md:space-y-6">
       <div className="flex gap-2 overflow-x-auto rounded-2xl bg-brand-gray p-1 md:max-w-fit dark:bg-gray-800">
         {FILTERS.map((f) => (
           <button
@@ -83,6 +83,30 @@ export function Quotes() {
         ))}
         {quotes?.length === 0 && <p className="text-sm text-gray-500">No hay cotizaciones en este filtro.</p>}
       </div>
+    </div>
+  )
+}
+
+type View = 'cotizaciones' | 'presupuestos'
+
+/** Una sola entrada de menú para el dinero que se le propone al cliente: cotizaciones y,
+ * en la otra vista, los presupuestos internos de los que salen. */
+export function Quotes() {
+  const [params, setParams] = useSearchParams()
+  const view: View = params.get('vista') === 'presupuestos' ? 'presupuestos' : 'cotizaciones'
+
+  return (
+    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
+      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Cotizaciones</h1>
+      <SegmentedTabs<View>
+        value={view}
+        onChange={(next) => setParams(next === 'cotizaciones' ? {} : { vista: next }, { replace: true })}
+        options={[
+          { key: 'cotizaciones', label: 'Cotizaciones' },
+          { key: 'presupuestos', label: 'Presupuestos' },
+        ]}
+      />
+      {view === 'cotizaciones' ? <QuotesList /> : <Budgets embedded />}
     </div>
   )
 }

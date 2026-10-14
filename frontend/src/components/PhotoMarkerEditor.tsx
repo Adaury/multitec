@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import type { SurveyAsset } from '../lib/types'
 import { Button } from './ui'
+import { UploadImage } from './UploadMedia'
 
 interface DraftMarker {
   x: number
@@ -78,9 +79,9 @@ export function PhotoMarkerEditor({
         </p>
 
         <div className="relative cursor-crosshair select-none" onClick={addMarker} data-testid="marker-surface">
-          <img
+          <UploadImage
             ref={imageRef}
-            src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+            filePath={asset.file_path}
             alt="Foto del levantamiento"
             className="block max-h-[55vh] w-full rounded-xl object-contain"
             draggable={false}

@@ -133,6 +133,11 @@ Construido después del brief original:
 lo operativo (levantamiento, ejecución, bitácora, tickets), pero no gestiona clientes,
 dinero ni facturación.
 
+Única excepción, a propósito: al terminar un levantamiento rápido en campo, el técnico ve el
+total de **la cotización que acaba de generar** para poder dárselo al cliente. No ve los demás
+montos: el menú no le ofrece Cotizaciones, Catálogo ni Compras, el servidor le rechaza esas
+rutas, y la IA (Preguntar IA) le responde sin presupuestos ni cotizaciones.
+
 ## Seguridad
 
 - **Rate limiting** en `/api/auth/login` (10 intentos/minuto por IP) y `/api/auth/refresh`

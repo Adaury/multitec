@@ -57,6 +57,37 @@ export function Modal({
   )
 }
 
+/** Selector de vistas dentro de una misma pantalla (reemplaza tener dos entradas de menú casi iguales). */
+export function SegmentedTabs<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T
+  onChange: (value: T) => void
+  options: { key: T; label: string }[]
+}) {
+  return (
+    <div className="flex gap-1 overflow-x-auto rounded-2xl bg-brand-gray p-1 md:max-w-fit dark:bg-gray-800" role="tablist">
+      {options.map((option) => (
+        <button
+          key={option.key}
+          role="tab"
+          aria-selected={value === option.key}
+          onClick={() => onChange(option.key)}
+          className={`shrink-0 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-medium ${
+            value === option.key
+              ? 'bg-white text-brand-blue shadow-sm dark:bg-gray-700 dark:text-blue-300'
+              : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block text-left">

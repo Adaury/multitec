@@ -63,3 +63,39 @@ def test_ask_all_projects_uses_search_and_combines_context(client, admin_token, 
     assert body["answer"] == "Respuesta combinada"
     mocked_answer.assert_called_once()
     mocked_search.assert_called_once()
+
+
+def test_technician_asks_without_receiving_prices_but_admin_does(client, admin_token, db_session):
+    from tests.conftest import create_user
+
+    admin_headers = auth_headers(admin_token)
+    project = make_project(client, admin_headers)
+    budget = client.post(
+        f"/api/projects/{project['id']}/budgets",
+        json={"items": [{"description": "Cámara IP", "quantity": 2, "unit_price": 500}]},
+        headers=admin_headers,
+    )
+    assert budget.status_code == 201, budget.text
+
+    create_user(db_session, "campo-ia@test.com", "fieldpass123", "tecnico")
+    tech_token = client.post(
+        "/api/auth/login", data={"username": "campo-ia@test.com", "password": "fieldpass123"}
+    ).json()["access_token"]
+
+    def ask_as(headers):
+        with (
+            patch("app.api.routers.ai.answer_question", return_value="ok") as mocked_answer,
+            patch("app.api.routers.ai.reindex_project"),
+        ):
+            resp = client.post(
+                "/api/ai/ask",
+                json={"project_id": project["id"], "question": "¿Cuánto cuesta?"},
+                headers=headers,
+            )
+        assert resp.status_code == 200, resp.text
+        return mocked_answer.call_args.args[0]
+
+    assert "Presupuestos" in ask_as(admin_headers)
+    technician_context = ask_as(auth_headers(tech_token))
+    assert "RD$" not in technician_context
+    assert "Presupuestos" not in technician_context

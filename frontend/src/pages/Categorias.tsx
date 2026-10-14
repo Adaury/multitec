@@ -35,7 +35,7 @@ function collectDescendantIds(node: CategoryNode): Set<number> {
   return ids
 }
 
-export function Categorias() {
+export function Categorias({ embedded = false }: { embedded?: boolean }) {
   const queryClient = useQueryClient()
   const [newParentId, setNewParentId] = useState<number | null>(null)
   const [newName, setNewName] = useState('')
@@ -76,8 +76,12 @@ export function Categorias() {
   const tree = categories ? buildTree(categories) : []
 
   return (
-    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Clasificaciones</h1>
+    <div className={embedded ? 'space-y-4 md:space-y-6' : 'space-y-4 py-4 md:space-y-6 md:py-8'}>
+      {embedded ? (
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Clasificaciones</h2>
+      ) : (
+        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Clasificaciones</h1>
+      )}
       <p className="text-sm text-gray-500 dark:text-gray-400">
         Categorías y subcategorías del catálogo — se administran aquí, sin tocar código. El
         prefijo de código (ej. "CAM") es opcional: si no lo pones, el producto hereda el de

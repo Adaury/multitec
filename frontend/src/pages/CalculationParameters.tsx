@@ -5,7 +5,7 @@ import type { CalculationParameter } from '../lib/types'
 import { useAuthStore } from '../lib/authStore'
 import { Badge, Button, Card, Field, Input } from '../components/ui'
 
-export function CalculationParameters() {
+export function CalculationParameters({ embedded = false }: { embedded?: boolean }) {
   const currentUser = useAuthStore((s) => s.user)
   const isAdmin = currentUser?.role === 'admin'
   const queryClient = useQueryClient()
@@ -29,8 +29,12 @@ export function CalculationParameters() {
   }
 
   return (
-    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Parámetros de cálculo</h1>
+    <div className={embedded ? 'space-y-4 md:space-y-6' : 'space-y-4 py-4 md:space-y-6 md:py-8'}>
+      {embedded ? (
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Parámetros de cálculo</h2>
+      ) : (
+        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Parámetros de cálculo</h1>
+      )}
       <p className="text-sm text-gray-500 dark:text-gray-400">
         Valores que usa la IA (Motor 5) al generar presupuestos automáticamente — margen de
         desperdicio de cable, tarifa de mano de obra, estimación de almacenamiento. Un

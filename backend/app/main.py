@@ -1,9 +1,8 @@
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import FileResponse, JSONResponse
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -43,7 +42,9 @@ from app.api.routers import (
 )
 from app.core.config import INSECURE_DEFAULT_JWT_SECRET, get_settings
 from app.core.limiter import limiter
+from app.core.security import get_current_user
 from app.core.logging_config import configure_logging
+from app.models.user import User
 
 configure_logging()
 settings = get_settings()
@@ -90,7 +91,27 @@ app.add_middleware(
 )
 
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
+
+
+@app.get("/uploads/{file_path:path}", include_in_schema=False)
+def get_upload(file_path: str, _user: User = Depends(get_current_user)):
+    """Fotos y audios del trabajo: solo con sesión. Antes eran un directorio público y cualquiera con
+    el enlace (reenviado por WhatsApp, por ejemplo) los veía. Los nombres son aleatorios, pero un
+    enlace filtrado no debe bastar."""
+    root = Path(settings.upload_dir).resolve()
+    target = (root / file_path).resolve()
+    if root not in target.parents or not target.is_file():
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    # Nunca se interpretan como otra cosa que lo que son (ver services/uploads.py).
+    return FileResponse(
+        target,
+        headers={
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; img-src 'self'; media-src 'self'; sandbox",
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
+
 
 app.include_router(auth.router)
 app.include_router(clients.router)

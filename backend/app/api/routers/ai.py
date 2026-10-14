@@ -54,8 +54,11 @@ def _get_project(db: Session, project_id: int) -> Project:
     return project
 
 
-def _build_project_context(db: Session, project: Project) -> str:
-    """Arma un resumen legible del expediente del proyecto para dárselo a la IA como contexto."""
+def _build_project_context(db: Session, project: Project, include_money: bool = True) -> str:
+    """Arma un resumen legible del expediente del proyecto para dárselo a la IA como contexto.
+
+    Con `include_money=False` se omiten presupuestos y cotizaciones: el técnico no tiene acceso a dinero
+    (README → Roles y permisos) y no debe poder sacarlo preguntándole a la IA."""
     lines = [
         f"Proyecto {project.code} — estado: {project.status}",
         f"Cliente: {project.client.name}" + (f" ({project.client.company})" if project.client.company else ""),
@@ -88,13 +91,13 @@ def _build_project_context(db: Session, project: Project) -> str:
         lines.append(f"Cableado: {engineering.wiring or '-'}")
         lines.append(f"Diseño técnico: {engineering.technical_design or '-'}")
 
-    budgets = db.query(Budget).filter(Budget.project_id == project.id).all()
+    budgets = db.query(Budget).filter(Budget.project_id == project.id).all() if include_money else []
     if budgets:
         lines.append("\n== Presupuestos ==")
         for b in budgets:
             lines.append(f"{b.code}: total RD$ {b.total}")
 
-    quotes = db.query(Quote).filter(Quote.project_id == project.id).all()
+    quotes = db.query(Quote).filter(Quote.project_id == project.id).all() if include_money else []
     if quotes:
         lines.append("\n== Cotizaciones ==")
         for q in quotes:
@@ -276,11 +279,15 @@ def ai_intake_parse(payload: IntakeParseIn, _=Depends(allowed_roles)):
 
 
 @router.post("/api/ai/ask", response_model=AskResponse)
-def ai_ask(payload: AskRequest, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def ai_ask(payload: AskRequest, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
+    # El técnico pregunta sobre el trabajo, no sobre el dinero. Su contexto va sin montos y no se usa
+    # para reindexar (el índice se arma siempre con el expediente completo).
+    include_money = current_user.role != "tecnico"
     if payload.project_id is not None:
         project = _get_project(db, payload.project_id)
-        context = _build_project_context(db, project)
-        _reindex_quietly(db, project, context)
+        context = _build_project_context(db, project, include_money=include_money)
+        if include_money:
+            _reindex_quietly(db, project, context)
         answer = answer_question(context, payload.question)
         return AskResponse(answer=answer, projects=[project.code])
 
@@ -299,6 +306,8 @@ def ai_ask(payload: AskRequest, db: Session = Depends(get_db), _=Depends(allowed
             projects=[],
         )
 
-    combined_context = "\n\n---\n\n".join(_build_project_context(db, project) for project in matches)
+    combined_context = "\n\n---\n\n".join(
+        _build_project_context(db, project, include_money=include_money) for project in matches
+    )
     answer = answer_question(combined_context, payload.question)
     return AskResponse(answer=answer, projects=[project.code for project in matches])

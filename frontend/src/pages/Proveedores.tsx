@@ -65,7 +65,7 @@ function SupplierFormFields({ form, setForm }: { form: SupplierForm; setForm: (f
   )
 }
 
-export function Proveedores() {
+export function Proveedores({ embedded = false }: { embedded?: boolean }) {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState<SupplierForm>(EMPTY_FORM)
@@ -89,9 +89,13 @@ export function Proveedores() {
   })
 
   return (
-    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
+    <div className={embedded ? 'space-y-4' : 'space-y-4 py-4 md:space-y-6 md:py-8'}>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Proveedores</h1>
+        {embedded ? (
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Proveedores</h2>
+        ) : (
+          <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Proveedores</h1>
+        )}
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"

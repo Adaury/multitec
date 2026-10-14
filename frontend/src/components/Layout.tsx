@@ -17,25 +17,26 @@ interface NavItem {
   end?: boolean
 }
 
+// El técnico no tiene acceso a dinero ni compras (README → Roles y permisos): no se le ofrecen
+// secciones que el servidor le rechazaría con 403.
 const sidebarBaseItems: NavItem[] = [
   { to: '/', label: 'Inicio', icon: '🏠', end: true },
   { to: '/clientes', label: 'Clientes', icon: '👤' },
   { to: '/proyectos', label: 'Proyectos', icon: '📁' },
   { to: '/calendario', label: 'Calendario', icon: '📅' },
-  { to: '/catalogo', label: 'Catálogo', icon: '📦' },
-  { to: '/proveedores', label: 'Proveedores', icon: '🏢' },
-  { to: '/compras', label: 'Compras', icon: '🛒' },
-  { to: '/presupuestos', label: 'Presupuestos', icon: '💰' },
-  { to: '/cotizaciones', label: 'Cotizaciones', icon: '🧾' },
   { to: '/preguntar', label: 'Preguntar IA', icon: '🤖' },
+]
+
+const staffSidebarItems: NavItem[] = [
+  { to: '/cotizaciones', label: 'Cotizaciones', icon: '🧾' },
+  { to: '/catalogo', label: 'Catálogo', icon: '📦' },
+  { to: '/compras', label: 'Compras', icon: '🛒' },
 ]
 
 const adminSidebarItems: NavItem[] = [
   { to: '/usuarios', label: 'Usuarios', icon: '⚙️' },
-  { to: '/ncf', label: 'NCF', icon: '🧾' },
-  { to: '/clasificaciones', label: 'Clasificaciones', icon: '🗂️' },
-  { to: '/parametros-calculo', label: 'Parámetros IA', icon: '🎛️' },
-  { to: '/aprendizaje-ia', label: 'Aprendizaje IA', icon: '📈' },
+  { to: '/ncf', label: 'NCF', icon: '🔢' },
+  { to: '/aprendizaje-ia', label: 'Ajustes de IA', icon: '🎛️' },
 ]
 
 // Barra inferior móvil (estilo "tab bar" con botón central): los destinos de uso diario y,
@@ -120,7 +121,13 @@ export function Layout() {
     return <Navigate to="/perfil" replace />
   }
 
-  const sidebarItems = user?.role === 'admin' ? [...sidebarBaseItems, ...adminSidebarItems] : sidebarBaseItems
+  const isAdmin = user?.role === 'admin'
+  const isStaff = isAdmin || user?.role === 'oficina'
+  const sidebarItems = [
+    ...sidebarBaseItems,
+    ...(isStaff ? staffSidebarItems : []),
+    ...(isAdmin ? adminSidebarItems : []),
+  ]
   const moreItems: NavItem[] = [
     ...sidebarItems.filter((item) => !IN_TAB_BAR.has(item.to)),
     { to: '/perfil', label: 'Mi perfil', icon: '🙍' },

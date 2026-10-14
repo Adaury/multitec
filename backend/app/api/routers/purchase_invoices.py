@@ -13,6 +13,9 @@ router = APIRouter(prefix="/api/purchase-invoices", tags=["purchase-invoices"])
 
 # Igual que proveedores/materiales: compras no es del rol tecnico.
 allowed_roles = require_role("admin", "oficina")
+# Una factura de compra alimenta el 606 de la DGII: borrarla es decisión del admin, igual que anular una
+# factura de venta.
+admin_only = require_role("admin")
 
 
 def _out(invoice: PurchaseInvoice) -> PurchaseInvoiceOut:
@@ -87,7 +90,7 @@ def update_purchase_invoice(
 
 
 @router.delete("/{invoice_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_purchase_invoice(invoice_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def delete_purchase_invoice(invoice_id: int, db: Session = Depends(get_db), _=Depends(admin_only)):
     invoice = db.get(PurchaseInvoice, invoice_id)
     if invoice is None:
         raise HTTPException(status_code=404, detail="Factura de compra no encontrada")

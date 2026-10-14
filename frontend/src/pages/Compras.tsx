@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { useAuthStore } from '../lib/authStore'
 import { DgiiDownloads } from '../components/DgiiDownloads'
 import type { PurchaseInvoice, Supplier } from '../lib/types'
 import { formatDOP } from '../lib/format'
-import { Button, Card, Field, Input, Textarea } from '../components/ui'
+import { Button, Card, Field, Input, SegmentedTabs, Textarea } from '../components/ui'
+import { Proveedores } from './Proveedores'
 
 const SELECT_CLASS =
   'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100'
@@ -100,7 +103,8 @@ function formPayload(form: PurchaseForm) {
   }
 }
 
-export function Compras() {
+function PurchaseInvoicesList() {
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
   const queryClient = useQueryClient()
   const now = new Date()
   const [showForm, setShowForm] = useState(false)
@@ -141,9 +145,9 @@ export function Compras() {
   const total = (i: PurchaseInvoice) => Number(i.services_amount) + Number(i.goods_amount)
 
   return (
-    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
+    <div className="space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Compras</h1>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Facturas de compra</h2>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
@@ -291,14 +295,16 @@ export function Compras() {
                   {invoice.ncf} · {invoice.invoice_date}
                 </p>
               </div>
-              <button
-                className="text-xs text-red-600 dark:text-red-400"
-                onClick={() => {
-                  if (window.confirm(`¿Eliminar la factura ${invoice.ncf}?`)) deleteInvoice.mutate(invoice.id)
-                }}
-              >
-                Eliminar
-              </button>
+              {isAdmin && (
+                <button
+                  className="text-xs text-red-600 dark:text-red-400"
+                  onClick={() => {
+                    if (window.confirm(`¿Eliminar la factura ${invoice.ncf}?`)) deleteInvoice.mutate(invoice.id)
+                  }}
+                >
+                  Eliminar
+                </button>
+              )}
             </div>
             <p className="text-sm text-gray-700 dark:text-gray-300">
               Total {formatDOP(total(invoice))} · ITBIS {formatDOP(Number(invoice.itbis_invoiced))}
@@ -310,6 +316,29 @@ export function Compras() {
       {invoices?.length === 0 && (
         <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay facturas de compra registradas.</p>
       )}
+    </div>
+  )
+}
+
+type View = 'facturas' | 'proveedores'
+
+/** Compras y Proveedores son una sola cosa para quien compra: la factura y a quién se le compró. */
+export function Compras() {
+  const [params, setParams] = useSearchParams()
+  const view: View = params.get('vista') === 'proveedores' ? 'proveedores' : 'facturas'
+
+  return (
+    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
+      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Compras</h1>
+      <SegmentedTabs<View>
+        value={view}
+        onChange={(next) => setParams(next === 'facturas' ? {} : { vista: next }, { replace: true })}
+        options={[
+          { key: 'facturas', label: 'Facturas de compra' },
+          { key: 'proveedores', label: 'Proveedores' },
+        ]}
+      />
+      {view === 'facturas' ? <PurchaseInvoicesList /> : <Proveedores embedded />}
     </div>
   )
 }

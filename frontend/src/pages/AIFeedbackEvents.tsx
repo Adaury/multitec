@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import type {
@@ -13,7 +14,8 @@ import type {
   VoiceExample,
 } from '../lib/types'
 import { useAuthStore } from '../lib/authStore'
-import { Badge, Button, Card, Field, Input } from '../components/ui'
+import { Badge, Button, Card, Field, Input, SegmentedTabs } from '../components/ui'
+import { CalculationParameters } from './CalculationParameters'
 
 const ORIGIN_LABELS: Record<AIFeedbackOrigin, string> = {
   ai_suggested: 'Sugerido por IA',
@@ -207,7 +209,7 @@ function StaleRuleCandidateCard({ candidate, onHandled }: { candidate: StaleRule
   )
 }
 
-export function AIFeedbackEvents() {
+function LearningPanel() {
   const currentUser = useAuthStore((s) => s.user)
   const isAdmin = currentUser?.role === 'admin'
   const [projectId, setProjectId] = useState('')
@@ -264,8 +266,8 @@ export function AIFeedbackEvents() {
   }
 
   return (
-    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Aprendizaje IA</h1>
+    <div className="space-y-4 md:space-y-6">
+      <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Aprendizaje</h2>
       <p className="text-sm text-gray-500 dark:text-gray-400">
         Registro de qué corrigió un humano sobre un presupuesto o una ingeniería que generó
         la IA (Motor 7) — solo mientras seguían siendo la sugerencia original, sin editar
@@ -392,6 +394,30 @@ export function AIFeedbackEvents() {
           </Card>
         ))}
       </div>
+    </div>
+  )
+}
+
+type AIView = 'aprendizaje' | 'parametros'
+
+/** Todo lo que se ajusta de la IA en un solo lugar: lo que aprendió de las correcciones y los valores
+ * con los que calcula. */
+export function AIFeedbackEvents() {
+  const [params, setParams] = useSearchParams()
+  const view: AIView = params.get('vista') === 'parametros' ? 'parametros' : 'aprendizaje'
+
+  return (
+    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
+      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Ajustes de IA</h1>
+      <SegmentedTabs<AIView>
+        value={view}
+        onChange={(next) => setParams(next === 'aprendizaje' ? {} : { vista: next }, { replace: true })}
+        options={[
+          { key: 'aprendizaje', label: 'Aprendizaje' },
+          { key: 'parametros', label: 'Parámetros de cálculo' },
+        ]}
+      />
+      {view === 'aprendizaje' ? <LearningPanel /> : <CalculationParameters embedded />}
     </div>
   )
 }

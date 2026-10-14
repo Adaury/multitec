@@ -54,6 +54,7 @@ import { ProjectLocationCard } from '../components/ProjectLocationCard'
 import { InvoicePaymentForm } from '../components/InvoicePaymentForm'
 import { InvoiceVoidForm } from '../components/InvoiceVoidForm'
 import { PhotoMarkerEditor } from '../components/PhotoMarkerEditor'
+import { UploadAudio, UploadImage } from '../components/UploadMedia'
 import { VoiceRecorderCard, VoiceReviewCard, transcribeAsset } from '../components/VoiceSurvey'
 
 function DictationField({
@@ -805,8 +806,8 @@ function LevantamientoTab({
             .filter((a) => a.kind === 'photo')
             .map((asset) => (
               <div key={asset.id} className="relative">
-                <img
-                  src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+                <UploadImage
+                  filePath={asset.file_path}
                   loading="lazy"
                   decoding="async"
                   className="aspect-square rounded-xl object-cover"
@@ -851,9 +852,9 @@ function LevantamientoTab({
             .map((asset) => (
               <div key={asset.id} className="space-y-1">
               <div className="flex items-center gap-2">
-                <audio
+                <UploadAudio
                   controls
-                  src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+                  filePath={asset.file_path}
                   className="w-full"
                 />
                 <button
@@ -2101,9 +2102,9 @@ function LogbookTab({ projectId }: { projectId: number }) {
             {entry.assets.length > 0 && (
               <div className="mt-2 grid grid-cols-3 gap-2">
                 {entry.assets.map((asset) => (
-                  <img
+                  <UploadImage
                     key={asset.id}
-                    src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+                    filePath={asset.file_path}
                     loading="lazy"
                   decoding="async"
                   className="aspect-square rounded-xl object-cover"
@@ -2347,9 +2348,9 @@ function InvoiceTab({ projectId }: { projectId: number }) {
               {survey.assets
                 .filter((a) => a.kind === 'photo')
                 .map((asset) => (
-                  <img
+                  <UploadImage
                     key={asset.id}
-                    src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+                    filePath={asset.file_path}
                     loading="lazy"
                   decoding="async"
                   className="aspect-square rounded-lg object-cover"
@@ -2854,8 +2855,8 @@ function TicketCard({
             <div className="grid grid-cols-3 gap-2">
               {ticket.assets.map((asset) => (
                 <div key={asset.id} className="relative">
-                  <img
-                    src={`/${asset.file_path.replace(/^.*uploads\//, 'uploads/')}`}
+                  <UploadImage
+                    filePath={asset.file_path}
                     loading="lazy"
                   decoding="async"
                   className="aspect-square rounded-xl object-cover"

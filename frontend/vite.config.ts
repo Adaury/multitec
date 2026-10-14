@@ -7,14 +7,17 @@ import { VitePWA } from 'vite-plugin-pwa'
 const apiTarget = process.env.E2E_API_TARGET ?? 'http://127.0.0.1:8000'
 
 // Lo mismo en desarrollo (`vite`) y sirviendo la versión compilada (`vite preview`).
+// xfwd añade X-Forwarded-For con la IP real: sin él, el backend ve a todos como 127.0.0.1 y el
+// límite de intentos de login (por IP) sería uno solo compartido por toda la empresa.
+const forward = { target: apiTarget, xfwd: true }
 const proxy = {
-  '/api': apiTarget,
-  '/uploads': apiTarget,
+  '/api': forward,
+  '/uploads': forward,
   // Documentación interactiva de la API (Swagger/ReDoc) a través del mismo puerto de la
   // web, para abrirla desde el celular en la red local sin exponer el puerto del backend.
-  '/docs': apiTarget,
-  '/redoc': apiTarget,
-  '/openapi.json': apiTarget,
+  '/docs': forward,
+  '/redoc': forward,
+  '/openapi.json': forward,
 }
 
 export default defineConfig({

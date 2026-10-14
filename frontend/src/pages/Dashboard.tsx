@@ -8,16 +8,16 @@ import { formatDOP } from '../lib/format'
 import { PROJECT_STATUS_LABELS, type DashboardSummary, type MarginSummary } from '../lib/types'
 
 const quickActions = [
-  { label: 'Nuevo Proyecto', icon: '➕', to: '/proyectos?nuevo=1' },
-  { label: 'Nuevo Levantamiento', icon: '📋', to: '/nuevo' },
-  { label: 'Nueva Cotización', icon: '🧾', to: '/proyectos' },
+  { label: 'Nuevo Proyecto', icon: '➕', to: '/proyectos?nuevo=1', staffOnly: false },
+  { label: 'Nuevo Levantamiento', icon: '📋', to: '/nuevo', staffOnly: false },
+  { label: 'Cotizaciones', icon: '🧾', to: '/cotizaciones', staffOnly: true },
 ]
 
 // Accesos grandes del Inicio móvil: solo lo que se usa a diario. El resto está en "Más".
 const mobileTiles = [
   { label: 'Clientes', icon: '👤', to: '/clientes' },
   { label: 'Proyectos', icon: '📁', to: '/proyectos' },
-  { label: 'Cotizaciones', icon: '🧾', to: '/cotizaciones' },
+  { label: 'Cotizaciones', icon: '🧾', to: '/cotizaciones', staffOnly: true },
   { label: 'Calendario', icon: '📅', to: '/calendario' },
 ]
 
@@ -202,7 +202,7 @@ export function Dashboard() {
       <div className="space-y-4 md:hidden">
         <TodayAssistant />
         <div className="grid grid-cols-2 gap-4">
-          {mobileTiles.map((tile) => (
+          {mobileTiles.filter((tile) => !tile.staffOnly || canSeeReports).map((tile) => (
             <Link
               key={tile.to}
               to={tile.to}
@@ -222,8 +222,8 @@ export function Dashboard() {
 
       <div className="hidden md:block">
         <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Acciones rápidas</h1>
-        <div className="mt-3 grid max-w-xl grid-cols-3 gap-4">
-          {quickActions.map((action) => (
+        <div className="mt-3 grid max-w-xl grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-4">
+          {quickActions.filter((action) => !action.staffOnly || canSeeReports).map((action) => (
             <button
               key={action.label}
               onClick={() => navigate(action.to)}

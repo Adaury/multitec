@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import type {
@@ -13,7 +14,8 @@ import type {
   TechnicalRule,
   TechnicalRuleActionType,
 } from '../lib/types'
-import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
+import { Badge, Button, Card, Field, Input, SegmentedTabs, Textarea } from '../components/ui'
+import { Categorias } from './Categorias'
 import { CatalogImport } from '../components/CatalogImport'
 import { useAuthStore } from '../lib/authStore'
 
@@ -291,7 +293,7 @@ function ProductFormFields({
   )
 }
 
-export function Catalog() {
+function CatalogProducts() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
@@ -320,9 +322,9 @@ export function Catalog() {
   })
 
   return (
-    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
+    <div className="space-y-4 md:space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Catálogo</h1>
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Productos</h2>
         <div className="flex gap-2">
           {isAdmin && (
             <button
@@ -1206,6 +1208,33 @@ function RelationsEditor({ productId }: { productId: number }) {
           {createRelation.isPending ? 'Guardando…' : '+ Agregar relación'}
         </Button>
       </form>
+    </div>
+  )
+}
+
+type CatalogView = 'productos' | 'clasificaciones'
+
+/** El catálogo y sus clasificaciones (categorías) son una sola cosa: se ven en la misma pantalla. Las
+ * clasificaciones solo las administra un admin. */
+export function Catalog() {
+  const isAdmin = useAuthStore((s) => s.user?.role === 'admin')
+  const [params, setParams] = useSearchParams()
+  const view: CatalogView = isAdmin && params.get('vista') === 'clasificaciones' ? 'clasificaciones' : 'productos'
+
+  return (
+    <div className="space-y-4 py-4 md:space-y-6 md:py-8">
+      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Catálogo</h1>
+      {isAdmin && (
+        <SegmentedTabs<CatalogView>
+          value={view}
+          onChange={(next) => setParams(next === 'productos' ? {} : { vista: next }, { replace: true })}
+          options={[
+            { key: 'productos', label: 'Productos' },
+            { key: 'clasificaciones', label: 'Clasificaciones' },
+          ]}
+        />
+      )}
+      {view === 'productos' ? <CatalogProducts /> : <Categorias embedded />}
     </div>
   )
 }

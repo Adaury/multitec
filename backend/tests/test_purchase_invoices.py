@@ -2,7 +2,7 @@ import csv
 import io
 from datetime import date
 
-from tests.conftest import auth_headers
+from tests.conftest import auth_headers, create_user
 
 
 def _supplier(client, headers, rnc="101000001"):
@@ -152,3 +152,18 @@ def test_isr_retention_requires_its_type_and_the_payment_date(client, admin_toke
     )
     assert rows[0][16] == "02"  # Tipo de Retención en ISR
     assert rows[0][17] == "10.0"  # Monto Retención Renta
+
+
+def test_office_cannot_delete_a_purchase_invoice(client, admin_token, db_session):
+    create_user(db_session, "oficina-compras@test.com", "officepass123", "oficina")
+    office_token = client.post(
+        "/api/auth/login", data={"username": "oficina-compras@test.com", "password": "officepass123"}
+    ).json()["access_token"]
+    admin_headers = auth_headers(admin_token)
+    supplier = client.post("/api/suppliers", json={"name": "Proveedor X"}, headers=admin_headers).json()
+    body = client.post("/api/purchase-invoices", json=_payload(supplier["id"]), headers=admin_headers).json()
+
+    resp = client.delete(f"/api/purchase-invoices/{body['id']}", headers=auth_headers(office_token))
+
+    assert resp.status_code == 403
+    assert client.get(f"/api/purchase-invoices/{body['id']}", headers=admin_headers).status_code == 200
