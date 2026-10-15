@@ -18,9 +18,11 @@ from app.services.margin import project_margin
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
-# Técnico puede ver proyectos (para saber en qué trabajar) pero no crear/editar —
-# eso es responsabilidad de oficina/admin.
+# Técnico ve proyectos (para saber en qué trabajar) y puede crearlos: el levantamiento rápido en campo
+# arranca un proyecto nuevo (también sin señal). Editarlos es de oficina/admin; al técnico solo se le
+# permite guardar la ubicación de la obra y el tipo de levantamiento (ver update_project).
 allowed_roles = require_role("admin", "oficina", "tecnico")
+TECHNICIAN_EDITABLE_FIELDS = {"address", "location_url", "survey_type"}
 write_roles = require_role("admin", "oficina")
 admin_only = require_role("admin")
 
@@ -31,7 +33,7 @@ def list_projects(db: Session = Depends(get_db), _=Depends(allowed_roles)):
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
-def create_project(payload: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(write_roles)):
+def create_project(payload: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
     if db.get(Client, payload.client_id) is None:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     if payload.responsible_id is not None and db.get(User, payload.responsible_id) is None:
@@ -96,11 +98,18 @@ def get_project_margin(project_id: int, db: Session = Depends(get_db), _=Depends
 
 
 @router.put("/{project_id}", response_model=ProjectOut)
-def update_project(project_id: int, payload: ProjectUpdate, db: Session = Depends(get_db), _=Depends(write_roles)):
+def update_project(
+    project_id: int,
+    payload: ProjectUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(allowed_roles),
+):
     project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
     data = payload.model_dump(exclude_unset=True)
+    if current_user.role == "tecnico" and not set(data) <= TECHNICIAN_EDITABLE_FIELDS:
+        raise HTTPException(status_code=403, detail="No tienes permiso para realizar esta acción")
     if "responsible_id" in data and data["responsible_id"] is not None and db.get(User, data["responsible_id"]) is None:
         raise HTTPException(status_code=404, detail="Responsable no encontrado")
     for field, value in data.items():

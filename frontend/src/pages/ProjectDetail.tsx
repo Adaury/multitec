@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, downloadFile, viewFile } from '../lib/api'
@@ -167,6 +167,12 @@ const PHASES: { key: string; label: string; tabs: Tab[] }[] = [
   { key: 'facturacion', label: 'Facturación', tabs: ['prefactura', 'factura'] },
 ]
 
+/** El técnico no tiene acceso a dinero ni compras (README → Roles y permisos): solo ve lo operativo. */
+const TECHNICIAN_PHASES: typeof PHASES = [
+  { key: 'datos', label: 'Datos', tabs: ['info', 'levantamiento', 'ingenieria'] },
+  { key: 'obra', label: 'Obra', tabs: ['ejecucion', 'bitacora', 'tickets'] },
+]
+
 /** Teléfono dominicano de 10 dígitos → formato internacional para WhatsApp (wa.me). */
 function whatsappUrl(phone: string | null | undefined): string | null {
   const digits = (phone ?? '').replace(/\D/g, '')
@@ -226,6 +232,14 @@ export function ProjectDetail() {
   const [generateWarnings, setGenerateWarnings] = useState<string[]>([])
   const role = useAuthStore((s) => s.user?.role)
   const isAdmin = role === 'admin'
+  const phases = role === 'tecnico' ? TECHNICIAN_PHASES : PHASES
+  const technicianTabs = TECHNICIAN_PHASES.flatMap((phase) => phase.tabs)
+  // Un enlace con ?tab=cotizacion (el asistente del día los usa) no debe dejar al técnico en una
+  // pestaña que no tiene.
+  useEffect(() => {
+    if (role === 'tecnico' && !technicianTabs.includes(tab)) setTab('info')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, tab])
 
   const { data: project } = useQuery({
     queryKey: ['projects', id],
@@ -280,8 +294,11 @@ export function ProjectDetail() {
       {isAdmin && <ProjectMarginCard projectId={project.id} />}
 
       <nav aria-label="Secciones del proyecto" className="space-y-2">
-        <div className="grid grid-cols-4 gap-1 rounded-2xl bg-brand-gray p-1 dark:bg-gray-800">
-          {PHASES.map((phase) => {
+        <div
+          className="grid gap-1 rounded-2xl bg-brand-gray p-1 dark:bg-gray-800"
+          style={{ gridTemplateColumns: `repeat(${phases.length}, minmax(0, 1fr))` }}
+        >
+          {phases.map((phase) => {
             const active = phase.tabs.includes(tab)
             return (
               <button
@@ -300,7 +317,7 @@ export function ProjectDetail() {
           })}
         </div>
         <div className="flex flex-wrap gap-2">
-          {(PHASES.find((p) => p.tabs.includes(tab)) ?? PHASES[0]).tabs.map((key) => {
+          {(phases.find((p) => p.tabs.includes(tab)) ?? phases[0]).tabs.map((key) => {
             const t = TABS.find((x) => x.key === key)!
             return (
               <button

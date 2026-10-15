@@ -99,3 +99,42 @@ def test_project_location_defaults_to_empty(client, admin_token):
     project = make_project(client, headers)
     assert project["address"] is None
     assert project["location_url"] is None
+
+
+def test_technician_can_start_a_field_survey_but_not_edit_the_rest(client, admin_token, tecnico_token):
+    """El levantamiento rápido en campo lo hace el técnico: crea el cliente y el proyecto y guarda la
+    ubicación de la obra. Lo demás (estado, responsable, datos del cliente) sigue siendo de oficina."""
+    admin_headers = auth_headers(admin_token)
+    tech_headers = auth_headers(tecnico_token)
+
+    created_client = client.post("/api/clients", json={"name": "Cliente de campo"}, headers=tech_headers)
+    assert created_client.status_code == 201, created_client.text
+    created_project = client.post(
+        "/api/projects",
+        json={"client_id": created_client.json()["id"], "survey_type": "Cámaras"},
+        headers=tech_headers,
+    )
+    assert created_project.status_code == 201, created_project.text
+    project_id = created_project.json()["id"]
+
+    # Ubicación y tipo de levantamiento: sí.
+    located = client.put(
+        f"/api/projects/{project_id}",
+        json={"address": "Calle 1", "location_url": "https://maps.example/x"},
+        headers=tech_headers,
+    )
+    assert located.status_code == 200, located.text
+
+    # Estado, responsable o descripción: no.
+    for forbidden in ({"status": "cerrado"}, {"responsible_id": 1}, {"description": "otra"}):
+        resp = client.put(f"/api/projects/{project_id}", json=forbidden, headers=tech_headers)
+        assert resp.status_code == 403, forbidden
+    assert (
+        client.put(
+            f"/api/clients/{created_client.json()['id']}", json={"name": "Otro nombre"}, headers=tech_headers
+        ).status_code
+        == 403
+    )
+
+    # Oficina/admin conservan todo.
+    assert client.put(f"/api/projects/{project_id}", json={"status": "cerrado"}, headers=admin_headers).status_code == 200

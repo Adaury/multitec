@@ -65,7 +65,13 @@ if settings.jwt_secret == INSECURE_DEFAULT_JWT_SECRET:
         "antes de desplegar (ver deploy/README.md)."
     )
 
-app = FastAPI(title="Multitec ERP", version="0.1.0")
+app = FastAPI(
+    title="Multitec ERP",
+    version="0.1.0",
+    docs_url="/docs" if settings.enable_docs else None,
+    redoc_url="/redoc" if settings.enable_docs else None,
+    openapi_url="/openapi.json" if settings.enable_docs else None,
+)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)

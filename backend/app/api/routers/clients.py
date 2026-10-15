@@ -11,7 +11,8 @@ from app.services.csv_export import build_csv
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
 
-# admin y oficina pueden gestionar clientes; técnico solo puede consultarlos.
+# admin y oficina gestionan clientes. El técnico los consulta y puede darlos de alta: en campo es quien
+# llega al cliente nuevo (levantamiento rápido, también sin señal), pero no los edita.
 allowed_roles = require_role("admin", "oficina", "tecnico")
 write_roles = require_role("admin", "oficina")
 
@@ -22,7 +23,7 @@ def list_clients(db: Session = Depends(get_db), _=Depends(allowed_roles)):
 
 
 @router.post("", response_model=ClientOut, status_code=status.HTTP_201_CREATED)
-def create_client(payload: ClientCreate, db: Session = Depends(get_db), current_user: User = Depends(write_roles)):
+def create_client(payload: ClientCreate, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
     client = Client(**payload.model_dump(), created_by=current_user.id)
     db.add(client)
     db.commit()

@@ -126,3 +126,9 @@ def test_uploads_reject_path_traversal(client, admin_token):
     for attempt in ("../multitec.db", "..%2f..%2fmultitec.db", "surveys/../../app/main.py"):
         resp = client.get(f"/uploads/{attempt}", headers=headers)
         assert resp.status_code == 404, attempt
+
+
+def test_api_docs_are_off_by_default(client):
+    """/docs, /redoc y /openapi.json listan todas las rutas: no deben estar a la vista salvo que se active."""
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert client.get(path).status_code == 404, path

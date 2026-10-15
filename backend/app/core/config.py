@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     # defecto es un warning (dev) o impide arrancar la app (producción, ver app/main.py).
     environment: str = "development"
 
+    # La documentación interactiva (/docs, /redoc, /openapi.json) lista todas las rutas de la API y es
+    # pública: por defecto está apagada para que no quede a la vista cuando la app se abre al
+    # internet (túnel). Actívala con ENABLE_DOCS=true en backend/.env mientras desarrollas.
+    enable_docs: bool = False
+
     jwt_secret: str = INSECURE_DEFAULT_JWT_SECRET
     jwt_algorithm: str = "HS256"
     # Access token corto (se renueva solo via /api/auth/refresh); la sesión real la

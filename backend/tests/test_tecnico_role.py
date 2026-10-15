@@ -1,7 +1,9 @@
 from tests.conftest import auth_headers, make_project
 
 
-def test_tecnico_can_view_but_not_create_projects_and_clients(client, admin_token, tecnico_token):
+def test_tecnico_can_view_and_create_but_not_edit_projects_and_clients(client, admin_token, tecnico_token):
+    """El técnico arranca levantamientos en campo (crea cliente y proyecto), pero no edita lo existente.
+    El detalle de qué campos puede tocar está en test_projects.py."""
     admin_headers = auth_headers(admin_token)
     project = make_project(client, admin_headers)
     tecnico_headers = auth_headers(tecnico_token)
@@ -10,13 +12,26 @@ def test_tecnico_can_view_but_not_create_projects_and_clients(client, admin_toke
     assert client.get(f"/api/projects/{project['id']}", headers=tecnico_headers).status_code == 200
     assert client.get("/api/clients", headers=tecnico_headers).status_code == 200
 
-    forbidden_create = client.post("/api/clients", json={"name": "No debería poder"}, headers=tecnico_headers)
-    assert forbidden_create.status_code == 403
-
-    forbidden_project = client.post(
-        "/api/projects", json={"client_id": 1}, headers=tecnico_headers
+    created_client = client.post("/api/clients", json={"name": "Cliente de campo"}, headers=tecnico_headers)
+    assert created_client.status_code == 201
+    created_project = client.post(
+        "/api/projects", json={"client_id": created_client.json()["id"]}, headers=tecnico_headers
     )
-    assert forbidden_project.status_code == 403
+    assert created_project.status_code == 201
+
+    # Editar sigue siendo de oficina/admin.
+    assert (
+        client.put(
+            f"/api/clients/{created_client.json()['id']}", json={"name": "Otro"}, headers=tecnico_headers
+        ).status_code
+        == 403
+    )
+    assert (
+        client.put(
+            f"/api/projects/{created_project.json()['id']}", json={"status": "cerrado"}, headers=tecnico_headers
+        ).status_code
+        == 403
+    )
 
 
 def test_tecnico_has_full_access_to_field_work_tabs(client, admin_token, tecnico_token):

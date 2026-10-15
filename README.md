@@ -127,7 +127,7 @@ Construido después del brief original:
 |---|---|---|---|---|
 | **admin** | leer y escribir | leer y escribir | leer y escribir | ✅ único rol que puede |
 | **oficina** | leer y escribir | leer y escribir | leer y escribir | ❌ |
-| **tecnico** | solo leer | leer y escribir | ❌ sin acceso | ❌ |
+| **tecnico** | leer y crear (no editar; solo la ubicación de la obra) | leer y escribir | ❌ sin acceso | ❌ |
 
 `tecnico` es para el personal de campo: puede ver en qué proyecto trabajar y llenar todo
 lo operativo (levantamiento, ejecución, bitácora, tickets), pero no gestiona clientes,
@@ -180,7 +180,8 @@ python -m app.db.seed                # crea el usuario admin inicial
 uvicorn app.main:app --reload --port 8000
 ```
 
-- Swagger interactivo: http://127.0.0.1:8000/docs
+- Swagger interactivo: http://127.0.0.1:8000/docs (apagado por defecto; actívalo con
+  `ENABLE_DOCS=true` en `backend/.env` y reinicia el backend)
 - Salud: http://127.0.0.1:8000/api/health
 
 ### Tests (backend)
