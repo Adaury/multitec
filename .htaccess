@@ -1,0 +1,9 @@
+# multitec.test (host virtual automático de Laragon) abre la app en lugar de listar la carpeta.
+#
+# Sin esto Apache servía el directorio del proyecto tal cual por el puerto 80, en todas las interfaces:
+# cualquiera en la red podía descargar backend/.env (secretos), .git y el código. Ahora cada petición se
+# reenvía a la web (Vite, puerto 5173), que a su vez reenvía /api y /uploads al backend; Apache ya no
+# entrega ningún archivo de esta carpeta.
+Options -Indexes
+RewriteEngine On
+RewriteRule ^(.*)$ http://127.0.0.1:5173/$1 [P,L]
