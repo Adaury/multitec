@@ -184,3 +184,66 @@ def test_login_is_case_insensitive_on_email(client, admin_token):
     )
     resp = client.post("/api/auth/login", data={"username": "CaseTest@Test.com", "password": "clave12345"})
     assert resp.status_code == 200
+
+
+def _make_user(client, headers, name, email):
+    resp = client.post(
+        "/api/users",
+        json={"name": name, "email": email, "password": "clave12345", "role": "tecnico"},
+        headers=headers,
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+def test_admin_can_change_a_users_email_and_the_user_logs_in_with_the_new_one(client, admin_token):
+    headers = auth_headers(admin_token)
+    user = _make_user(client, headers, "Juan Tecnico", "juan.tecnico@test.com")
+
+    resp = client.put(
+        f"/api/users/{user['id']}",
+        json={"name": "Frank Santos", "email": "Frank.Santos@Test.com"},
+        headers=headers,
+    )
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["name"] == "Frank Santos"
+    assert resp.json()["email"] == "frank.santos@test.com"  # normalizado a minúsculas
+
+    new_login = client.post("/api/auth/login", data={"username": "frank.santos@test.com", "password": "clave12345"})
+    assert new_login.status_code == 200
+    old_login = client.post("/api/auth/login", data={"username": "juan.tecnico@test.com", "password": "clave12345"})
+    assert old_login.status_code == 401
+
+
+def test_changing_email_to_one_already_in_use_is_rejected(client, admin_token):
+    headers = auth_headers(admin_token)
+    _make_user(client, headers, "Primero", "primero@test.com")
+    second = _make_user(client, headers, "Segundo", "segundo@test.com")
+
+    resp = client.put(f"/api/users/{second['id']}", json={"email": "Primero@test.com"}, headers=headers)
+
+    assert resp.status_code == 400
+    assert "Ya existe un usuario con ese correo" in resp.json()["detail"]
+    # El usuario conserva su correo anterior.
+    users = {u["id"]: u["email"] for u in client.get("/api/users", headers=headers).json()}
+    assert users[second["id"]] == "segundo@test.com"
+
+
+def test_empty_email_does_not_erase_the_users_email(client, admin_token):
+    headers = auth_headers(admin_token)
+    user = _make_user(client, headers, "Sin cambios", "sin.cambios@test.com")
+
+    resp = client.put(f"/api/users/{user['id']}", json={"name": "Nuevo Nombre", "email": None}, headers=headers)
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["email"] == "sin.cambios@test.com"
+
+
+def test_invalid_email_is_rejected(client, admin_token):
+    headers = auth_headers(admin_token)
+    user = _make_user(client, headers, "Correo malo", "correo.malo@test.com")
+
+    resp = client.put(f"/api/users/{user['id']}", json={"email": "esto-no-es-un-correo"}, headers=headers)
+
+    assert resp.status_code == 422

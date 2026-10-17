@@ -81,9 +81,18 @@ def update_user(
     if data.get("is_active") is False:
         revoke_all_refresh_tokens(db, user.id)
 
+    # Un correo vacío o nulo no es un cambio: nunca se borra.
+    if "email" in data and not data["email"]:
+        data.pop("email")
+
     for field, value in data.items():
         setattr(user, field, value)
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # El único campo con restricción de unicidad que se puede cambiar aquí es el correo.
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Ya existe un usuario con ese correo")
     db.refresh(user)
     return user

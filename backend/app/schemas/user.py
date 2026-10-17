@@ -39,9 +39,17 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=120)
+    # El correo es con lo que la persona entra: si cambia el nombre, el admin puede ajustarlo también.
+    email: EmailStr | None = None
     role: Role | None = None
     is_active: bool | None = None
     password: str | None = Field(default=None, min_length=8, max_length=255)
+
+    @field_validator("email")
+    @classmethod
+    def _normalize_email(cls, v: str | None) -> str | None:
+        # Misma normalización que al crear: el correo siempre en minúsculas (ver UserCreate).
+        return v.lower() if v else v
 
     @field_validator("password")
     @classmethod

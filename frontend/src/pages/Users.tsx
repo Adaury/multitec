@@ -26,6 +26,7 @@ export function Users() {
   const [editingId, setEditingId] = useState<number | null>(null)
   const [resetPasswordValue, setResetPasswordValue] = useState('')
   const [editName, setEditName] = useState('')
+  const [editEmail, setEditEmail] = useState('')
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['users'],
@@ -155,6 +156,8 @@ export function Users() {
                       setEditingId(u.id)
                       setResetPasswordValue('')
                       setEditName(u.name)
+                      setEditEmail(u.email)
+                      setError(null)
                     }}
                   >
                     Editar
@@ -174,6 +177,14 @@ export function Users() {
                 <div className="space-y-2 border-t border-gray-100 pt-2 dark:border-gray-800">
                   <Field label="Nombre">
                     <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
+                  </Field>
+                  <Field label="Correo (con el que entra)">
+                    <Input
+                      type="email"
+                      autoCapitalize="none"
+                      value={editEmail}
+                      onChange={(e) => setEditEmail(e.target.value)}
+                    />
                   </Field>
                   <Field label="Rol">
                     <select
@@ -208,11 +219,14 @@ export function Users() {
                       onClick={() => {
                         const data: Partial<ManagedUser> & { password?: string } = {}
                         if (editName.trim() && editName !== u.name) data.name = editName.trim()
+                        if (editEmail.trim() && editEmail.trim().toLowerCase() !== u.email) data.email = editEmail.trim()
                         if (resetPasswordValue) data.password = resetPasswordValue
-                        if (Object.keys(data).length > 0) {
-                          updateUser.mutate({ id: u.id, data })
+                        if (Object.keys(data).length === 0) {
+                          setEditingId(null)
+                          return
                         }
-                        setEditingId(null)
+                        // Se cierra solo si salió bien: un error (por ejemplo, correo ya usado) debe verse aquí.
+                        updateUser.mutate({ id: u.id, data }, { onSuccess: () => setEditingId(null) })
                       }}
                     >
                       Guardar cambios
