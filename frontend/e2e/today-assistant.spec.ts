@@ -7,7 +7,9 @@ test('the assistant greets the user and says what there is to do today', async (
   // Una visita para hoy y un levantamiento con notas que todavía no tiene cotización.
   const visitClient = await api.post('/clients', { name: unique('Cliente Visita Hoy'), address: 'Av. Winston Churchill 10' })
   const visitProject = await api.post('/projects', { client_id: visitClient.id, description: 'Visita' })
-  const today = new Date().toISOString().slice(0, 10)
+  // Fecha LOCAL (el servidor decide "hoy" con su reloj): con toISOString, pasadas las 8 pm en RD ya era mañana.
+  const now = new Date()
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   await api.post('/visits', { project_id: visitProject.id, scheduled_date: today, scheduled_time: '09:30:00' })
 
   const readyClient = await api.post('/clients', { name: unique('Cliente Por Cotizar') })
