@@ -33,6 +33,15 @@ export function useGeolocation(onLocation: (mapsUrl: string) => void, options: {
 
   const capture = useCallback(() => {
     setNote(null)
+    // En una dirección http (que no sea localhost) el navegador niega el GPS sin preguntar, y el candado no
+    // ofrece "permitir": decir "actívala en el candado" mandaba a buscar algo que no existe.
+    if (!window.isSecureContext) {
+      setNote(
+        'El navegador no da la ubicación en esta dirección porque no es segura (http). Abre la app con https ' +
+          '(o desde localhost en esta computadora), o escribe la dirección.',
+      )
+      return
+    }
     if (!navigator.geolocation) {
       setNote('Este navegador no da la ubicación (requiere HTTPS). Pega un enlace de Google Maps.')
       return
