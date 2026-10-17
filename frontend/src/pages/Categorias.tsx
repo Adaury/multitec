@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import type { Category } from '../lib/types'
 import { Button, Card, Field, Input } from '../components/ui'
 
@@ -64,13 +64,13 @@ export function Categorias({ embedded = false }: { embedded?: boolean }) {
       setNewPrefix('')
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo crear la categoría'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo crear la categoría')),
   })
 
   const deleteCategory = useMutation({
     mutationFn: async (id: number) => (await api.delete(`/categories/${id}`)).data,
     onSuccess: invalidate,
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo eliminar la categoría'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo eliminar la categoría')),
   })
 
   const tree = categories ? buildTree(categories) : []
@@ -181,7 +181,7 @@ function CategoryTreeItem({
       setIsEditing(false)
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo guardar la categoría'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo guardar la categoría')),
   })
 
   function startEditing() {

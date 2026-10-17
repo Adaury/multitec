@@ -1,21 +1,22 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import { directionsUrl, routeQuery, routeUrls } from '../lib/maps'
 import type { Project, Technician, Visit, VisitStatus } from '../lib/types'
 import { VISIT_STATUS_LABELS } from '../lib/types'
+import { localISODate } from '../lib/format'
 import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10)
+  return localISODate()
 }
 
 function addDays(iso: string, days: number) {
   const d = new Date(iso + 'T00:00:00')
   d.setDate(d.getDate() + days)
-  return d.toISOString().slice(0, 10)
+  return localISODate(d)
 }
 
 const STATUS_TONE: Record<VisitStatus, 'blue' | 'green' | 'red'> = {
@@ -79,7 +80,7 @@ export function Calendario() {
       setForm(emptyForm(selectedDate))
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'Error al agendar la visita'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'Error al agendar la visita')),
   })
 
   const updateStatus = useMutation({
@@ -356,7 +357,7 @@ function VisitCard({
       onSaved()
       setIsEditing(false)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo guardar la visita'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo guardar la visita')),
   })
 
   if (isEditing) {

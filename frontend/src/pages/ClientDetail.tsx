@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
+import { useAuthStore } from '../lib/authStore'
 import type { Client, ClientInput, Project } from '../lib/types'
 import { PROJECT_STATUS_LABELS } from '../lib/types'
 import { Badge, Button, Card } from '../components/ui'
@@ -27,6 +28,8 @@ export function ClientDetail() {
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState<ClientInput | null>(null)
+  // El técnico consulta los datos del cliente; corregirlos es de oficina/admin.
+  const canEdit = useAuthStore((s) => s.user?.role !== 'tecnico')
 
   const { data: client } = useQuery({
     queryKey: ['clients', id],
@@ -95,12 +98,14 @@ export function ClientDetail() {
             <>
               <div className="flex items-center justify-between gap-2">
                 <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{client.name}</p>
-                <button
-                  onClick={startEditing}
-                  className="shrink-0 rounded-full bg-brand-gray px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                >
-                  Editar
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={startEditing}
+                    className="shrink-0 rounded-full bg-brand-gray px-3 py-1 text-xs font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                  >
+                    Editar
+                  </button>
+                )}
               </div>
               {client.company && <p className="text-sm text-gray-500 dark:text-gray-400">{client.company}</p>}
               <div className="mt-3 space-y-1 text-sm text-gray-600 dark:text-gray-400">

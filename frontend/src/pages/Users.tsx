@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import type { ManagedUser, Role } from '../lib/types'
 import { useAuthStore } from '../lib/authStore'
 import { Badge, Button, Card, Field, Input } from '../components/ui'
@@ -41,7 +41,7 @@ export function Users() {
       setForm(emptyForm())
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'Error al crear el usuario'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'Error al crear el usuario')),
   })
 
   const updateUser = useMutation({
@@ -51,7 +51,7 @@ export function Users() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'Error al actualizar el usuario'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'Error al actualizar el usuario')),
   })
 
   if (!isAdmin) {

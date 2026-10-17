@@ -5,7 +5,7 @@ import { api } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import { DgiiDownloads } from '../components/DgiiDownloads'
 import type { PurchaseInvoice, Supplier } from '../lib/types'
-import { formatDOP } from '../lib/format'
+import { formatDOP, localISODate } from '../lib/format'
 import { Button, Card, Field, Input, SegmentedTabs, Textarea } from '../components/ui'
 import { Proveedores } from './Proveedores'
 
@@ -65,7 +65,7 @@ interface PurchaseForm {
   notes: string
 }
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => localISODate()
 
 const EMPTY_FORM: PurchaseForm = {
   supplier_id: '',

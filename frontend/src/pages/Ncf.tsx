@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import { DgiiDownloads } from '../components/DgiiDownloads'
 import { formatDOP } from '../lib/format'
 import { NCF_TYPE_LABELS, NCF_TYPES, type NcfSequence, type NcfType } from '../lib/types'
@@ -56,7 +56,7 @@ export function Ncf() {
       setForm(emptyForm())
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'Error al crear la secuencia'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'Error al crear la secuencia')),
   })
 
   const toggleActive = useMutation({

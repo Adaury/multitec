@@ -14,6 +14,12 @@ function useClients() {
   })
 }
 
+/** Mensaje del servidor (texto) si lo hay; los errores de validación (422) vienen como lista. */
+function errorDetail(error: unknown): string | null {
+  const detail = (error as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+  return typeof detail === 'string' ? detail : null
+}
+
 function emptyClient(): ClientInput {
   return { name: '', company: '', rnc: '', phone: '', email: '', address: '', location_url: '', notes: '' }
 }
@@ -68,6 +74,11 @@ export function Clients() {
             }}
           >
             <ClientFormFields form={form} setForm={setForm} />
+            {createClient.isError && (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {errorDetail(createClient.error) ?? 'No se pudo guardar el cliente. Intenta de nuevo.'}
+              </p>
+            )}
             <Button type="submit" disabled={createClient.isPending}>
               {createClient.isPending ? 'Guardando…' : 'Guardar cliente'}
             </Button>

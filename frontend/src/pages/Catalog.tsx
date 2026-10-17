@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import type {
   CalculationParameter,
   CatalogRule,
@@ -448,7 +448,7 @@ function ProductCard({
       setReason('')
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'Error al registrar el movimiento'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'Error al registrar el movimiento')),
   })
 
   const updateProduct = useMutation({
@@ -707,7 +707,7 @@ function RulesEditor({ productId }: { productId: number }) {
       setEngineeringNote('')
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo crear la regla'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo crear la regla')),
   })
 
   const deleteLegacyRule = useMutation({
@@ -946,7 +946,7 @@ function TechnicalRuleRow({
       onSaved()
       setIsEditing(false)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo guardar la regla'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo guardar la regla')),
   })
 
   if (isEditing) {
@@ -1129,7 +1129,7 @@ function RelationsEditor({ productId }: { productId: number }) {
       setNotes('')
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo crear la relación'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo crear la relación')),
   })
 
   const deleteRelation = useMutation({

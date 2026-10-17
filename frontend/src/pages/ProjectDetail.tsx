@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { api, downloadFile, viewFile } from '../lib/api'
+import { api, downloadFile, viewFile, apiErrorMessage } from '../lib/api'
 import type {
   Budget,
   BudgetSuggestionOut,
@@ -666,7 +666,7 @@ function LevantamientoTab({
       setAiError(null)
       queryClient.invalidateQueries({ queryKey: ['survey', projectId] })
     },
-    onError: (error: any) => setAiError(error?.response?.data?.detail ?? 'Error al organizar con IA'),
+    onError: (error: any) => setAiError(apiErrorMessage(error, 'Error al organizar con IA')),
   })
 
   const [generateError, setGenerateError] = useState<string | null>(null)
@@ -680,7 +680,7 @@ function LevantamientoTab({
       queryClient.invalidateQueries({ queryKey: ['engineering', projectId] })
       onGenerated(data.warnings)
     },
-    onError: (error: any) => setGenerateError(error?.response?.data?.detail ?? 'Error al generar la cotización'),
+    onError: (error: any) => setGenerateError(apiErrorMessage(error, 'Error al generar la cotización')),
   })
 
   async function toggleRecording() {
@@ -967,7 +967,7 @@ function IngenieriaTab({ projectId }: { projectId: number }) {
       setAiError(null)
       setForm(draft)
     },
-    onError: (error: any) => setAiError(error?.response?.data?.detail ?? 'Error al generar la propuesta'),
+    onError: (error: any) => setAiError(apiErrorMessage(error, 'Error al generar la propuesta')),
   })
 
   return (
@@ -1064,7 +1064,7 @@ function BudgetTab({ projectId, onConverted }: { projectId: number; onConverted:
     },
     onError: (error: any) => {
       setAiWarnings([])
-      setAiError(error?.response?.data?.detail ?? 'Error al sugerir materiales')
+      setAiError(apiErrorMessage(error, 'Error al sugerir materiales'))
     },
   })
 
@@ -2209,7 +2209,7 @@ function PreInvoiceTab({
       invalidate()
       onConverted()
     },
-    onError: (err: any) => setConvertError(err?.response?.data?.detail ?? 'Error al convertir a factura'),
+    onError: (err: any) => setConvertError(apiErrorMessage(err, 'Error al convertir a factura')),
   })
 
   const usedQuoteIds = new Set(preInvoices?.map((p) => p.source_quote_id).filter(Boolean))

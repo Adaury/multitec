@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import type { CalculationParameter } from '../lib/types'
 import { useAuthStore } from '../lib/authStore'
 import { Badge, Button, Card, Field, Input } from '../components/ui'
@@ -68,7 +68,7 @@ function ParameterCard({ parameter, onSaved }: { parameter: CalculationParameter
       setError(null)
       onSaved()
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo guardar'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo guardar')),
   })
 
   const dirty = value !== '' && Number(value) !== parameter.value

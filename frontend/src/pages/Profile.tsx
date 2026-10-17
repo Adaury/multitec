@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import { assistantCallName } from '../lib/assistantName'
 import type { CurrentUser, Role } from '../lib/types'
@@ -37,7 +37,7 @@ export function Profile() {
       setNameMsg({ ok: true, text: 'Perfil actualizado' })
     },
     onError: (err: any) =>
-      setNameMsg({ ok: false, text: err?.response?.data?.detail?.[0]?.msg ?? err?.response?.data?.detail ?? 'Error al guardar' }),
+      setNameMsg({ ok: false, text: apiErrorMessage(err, 'Error al guardar') }),
   })
 
   const changePassword = useMutation({

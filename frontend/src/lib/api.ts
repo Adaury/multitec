@@ -93,3 +93,17 @@ export async function logout() {
   }
   useAuthStore.getState().logout()
 }
+
+/** Texto legible de un error del servidor. `detail` es un texto en los errores de negocio, pero una
+ * lista de objetos en los de validación (422): pintar esa lista directamente rompe la pantalla. */
+export function apiErrorMessage(err: unknown, fallback: string): string {
+  const detail = (err as { response?: { data?: { detail?: unknown } } })?.response?.data?.detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => (item && typeof (item as { msg?: unknown }).msg === 'string' ? (item as { msg: string }).msg : null))
+      .filter((m): m is string => m !== null)
+    if (messages.length) return messages.join('. ')
+  }
+  return fallback
+}

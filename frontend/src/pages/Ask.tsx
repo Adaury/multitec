@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import type { AskResponse, Project } from '../lib/types'
 import { Button, Card, Field, Textarea } from '../components/ui'
 
@@ -25,7 +25,7 @@ export function Ask() {
         })
       ).data,
     onSuccess: () => setError(null),
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'Error al consultar la IA'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'Error al consultar la IA')),
   })
 
   return (

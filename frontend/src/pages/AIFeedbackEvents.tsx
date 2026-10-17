@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import type {
   AccessoryCandidate,
   AIFeedbackEvent,
@@ -105,7 +105,7 @@ function AccessoryCandidateCard({ candidate, onHandled }: { candidate: Accessory
         })
       ).data,
     onSuccess: onHandled,
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo crear la regla'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo crear la regla')),
   })
 
   return (
@@ -161,7 +161,7 @@ function SynonymCandidateCard({
       queryClient.invalidateQueries({ queryKey: ['catalog'] })
       onHandled()
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo agregar el sinónimo'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo agregar el sinónimo')),
   })
 
   return (
@@ -187,7 +187,7 @@ function StaleRuleCandidateCard({ candidate, onHandled }: { candidate: StaleRule
   const deleteRule = useMutation({
     mutationFn: async () => (await api.delete(`/catalog/technical-rules/${candidate.rule_id}`)).data,
     onSuccess: onHandled,
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo eliminar la regla'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo eliminar la regla')),
   })
 
   return (

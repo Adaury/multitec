@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import type { Supplier, SupplierPurchase } from '../lib/types'
 import { formatDOP } from '../lib/format'
 import { Button, Card, Field, Input, Textarea } from '../components/ui'
@@ -85,7 +85,7 @@ export function Proveedores({ embedded = false }: { embedded?: boolean }) {
       setShowForm(false)
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo crear el proveedor'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo crear el proveedor')),
   })
 
   return (
@@ -172,7 +172,7 @@ function SupplierCard({
       setIsEditing(false)
       setError(null)
     },
-    onError: (err: any) => setError(err?.response?.data?.detail ?? 'No se pudo guardar el proveedor'),
+    onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo guardar el proveedor')),
   })
 
   function startEditing() {
