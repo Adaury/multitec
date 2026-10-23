@@ -258,6 +258,7 @@ export interface Product {
   name: string
   unit: string
   price: number
+  price_estimated: boolean
   cost: number | null
   stock_quantity: number
   notes: string | null

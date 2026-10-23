@@ -17,6 +17,7 @@ import type {
 import { Badge, Button, Card, Field, Input, SegmentedTabs, Textarea } from '../components/ui'
 import { Categorias } from './Categorias'
 import { CatalogImport } from '../components/CatalogImport'
+import { BulkPriceEditor } from '../components/BulkPriceEditor'
 import { useAuthStore } from '../lib/authStore'
 
 interface CategoryOption {
@@ -297,6 +298,7 @@ function CatalogProducts() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
   const [showImport, setShowImport] = useState(false)
+  const [showPrices, setShowPrices] = useState(false)
   const isAdmin = useAuthStore((s) => s.user?.role) === 'admin'
   const [form, setForm] = useState<ProductForm>(emptyForm())
   const [expandedId, setExpandedId] = useState<number | null>(null)
@@ -328,6 +330,14 @@ function CatalogProducts() {
         <div className="flex gap-2">
           {isAdmin && (
             <button
+              onClick={() => setShowPrices(true)}
+              className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+            >
+              RD$ Precios
+            </button>
+          )}
+          {isAdmin && (
+            <button
               onClick={() => setShowImport(true)}
               className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
             >
@@ -343,6 +353,7 @@ function CatalogProducts() {
         </div>
       </div>
       <CatalogImport open={showImport} onClose={() => setShowImport(false)} />
+      <BulkPriceEditor open={showPrices} onClose={() => setShowPrices(false)} products={products ?? []} />
 
       {showForm && (
         <Card className="md:max-w-2xl">
@@ -492,6 +503,7 @@ function ProductCard({
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               RD$ {product.price.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
             </p>
+            {product.price_estimated && <Badge tone="amber">Precio estimado</Badge>}
             <Badge tone={product.stock_quantity > 0 ? 'green' : 'gray'}>
               {product.stock_quantity.toLocaleString('es-DO')} {product.unit} en bodega
             </Badge>

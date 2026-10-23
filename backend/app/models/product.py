@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -31,6 +31,9 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(150))
     unit: Mapped[str] = mapped_column(String(20), default="unidad")
     price: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
+    # Precio de ejemplo puesto por el sistema (scripts/estimate_prices.py): hay que confirmarlo.
+    # Se apaga solo cuando alguien cambia el precio.
+    price_estimated: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     # Costo de adquisición, distinto de `price` (precio de venta) — § catálogo inteligente,
     # Motor 2. Nulo por defecto: sin costo cargado (distinto de un costo real de $0, ej. un
     # artículo de regalo) — ver services/margin.py, que usa NULL para excluir la línea de

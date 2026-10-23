@@ -13,7 +13,7 @@ from app.models.product_relation import ProductRelation
 from app.models.technical_rule import TechnicalRule
 from app.models.user import User
 from app.schemas.catalog_rule import CatalogRuleCreate, CatalogRuleOut, CatalogRuleUpdate
-from app.schemas.product import ProductCreate, ProductOut, ProductUpdate
+from app.schemas.product import BulkPriceUpdate, ProductCreate, ProductOut, ProductUpdate
 from app.schemas.product_relation import (
     ProductRelationCreate,
     ProductRelationOut,
@@ -92,6 +92,22 @@ def import_products(
         raise HTTPException(status_code=400, detail=str(exc))
 
 
+@router.put("/bulk-prices", response_model=list[ProductOut])
+def update_prices_in_bulk(payload: BulkPriceUpdate, db: Session = Depends(get_db), _=Depends(admin_only)):
+    """Cambia el precio de varios productos de una vez (todo o nada). Un precio puesto a mano deja
+    de ser 'estimado'."""
+    ids = [item.id for item in payload.items]
+    products = {p.id: p for p in db.query(Product).filter(Product.id.in_(ids)).all()}
+    missing = sorted(set(ids) - products.keys())
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Productos no encontrados: {missing}")
+    for item in payload.items:
+        products[item.id].price = item.price
+        products[item.id].price_estimated = False
+    db.commit()
+    return [products[i] for i in dict.fromkeys(ids)]
+
+
 @router.put("/{product_id}", response_model=ProductOut)
 def update_product(product_id: int, payload: ProductUpdate, db: Session = Depends(get_db), _=Depends(admin_only)):
     product = db.get(Product, product_id)
@@ -100,6 +116,8 @@ def update_product(product_id: int, payload: ProductUpdate, db: Session = Depend
     data = payload.model_dump(exclude_unset=True)
     if "category_id" in data and data["category_id"] is not None:
         _get_category_or_404(db, data["category_id"])
+    if "price" in data and "price_estimated" not in data and float(data["price"] or 0) != float(product.price):
+        product.price_estimated = False
     for field, value in data.items():
         setattr(product, field, value)
     db.commit()

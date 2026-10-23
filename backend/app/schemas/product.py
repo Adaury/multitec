@@ -28,11 +28,21 @@ class ProductCreate(BaseModel):
     synonyms: list[str] = []
 
 
+class BulkPriceItem(BaseModel):
+    id: int
+    price: float = Field(ge=0)
+
+
+class BulkPriceUpdate(BaseModel):
+    items: list[BulkPriceItem] = Field(min_length=1, max_length=2000)
+
+
 class ProductUpdate(BaseModel):
     category_id: int | None = None
     name: str | None = Field(default=None, max_length=255)
     unit: str | None = Field(default=None, max_length=30)
     price: float | None = None
+    price_estimated: bool | None = None
     cost: float | None = None
     notes: str | None = Field(default=None, max_length=2000)
     brand: str | None = Field(default=None, max_length=80)
@@ -59,6 +69,7 @@ class ProductOut(BaseModel):
     name: str
     unit: str
     price: float
+    price_estimated: bool = False
     cost: float | None
     stock_quantity: float
     notes: str | None
