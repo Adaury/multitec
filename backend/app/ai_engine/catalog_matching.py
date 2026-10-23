@@ -119,24 +119,6 @@ def _format_catalog_line(p: dict) -> str:
     return "\n".join(parts)
 
 
-CATALOG_MATCH_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "matches": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "index": {"type": "integer"},
-                    "product_id": {"type": "integer"},
-                },
-                "required": ["index", "product_id"],
-            },
-        }
-    },
-    "required": ["matches"],
-}
-
 
 def _merge_entities_with_matches(entities: list[dict], matches: list[dict]) -> list[dict]:
     """Combina las entidades detectadas por Motor 1 (fuente de verdad para descripción y
@@ -303,57 +285,33 @@ def match_entities_to_catalog(
     if not entities:
         return []
 
-    if len(catalog) > SMALL_CATALOG_LIMIT:
-        return _match_large_catalog(entities, catalog, learned)
-
-    settings = get_settings()
-    client = get_client()
-
-    candidates = shortlist_catalog(entities, catalog)
-    catalog_text = "\n".join(_format_catalog_line(p) for p in candidates)
-    entities_text = "\n".join(f"{i}: {e['quantity']} x {e['description']}" for i, e in enumerate(entities))
-    prompt = (
-        "Eres un especialista en catálogo de seguridad electrónica. A continuación hay una "
-        "lista de materiales o servicios detectados en un levantamiento (cada uno con un "
-        "índice) y el catálogo disponible.\n\n"
-        "Para cada elemento de la lista, identifica a qué producto del catálogo "
-        "corresponde comparando contra su nombre, categoría, etiquetas y sinónimos — no "
-        "solo el nombre exacto (ej. \"domo\" o \"cctv\" pueden referirse a una cámara "
-        "aunque no diga \"cámara\" textualmente). Si el elemento no corresponde a ningún "
-        "producto del catálogo (por ejemplo, mano de obra o un servicio), usa product_id 0.\n\n"
-        "Devuelve, para CADA índice de la lista, su product_id correspondiente — no omitas "
-        "ninguno.\n\n"
-        f"{_format_learned_hints(entities, learned, catalog)}"
-        f"Catálogo disponible:\n{catalog_text}\n\n"
-        f"Elementos detectados:\n{entities_text}"
-    )
-
-    def run():
-        response = client.chat(
-            model=settings.ai_model,
-            format=CATALOG_MATCH_SCHEMA,
-            messages=[{"role": "user", "content": prompt}],
-            # Cada match son ~12 tokens: con este tope un modelo que se desboca se corta rápido.
-            options={**OLLAMA_OPTIONS, "num_predict": 60 + 30 * len(entities)},
-        )
-        return json.loads(response.message.content)["matches"]
-
-    matches = _call(run)
-    items = _merge_entities_with_matches(entities, matches)
-    items = _apply_tag_fallback(items, catalog)
-    return _apply_learned_overrides(items, learned, catalog)
+    return _match_text_first(entities, catalog, learned)
 
 
-def _match_large_catalog(
+def _prefer_text_over_contradicting_model(description: str, model_choice: int, catalog: list[dict]) -> int:
+    """El modelo local (3B) a veces elige un producto que el texto contradice (ej. "cable UTP de 200
+    metros" -> conector RJ45). Si el producto elegido no coincide en nada con lo detectado
+    (puntaje <= 0) pero otro sí (puntaje > 0), gana el de texto; si no, se respeta al modelo."""
+    scored = sorted(((_candidate_score(description, p), p["id"]) for p in catalog), key=lambda sp: (-sp[0], sp[1]))
+    best_score, best_id = scored[0]
+    chosen_score = next((score for score, pid in scored if pid == model_choice), 0)
+    return best_id if best_score > 0 and chosen_score <= 0 else model_choice
+
+
+def _match_text_first(
     entities: list[dict], catalog: list[dict], learned: LearnedMatches | None
 ) -> list[dict]:
-    """Catálogo grande: texto primero, IA solo para lo ambiguo (ver resolve_confident_matches)."""
+    """Texto primero, IA solo para lo ambiguo (ver resolve_confident_matches). Se usa con cualquier
+    tamaño de catálogo: darle todo el catálogo al modelo local lo hacía confundir productos parecidos
+    (conectores vs. cable) y, a veces, generar sin parar hasta cortar el JSON."""
     resolved, ambiguous = resolve_confident_matches(entities, catalog)
     if ambiguous:
         sub_entities = [entities[i] for i in ambiguous]
         for sub_index, product_id in _match_ambiguous_with_model(sub_entities, catalog, learned).items():
             if product_id:  # 0 = "ninguno"
-                resolved[ambiguous[sub_index]] = product_id
+                resolved[ambiguous[sub_index]] = _prefer_text_over_contradicting_model(
+                    sub_entities[sub_index]["description"], product_id, catalog
+                )
     matches = [{"index": i, "product_id": pid} for i, pid in resolved.items()]
     items = _merge_entities_with_matches(entities, matches)
     items = _apply_tag_fallback(items, catalog)

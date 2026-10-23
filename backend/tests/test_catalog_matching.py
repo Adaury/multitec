@@ -71,3 +71,18 @@ def test_tag_fallback_leaves_truly_unmatched_items_alone():
     result = _apply_tag_fallback(items, CATALOG)
 
     assert result[0]["product_id"] is None
+
+
+def test_model_choice_contradicted_by_text_is_replaced_by_the_text_match():
+    from app.ai_engine.catalog_matching import _prefer_text_over_contradicting_model
+
+    catalog = [
+        {"id": 5, "name": "Cable UTP Cat6 (metro)", "tags": ["cable", "utp"], "category": "Cables"},
+        {"id": 6, "name": "Conector RJ45 Cat6", "tags": ["conector", "rj45"], "category": "Conectores"},
+    ]
+
+    assert _prefer_text_over_contradicting_model("cable UTP de 200 metros", 6, catalog) == 5
+    # Una elección que el texto no contradice se respeta aunque no sea la de mayor puntaje.
+    assert _prefer_text_over_contradicting_model("cable UTP", 5, catalog) == 5
+    # Si nada del catálogo se parece, el modelo manda.
+    assert _prefer_text_over_contradicting_model("mano de obra", 6, catalog) == 6
