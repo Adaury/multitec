@@ -198,6 +198,24 @@ def is_measurement_entity(description: str) -> bool:
     return bool(not text or _MEASUREMENT_ONLY.match(text) or _MEASUREMENT_LEAD.match(text))
 
 
+# El modelo local confunde a veces un dato técnico con la cantidad: "NVR de 16 canales" -> 16 NVR.
+_SPEC_NUMBER = re.compile(r"\b(\d+)\s*(?:canales?|puertos?|megapixel(?:es)?|mp|tb|gb)\b")
+
+
+def _spec_number_is_not_quantity(entity: dict) -> dict:
+    """Si la cantidad es justo el número de una especificación de la descripción ("de 16 canales",
+    "de 8 puertos") y la descripción no empieza con ese número ("16 cámaras de 4 mp"), es un equipo."""
+    description = unicodedata.normalize("NFD", str(entity.get("description", ""))).encode("ascii", "ignore").decode().lower()
+    quantity = entity.get("quantity")
+    if not quantity or float(quantity) != int(quantity):
+        return entity
+    leading = re.match(r"\s*(\d+)\b", description)
+    for match in _SPEC_NUMBER.finditer(description):
+        if int(match.group(1)) == int(quantity) and not (leading and int(leading.group(1)) == int(quantity)):
+            return {**entity, "quantity": 1}
+    return entity
+
+
 def interpret_survey_items(project_context: str) -> list[dict]:
     """Extrae del expediente del proyecto los materiales, equipos, accesorios o mano de
     obra mencionados explícitamente por el técnico, con su cantidad — sin intentar
@@ -225,8 +243,12 @@ def interpret_survey_items(project_context: str) -> list[dict]:
         "4. Las MEDIDAS (distancias, alturas, metrajes del sitio) y las OBSERVACIONES del cliente "
         "NO son materiales: no las incluyas. Solo incluye metros cuando sean de un cable o "
         "canalización (ej. \"200 metros de cable UTP\").\n"
-        "5. Conserva en la descripción los datos que distinguen el equipo (canales, puertos, "
-        "megapíxeles, tamaño U) — \"NVR de 32 canales\", no solo \"NVR\".\n\n"
+        "5. COPIA en la descripción todos los datos que el técnico dijo de un equipo: canales, "
+        "puertos, megapíxeles, tamaño U, capacidad, tipo. Solo los que dijo: si no mencionó "
+        "canales o puertos, no los agregues.\n"
+        "6. NO incluyas lugares ni cosas que el cliente ya tiene o usa para ver el sistema (el "
+        "celular, la computadora, el internet, el rack o el cuarto donde se instala, la casa, "
+        "el edificio): no se venden.\n\n"
         f"Expediente del proyecto:\n{project_context}"
     )
 
@@ -242,4 +264,5 @@ def interpret_survey_items(project_context: str) -> list[dict]:
         return json.loads(response.message.content)["entities"]
 
     entities = _call(run)
-    return [e for e in entities if not is_measurement_entity(str(e.get("description", "")))]
+    entities = [e for e in entities if not is_measurement_entity(str(e.get("description", "")))]
+    return [_spec_number_is_not_quantity(e) for e in entities]
