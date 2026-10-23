@@ -9,7 +9,6 @@ import type {
   Execution,
   Extension,
   ExtensionStatus,
-  GenerateFromSurveyOut,
   VoiceSurveyResult,
   Invoice,
   InvoiceHistoryEntry,
@@ -46,6 +45,7 @@ import {
 } from '../lib/types'
 import { formatDOP } from '../lib/format'
 import { useAuthStore } from '../lib/authStore'
+import { startGeneration, useGenerationStore } from '../lib/generationStore'
 import { useSpeechDictation } from '../lib/useSpeechDictation'
 import { Badge, Button, Card, Field, IconButton, Textarea } from '../components/ui'
 import { LineItemsEditor } from '../components/LineItemsEditor'
@@ -362,6 +362,7 @@ export function ProjectDetail() {
       {tab === 'levantamiento' && (
         <LevantamientoTab
           projectId={project.id}
+          projectLabel={project.client.name}
           onGenerated={(warnings) => {
             setGenerateWarnings(warnings)
             setTab('cotizacion')
@@ -608,12 +609,16 @@ function InfoTab({ project }: { project: ProjectDetailType }) {
 
 function LevantamientoTab({
   projectId,
+  projectLabel,
   onGenerated,
 }: {
   projectId: number
+  projectLabel: string
   onGenerated: (warnings: string[]) => void
 }) {
   const queryClient = useQueryClient()
+  // También cuenta una generación que arrancó antes de salir de esta pantalla y sigue en marcha.
+  const generatingInBackground = useGenerationStore((state) => state.jobs[projectId]?.status === 'running')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [recording, setRecording] = useState(false)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -671,13 +676,11 @@ function LevantamientoTab({
 
   const [generateError, setGenerateError] = useState<string | null>(null)
   const generate = useMutation({
-    mutationFn: async () =>
-      (await api.post<GenerateFromSurveyOut>(`/projects/${projectId}/generate-from-survey`)).data,
+    // La generación corre fuera de la pantalla (generationStore): si el técnico se va a otra
+    // pestaña o página, sigue y la barra GenerationBanner avisa cuando termina.
+    mutationFn: () => startGeneration(projectId, projectLabel),
     onSuccess: (data) => {
       setGenerateError(null)
-      queryClient.invalidateQueries({ queryKey: ['budgets', projectId] })
-      queryClient.invalidateQueries({ queryKey: ['quotes', projectId] })
-      queryClient.invalidateQueries({ queryKey: ['engineering', projectId] })
       onGenerated(data.warnings)
     },
     onError: (error: any) => setGenerateError(apiErrorMessage(error, 'Error al generar la cotización')),
@@ -790,8 +793,8 @@ function LevantamientoTab({
           capturar nada. Puede tardar ~1 minuto.
         </p>
         {generateError && <p className="text-sm text-red-600 dark:text-red-400">{generateError}</p>}
-        <Button onClick={() => generate.mutate()} disabled={generate.isPending}>
-          {generate.isPending ? 'Generando… (puede tardar ~1 min)' : '🤖 Generar cotización con IA'}
+        <Button onClick={() => generate.mutate()} disabled={generate.isPending || generatingInBackground}>
+          {generate.isPending || generatingInBackground ? 'Generando… (1 a 3 min)' : '🤖 Generar cotización con IA'}
         </Button>
       </Card>
 

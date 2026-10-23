@@ -7,6 +7,7 @@ import { shrinkImage } from '../lib/imageUpload'
 import { useGeolocation } from '../lib/useGeolocation'
 import { assistantCallName } from '../lib/assistantName'
 import { useAuthStore } from '../lib/authStore'
+import { startGeneration, useGenerationStore } from '../lib/generationStore'
 import { SURVEY_TYPES, surveyDescription } from '../lib/surveyTypes'
 import type { Client, ClientInput, GenerateFromSurveyOut, Project, VoiceSurveyResult } from '../lib/types'
 import { Button, Card, Field, Input } from '../components/ui'
@@ -107,6 +108,18 @@ export function QuickSurvey() {
   const [segments, setSegments] = useState(0)
   const [photos, setPhotos] = useState(0)
   const [result, setResult] = useState<GenerateFromSurveyOut | null>(null)
+  // La generación de la cotización no depende de esta pantalla (ver generationStore): se sigue su
+  // estado desde ahí, también si el técnico salió a tickets y volvió.
+  const job = useGenerationStore((state) => (project ? state.jobs[project.id] : undefined))
+  const generating = job?.status === 'running'
+  useEffect(() => {
+    if (job?.status === 'done' && job.result) {
+      setResult(job.result)
+      setStep('listo')
+    } else if (job?.status === 'error') {
+      setError(job.error ?? 'No se pudo generar la cotización.')
+    }
+  }, [job])
 
   const canStart = !busy && (selected !== null || (creatingNew && newClient.name.trim().length > 0))
 
@@ -194,30 +207,14 @@ export function QuickSurvey() {
 
   async function generate() {
     if (!project) return
-    setBusy(true)
     setError(null)
-    try {
-      // El borrador de ingeniería es lo más lento (~40 s) y la cotización no lo necesita: se pide en
-      // segundo plano para tener la cotización cuanto antes.
-      const data = (
-        await api.post<GenerateFromSurveyOut>(`/projects/${project.id}/generate-from-survey?background_engineering=true`)
-      ).data
-      queryClient.invalidateQueries({ queryKey: ['quotes', project.id] })
-      queryClient.invalidateQueries({ queryKey: ['budgets', project.id] })
-      queryClient.invalidateQueries({ queryKey: ['engineering', project.id] })
-      setResult(data)
-      setStep('listo')
-      if (data.engineering_pending) {
-        // El borrador llega solo; se refresca la pestaña Ingeniería un par de veces mientras tanto.
-        for (const delay of [45_000, 90_000]) {
-          window.setTimeout(() => queryClient.invalidateQueries({ queryKey: ['engineering', project.id] }), delay)
-        }
-      }
-    } catch (err) {
-      setError(apiError(err, 'No se pudo generar la cotización. Tu levantamiento quedó guardado; intenta de nuevo.'))
-    } finally {
-      setBusy(false)
-    }
+    // La generación corre fuera de esta pantalla (generationStore): si el técnico toca tickets o
+    // cualquier otro enlace, la IA sigue y la barra GenerationBanner avisa cuando termina.
+    // El borrador de ingeniería es lo más lento (~40 s) y la cotización no lo necesita: se pide en
+    // segundo plano para tener la cotización cuanto antes.
+    startGeneration(project.id, clientName, { backgroundEngineering: true }).catch(() => {
+      // El error ya queda en la barra; el efecto de abajo lo muestra también en esta pantalla.
+    })
   }
 
   async function applyAndGenerate(fields: Fields) {
@@ -386,9 +383,14 @@ export function QuickSurvey() {
                   </p>
                   {saved.notes && <p className="line-clamp-3 whitespace-pre-line">{saved.notes}</p>}
                 </Card>
-                <Button onClick={generate} disabled={busy}>
-                  {busy ? 'Generando cotización… (~1 min)' : '🤖 Generar cotización'}
+                <Button onClick={generate} disabled={busy || generating}>
+                  {generating ? 'Generando cotización… (1 a 3 min)' : '🤖 Generar cotización'}
                 </Button>
+                {generating && (
+                  <p className="text-center text-xs text-gray-500 dark:text-gray-400">
+                    Puedes salir de esta pantalla: la IA sigue y la cotización se agrega sola a la lista.
+                  </p>
+                )}
               </>
             )}
           </div>
