@@ -4,9 +4,10 @@ from io import BytesIO
 from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import mm
-from reportlab.platypus import Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from reportlab.platypus import HRFlowable, Image, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 
 from app.core.config import get_settings
@@ -15,13 +16,16 @@ from app.models.client import Client
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.quote import Quote
+from app.services.company import CompanyInfo, load_company
 from app.services.photo_annex import AnnexPhoto, build_annex_flowables
 
 # Paleta alineada a frontend/src/index.css (--color-brand-*) para que los PDF se vean
-# consistentes con el resto de la app en vez de usar grises genéricos de reportlab.
+# consistentes con el resto de la app en vez de usar grises genéricos de reportlab. El
+# azul de marca es el acento; el tono oscuro de las cabeceras sale del logo de Multitec.
 BRAND_BLUE = colors.HexColor("#0a63e2")
 BRAND_BLUE_DARK = colors.HexColor("#0850b8")
-BRAND_GRAY = colors.HexColor("#eceef1")
+BRAND_GRAY = colors.HexColor("#f4f5f7")
+INK = colors.HexColor("#111827")
 TEXT_DARK = colors.HexColor("#1c1e21")
 TEXT_MUTED = colors.HexColor("#6b7280")  # ~ tailwind gray-500, igual que text-gray-500 en la UI
 TEXT_FAINT = colors.HexColor("#9ca3af")  # ~ tailwind gray-400, igual que text-gray-400 en la UI
@@ -30,15 +34,55 @@ BORDER_GRAY = colors.HexColor("#e5e7eb")  # ~ tailwind gray-200, igual que borde
 # Ancho utilizable de una página Letter con 20mm de margen a cada lado.
 CONTENT_WIDTH = 175 * mm
 
+# Tamaño máximo del logo en el membrete: alto fijo, ancho proporcional con tope, para que un logo
+# panorámico o cuadrado no se deforme ni se desborde.
+LOGO_MAX_HEIGHT = 22 * mm
+LOGO_MAX_WIDTH = 60 * mm
+
 styles = getSampleStyleSheet()
 _title_style = ParagraphStyle("DocTitle", parent=styles["Heading1"], fontSize=18, spaceAfter=2, textColor=TEXT_DARK)
 _meta_style = ParagraphStyle("Meta", parent=styles["Normal"], fontSize=9, textColor=TEXT_MUTED)
-_label_style = ParagraphStyle("Label", parent=styles["Normal"], fontSize=9, textColor=TEXT_FAINT)
 _item_desc_style = ParagraphStyle("ItemDesc", parent=styles["Normal"], fontSize=9, leading=12, textColor=TEXT_DARK)
+_company_style = ParagraphStyle("CompanyMeta", parent=_meta_style, fontSize=8.5, leading=11.5)
+_doc_title_style = ParagraphStyle(
+    "DocHeading", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=22, leading=24,
+    textColor=INK, alignment=TA_RIGHT,
+)
+_doc_subtitle_style = ParagraphStyle(
+    "DocSubtitle", parent=styles["Normal"], fontSize=9, leading=11, textColor=TEXT_MUTED, alignment=TA_RIGHT
+)
+_doc_code_style = ParagraphStyle(
+    "DocCode", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=13, leading=16,
+    textColor=BRAND_BLUE, alignment=TA_RIGHT,
+)
+_box_label_style = ParagraphStyle(
+    "BoxLabel", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=7.5, leading=10, textColor=TEXT_FAINT
+)
+_box_name_style = ParagraphStyle(
+    "BoxName", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=11, leading=14, textColor=INK
+)
+_box_text_style = ParagraphStyle("BoxText", parent=styles["Normal"], fontSize=9, leading=12, textColor=TEXT_MUTED)
+_detail_label_style = ParagraphStyle(
+    "DetailLabel", parent=styles["Normal"], fontSize=8.5, leading=12, textColor=TEXT_FAINT
+)
+_detail_value_style = ParagraphStyle(
+    "DetailValue", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=9, leading=12,
+    textColor=TEXT_DARK, alignment=TA_RIGHT,
+)
+_section_label_style = ParagraphStyle(
+    "SectionLabel", parent=styles["Normal"], fontName="Helvetica-Bold", fontSize=7.5, leading=10,
+    textColor=TEXT_FAINT, spaceAfter=3,
+)
+_closing_style = ParagraphStyle("Closing", parent=_meta_style, alignment=1)
 
 
 def _money(value: float) -> str:
     return f"RD$ {value:,.2f}"
+
+
+def _e(text) -> str:
+    """Texto de usuario listo para ir dentro de un Paragraph (un '&' o '<' en un nombre rompería el PDF)."""
+    return _xml_escape(str(text))
 
 
 def _description_cell(description: str, note: str | None):
@@ -51,6 +95,162 @@ def _description_cell(description: str, note: str | None):
         f"{_xml_escape(description)}<br/><font size=7.5 color='#9ca3af'><i>{_xml_escape(note)}</i></font>",
         _item_desc_style,
     )
+
+
+def _logo_flowable(logo_path: str):
+    """El logo de la empresa ajustado a su caja, o None si no hay archivo o no se puede leer."""
+    if not logo_path or not os.path.isfile(logo_path):
+        return None
+    try:
+        logo = Image(logo_path, mask="auto")
+    except Exception:  # archivo dañado o formato que reportlab no abre: el PDF sale sin logo
+        return None
+    scale = min(LOGO_MAX_HEIGHT / logo.imageHeight, LOGO_MAX_WIDTH / logo.imageWidth)
+    logo.drawHeight = logo.imageHeight * scale
+    logo.drawWidth = logo.imageWidth * scale
+    logo.hAlign = "LEFT"
+    return logo
+
+
+def _letterhead(company: CompanyInfo, doc_title: str, code: str) -> list:
+    """Membrete: logo (o nombre) y datos de la empresa a la izquierda; tipo de documento y número
+    a la derecha; una línea de acento debajo."""
+    left: list = []
+    logo = _logo_flowable(company.logo_path)
+    if logo is not None:
+        left.append(logo)
+        left.append(Spacer(1, 2 * mm))
+    else:
+        left.append(Paragraph(_e(company.name), _title_style))
+        if company.tagline:
+            left.append(Paragraph(_e(company.tagline), _company_style))
+    if company.representative:
+        left.append(Paragraph(_e(company.representative), _company_style))
+    id_line = " · ".join(
+        part for part in (company.rnc and f"RNC: {company.rnc}", company.cedula and f"Cédula: {company.cedula}") if part
+    )
+    contact_line = " · ".join(part for part in (company.phone, company.email, company.website) if part)
+    for line in (id_line, company.address, contact_line):
+        if line:
+            left.append(Paragraph(_e(line), _company_style))
+
+    main_title, _, subtitle = doc_title.partition(" — ")
+    right: list = [Paragraph(_e(main_title.upper()), _doc_title_style)]
+    if subtitle:
+        right.append(Paragraph(_e(subtitle), _doc_subtitle_style))
+    right.append(Spacer(1, 1.5 * mm))
+    right.append(Paragraph(_e(code), _doc_code_style))
+
+    table = Table([[left, right]], colWidths=[0.58 * CONTENT_WIDTH, 0.42 * CONTENT_WIDTH])
+    table.setStyle(
+        TableStyle(
+            [
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 0),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 0),
+            ]
+        )
+    )
+    return [table, Spacer(1, 4 * mm), HRFlowable(width="100%", thickness=2, color=BRAND_BLUE, spaceAfter=5 * mm)]
+
+
+def _info_boxes(
+    *,
+    client: Client,
+    project: Project,
+    created_at: datetime,
+    due_date: datetime | None,
+    ncf: str | None,
+    status_label: str | None,
+    client_label: str,
+) -> Table:
+    """Dos cuadros lado a lado: a quién va dirigido el documento y sus datos (fecha, NCF, proyecto…)."""
+    client_cells = [Paragraph(client_label, _box_label_style), Paragraph(_e(client.name), _box_name_style)]
+    for line in (
+        client.company,
+        client.rnc and f"RNC: {client.rnc}",
+        client.address,
+        getattr(client, "phone", None),
+    ):
+        if line:
+            client_cells.append(Paragraph(_e(line), _box_text_style))
+
+    details = [("Fecha", created_at.strftime("%d/%m/%Y"))]
+    if due_date:
+        details.append(("Vencimiento", due_date.strftime("%d/%m/%Y")))
+    if ncf:
+        details.append(("NCF", ncf))
+    details.append(("Proyecto", project.code))
+    if status_label:
+        details.append(("Estado", status_label))
+    details_table = Table(
+        [[Paragraph(label, _detail_label_style), Paragraph(_e(value), _detail_value_style)] for label, value in details],
+        colWidths=[0.14 * CONTENT_WIDTH, 0.26 * CONTENT_WIDTH],
+    )
+    details_table.setStyle(
+        TableStyle(
+            [
+                ("LEFTPADDING", (0, 0), (-1, -1), 0),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                ("TOPPADDING", (0, 0), (-1, -1), 1),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+            ]
+        )
+    )
+
+    boxes = Table([[client_cells, details_table]], colWidths=[0.55 * CONTENT_WIDTH, 0.45 * CONTENT_WIDTH])
+    boxes.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), BRAND_GRAY),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 9),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
+                ("LINEBEFORE", (0, 0), (0, 0), 2.5, BRAND_BLUE),
+            ]
+        )
+    )
+    return boxes
+
+
+def _page_footer(company: CompanyInfo):
+    """Pie de cada página: una línea fina, el contacto de la empresa y el número de página."""
+    contact = " · ".join(part for part in (company.name, company.phone, company.email, company.website) if part)
+
+    def draw(canvas, doc):
+        canvas.saveState()
+        canvas.setStrokeColor(BORDER_GRAY)
+        canvas.setLineWidth(0.5)
+        canvas.line(doc.leftMargin, 14 * mm, doc.leftMargin + CONTENT_WIDTH, 14 * mm)
+        canvas.setFont("Helvetica", 7.5)
+        canvas.setFillColor(TEXT_FAINT)
+        canvas.drawString(doc.leftMargin, 10 * mm, contact)
+        canvas.drawRightString(doc.leftMargin + CONTENT_WIDTH, 10 * mm, f"Página {doc.page}")
+        canvas.restoreState()
+
+    return draw
+
+
+def _boxed_section(label: str, lines: list[str]) -> Table:
+    """Recuadro gris con barra azul a la izquierda (notas, datos para depósito)."""
+    content = [Paragraph(label, _section_label_style)] + [Paragraph(_e(line), _meta_style) for line in lines]
+    box = Table([[content]], colWidths=[CONTENT_WIDTH])
+    box.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), BRAND_GRAY),
+                ("LINEBEFORE", (0, 0), (0, 0), 2.5, BRAND_BLUE),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
+    return box
 
 
 def _build_pdf(
@@ -75,80 +275,34 @@ def _build_pdf(
     integer_quantities: bool = False,
     category_totals: list[tuple[str, float]] | None = None,
     photo_annex: list[AnnexPhoto] | None = None,
+    company: CompanyInfo | None = None,
+    client_label: str = "CLIENTE",
+    closing_note: str | None = None,
 ) -> bytes:
     settings = get_settings()
+    company = company or load_company()
     buf = BytesIO()
     doc = SimpleDocTemplate(
-        buf, pagesize=letter, topMargin=20 * mm, bottomMargin=20 * mm, leftMargin=20 * mm, rightMargin=20 * mm
+        buf, pagesize=letter, topMargin=18 * mm, bottomMargin=22 * mm, leftMargin=20 * mm, rightMargin=20 * mm
     )
-    story = []
+    story: list = []
 
-    company_block = [Paragraph(settings.company_name, _title_style)]
-    if settings.company_representative:
-        company_block.append(Paragraph(settings.company_representative, _meta_style))
-    company_lines = [
-        line
-        for line in (
-            settings.company_rnc and f"RNC: {settings.company_rnc}",
-            settings.company_cedula and f"Cédula: {settings.company_cedula}",
-            settings.company_address,
-            settings.company_phone,
-        )
-        if line
-    ]
-    if company_lines:
-        company_block.append(Paragraph(" · ".join(company_lines), _meta_style))
-
-    logo_path = settings.company_logo_path
-    if logo_path and os.path.isfile(logo_path):
-        # Alto fijo, ancho proporcional — para que un logo panorámico o cuadrado no se
-        # deforme ni se desborde del margen derecho.
-        logo = Image(logo_path)
-        logo_height = 18 * mm
-        logo.drawHeight = logo_height
-        logo.drawWidth = logo.imageWidth * (logo_height / logo.imageHeight)
-        letterhead = Table([[company_block, logo]], colWidths=[0.7 * CONTENT_WIDTH, 0.3 * CONTENT_WIDTH])
-        letterhead.setStyle(
-            TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("ALIGN", (1, 0), (1, 0), "RIGHT")])
-        )
-        story.append(letterhead)
-    else:
-        story.extend(company_block)
-    story.append(Spacer(1, 10 * mm))
-
-    header_data = [
-        [Paragraph(f"<b>{doc_title}</b>", styles["Heading2"]), Paragraph(f"<b>{code}</b>", styles["Heading2"])],
-        [
-            Paragraph(
-                f"Cliente: {client.name}"
-                + (f" ({client.company})" if client.company else "")
-                + (f"<br/>RNC: {client.rnc}" if client.rnc else "")
-                + (f"<br/>{client.address}" if client.address else ""),
-                _meta_style,
-            ),
-            Paragraph(
-                f"Proyecto: {project.code}<br/>Fecha: {created_at.strftime('%d/%m/%Y')}"
-                + (f"<br/>Vencimiento: {due_date.strftime('%d/%m/%Y')}" if due_date else "")
-                + (f"<br/>NCF: <b>{ncf}</b>" if ncf else "")
-                + (f"<br/>Estado: {status_label}" if status_label else ""),
-                _meta_style,
-            ),
-        ],
-    ]
-    header_table = Table(header_data, colWidths=[0.55 * CONTENT_WIDTH, 0.45 * CONTENT_WIDTH])
-    header_table.setStyle(
-        TableStyle(
-            [
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 6),
-            ]
+    story.extend(_letterhead(company, doc_title, code))
+    story.append(
+        _info_boxes(
+            client=client,
+            project=project,
+            created_at=created_at,
+            due_date=due_date,
+            ncf=ncf,
+            status_label=status_label,
+            client_label=client_label,
         )
     )
-    story.append(header_table)
-    story.append(Spacer(1, 8 * mm))
+    story.append(Spacer(1, 7 * mm))
 
     desc_col = 0  # columna que va alineada a la izquierda (todas las demás, a la derecha)
+    number_col = False  # la tabla detallada lleva columna "#"
 
     if category_totals is not None:
         # Resumen ejecutivo (§ Motor 6): totales por categoría, sin línea por línea — no
@@ -158,24 +312,29 @@ def _build_pdf(
             rows.append([category_name, _money(amount)])
         col_widths = [0.77 * CONTENT_WIDTH, 0.23 * CONTENT_WIDTH]
     elif show_line_prices:
-        rows = [["Descripción", "Cant.", "Precio unit.", "Subtotal"]]
-        for item in items:
+        number_col = True
+        rows = [["#", "Descripción", "Cant.", "Precio unit.", "Importe"]]
+        for index, item in enumerate(items, start=1):
             rows.append(
                 [
+                    str(index),
                     _description_cell(item.description, getattr(item, "note", None)),
-                    f"{item.quantity:g}",
+                    f"{float(item.quantity):g}",
                     _money(float(item.unit_price)),
                     _money(float(item.subtotal)),
                 ]
             )
-        col_widths = [0.51 * CONTENT_WIDTH, 0.11 * CONTENT_WIDTH, 0.17 * CONTENT_WIDTH, 0.21 * CONTENT_WIDTH]
+        col_widths = [
+            0.06 * CONTENT_WIDTH, 0.45 * CONTENT_WIDTH, 0.10 * CONTENT_WIDTH, 0.18 * CONTENT_WIDTH, 0.21 * CONTENT_WIDTH,
+        ]
+        desc_col = 1
     elif show_quantities:
 
         def _qty(item) -> str:
             # § presupuesto: cantidades enteras, sin decimales, para el resumen que ve el
             # cliente — el valor exacto (con el margen de desperdicio de cable, etc.) sigue
             # viviendo en la Cotización.
-            return str(round(float(item.quantity))) if integer_quantities else f"{item.quantity:g}"
+            return str(round(float(item.quantity))) if integer_quantities else f"{float(item.quantity):g}"
 
         if quantity_first:
             rows = [["Cant.", "Descripción"]]
@@ -196,49 +355,58 @@ def _build_pdf(
             rows.append([_description_cell(item.description, getattr(item, "note", None))])
         col_widths = [CONTENT_WIDTH]
 
-    items_table = Table(rows, colWidths=col_widths)
-    items_table.setStyle(
-        TableStyle(
-            [
-                ("BACKGROUND", (0, 0), (-1, 0), BRAND_BLUE),
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("FONTSIZE", (0, 0), (-1, -1), 9),
-                ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
-                ("ALIGN", (desc_col, 0), (desc_col, -1), "LEFT"),
-                ("GRID", (0, 0), (-1, -1), 0.5, BORDER_GRAY),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, BRAND_GRAY]),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 5),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
-            ]
-        )
-    )
+    items_table = Table(rows, colWidths=col_widths, repeatRows=1)
+    table_style = [
+        ("BACKGROUND", (0, 0), (-1, 0), INK),
+        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTSIZE", (0, 0), (-1, 0), 8),
+        ("FONTSIZE", (0, 1), (-1, -1), 9),
+        ("TEXTCOLOR", (0, 1), (-1, -1), TEXT_DARK),
+        ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
+        ("ALIGN", (desc_col, 0), (desc_col, -1), "LEFT"),
+        ("LINEBELOW", (0, 1), (-1, -1), 0.5, BORDER_GRAY),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#fafafb")]),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+    ]
+    if number_col:
+        table_style += [("ALIGN", (0, 0), (0, -1), "CENTER"), ("TEXTCOLOR", (0, 1), (0, -1), TEXT_FAINT)]
+    items_table.setStyle(TableStyle(table_style))
     story.append(items_table)
-    story.append(Spacer(1, 6 * mm))
+    story.append(Spacer(1, 5 * mm))
 
     if show_breakdown:
         if show_line_prices or category_totals is not None:
             totals_rows = [
                 ["Subtotal", _money(subtotal)],
                 [f"ITBIS ({settings.itbis_rate * 100:.0f}%)", _money(itbis)],
-                ["Total", _money(total)],
+                ["TOTAL", _money(total)],
             ]
         else:
             # Sin desglose por línea ni por categoría: solo el precio global del servicio.
-            totals_rows = [["Total del servicio", _money(total)]]
-        bold_row = len(totals_rows) - 1
-        totals_table = Table(totals_rows, colWidths=[0.8 * CONTENT_WIDTH, 0.2 * CONTENT_WIDTH])
+            totals_rows = [["TOTAL DEL SERVICIO", _money(total)]]
+        last = len(totals_rows) - 1
+        # La etiqueta más larga ("TOTAL DEL SERVICIO", en negrita 11 pt) tiene que caber sin cortarse.
+        totals_table = Table(totals_rows, colWidths=[0.31 * CONTENT_WIDTH, 0.23 * CONTENT_WIDTH], hAlign="RIGHT")
         totals_table.setStyle(
             TableStyle(
                 [
                     ("ALIGN", (0, 0), (-1, -1), "RIGHT"),
                     ("FONTSIZE", (0, 0), (-1, -1), 9),
                     ("TEXTCOLOR", (0, 0), (-1, -1), TEXT_MUTED),
-                    ("FONTNAME", (0, bold_row), (-1, bold_row), "Helvetica-Bold"),
-                    ("TEXTCOLOR", (0, bold_row), (-1, bold_row), BRAND_BLUE_DARK),
-                    ("LINEABOVE", (0, bold_row), (-1, bold_row), 0.75, BRAND_BLUE_DARK),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 8),
                     ("TOPPADDING", (0, 0), (-1, -1), 3),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                    ("BACKGROUND", (0, last), (-1, last), INK),
+                    ("TEXTCOLOR", (0, last), (-1, last), colors.white),
+                    ("FONTNAME", (0, last), (-1, last), "Helvetica-Bold"),
+                    ("FONTSIZE", (0, last), (-1, last), 11),
+                    ("TOPPADDING", (0, last), (-1, last), 7),
+                    ("BOTTOMPADDING", (0, last), (-1, last), 7),
                 ]
             )
         )
@@ -246,20 +414,22 @@ def _build_pdf(
 
     if notes:
         story.append(Spacer(1, 8 * mm))
-        story.append(Paragraph("Notas", _label_style))
-        story.append(Paragraph(notes, _meta_style))
+        story.append(_boxed_section("NOTAS", [notes]))
 
-    if settings.company_bank_info:
+    bank_lines = [line.strip() for line in (company.bank_info or "").splitlines() if line.strip()]
+    if bank_lines:
+        story.append(Spacer(1, 6 * mm))
+        story.append(_boxed_section("DATOS PARA DEPÓSITO O TRANSFERENCIA", bank_lines))
+
+    if closing_note:
         story.append(Spacer(1, 8 * mm))
-        story.append(Paragraph("Cuentas para depósito o transferencia", _label_style))
-        for line in settings.company_bank_info.splitlines():
-            if line.strip():
-                story.append(Paragraph(line.strip(), _meta_style))
+        story.append(Paragraph(_e(closing_note), _closing_style))
 
     if photo_annex:
         story.extend(build_annex_flowables(photo_annex))
 
-    doc.build(story)
+    footer = _page_footer(company)
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
     return buf.getvalue()
 
 
@@ -286,6 +456,7 @@ def build_quote_pdf(
     variant: str = "detallada",
     category_by_product_id: dict[int, str | None] | None = None,
     photo_annex: list[AnnexPhoto] | None = None,
+    company: CompanyInfo | None = None,
 ) -> bytes:
     is_executive = variant == "ejecutiva"
     return _build_pdf(
@@ -302,11 +473,13 @@ def build_quote_pdf(
         notes=quote.notes,
         category_totals=_category_totals(quote.items, category_by_product_id or {}) if is_executive else None,
         photo_annex=photo_annex,
+        company=company,
     )
 
 
-def build_invoice_pdf(invoice: Invoice, variant: str = "detallada") -> bytes:
+def build_invoice_pdf(invoice: Invoice, variant: str = "detallada", company: CompanyInfo | None = None) -> bytes:
     settings = get_settings()
+    company = company or load_company()
     show_line_prices = variant != "global"
     return _build_pdf(
         doc_title="Factura" if show_line_prices else "Factura — Detalle de trabajo",
@@ -322,10 +495,13 @@ def build_invoice_pdf(invoice: Invoice, variant: str = "detallada") -> bytes:
         due_date=invoice.created_at + timedelta(days=settings.invoice_due_days),
         show_line_prices=show_line_prices,
         show_breakdown=True,
+        company=company,
+        client_label="FACTURADO A",
+        closing_note=company.invoice_notes or None,
     )
 
 
-def build_budget_summary_pdf(budget: Budget) -> bytes:
+def build_budget_summary_pdf(budget: Budget, company: CompanyInfo | None = None) -> bytes:
     """Resumen para compartir con el cliente: nombres y cantidad de lo incluido, y el
     total final — sin precios unitarios ni desglose de ITBIS (eso vive en la Cotización,
     un documento aparte)."""
@@ -345,4 +521,5 @@ def build_budget_summary_pdf(budget: Budget) -> bytes:
         show_quantities=True,
         quantity_first=True,
         integer_quantities=True,
+        company=company,
     )

@@ -11,6 +11,7 @@ from app.models.extension import Extension
 from app.models.invoice import Invoice, InvoiceHistory, InvoiceItem, PreInvoice, PreInvoiceItem
 from app.models.logbook import LogEntry, LogEntryAsset
 from app.models.material import Material
+from app.models.company_profile import CompanyProfile
 from app.models.ncf_sequence import NcfSequence
 from app.models.notification import Notification
 from app.models.product import Product
@@ -46,6 +47,7 @@ __all__ = [
     "LogEntry",
     "LogEntryAsset",
     "Material",
+    "CompanyProfile",
     "NcfSequence",
     "Notification",
     "PreInvoice",

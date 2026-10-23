@@ -24,6 +24,7 @@ const loaders = {
   QuickSurvey: () => import('./pages/QuickSurvey'),
   Users: () => import('./pages/Users'),
   Ncf: () => import('./pages/Ncf'),
+  Empresa: () => import('./pages/Empresa'),
   AIFeedbackEvents: () => import('./pages/AIFeedbackEvents'),
   Calendario: () => import('./pages/Calendario'),
   PortalCliente: () => import('./pages/PortalCliente'),
@@ -34,6 +35,7 @@ const Dashboard = lazyPage(loaders.Dashboard, 'Dashboard')
 const Clients = lazyPage(loaders.Clients, 'Clients')
 const ClientDetail = lazyPage(loaders.ClientDetail, 'ClientDetail')
 const Catalog = lazyPage(loaders.Catalog, 'Catalog')
+const Empresa = lazyPage(loaders.Empresa, 'Empresa')
 const Projects = lazyPage(loaders.Projects, 'Projects')
 const ProjectDetail = lazyPage(loaders.ProjectDetail, 'ProjectDetail')
 const Quotes = lazyPage(loaders.Quotes, 'Quotes')
@@ -104,6 +106,7 @@ function App() {
           <Route element={<RoleRoute roles={['admin']} />}>
             <Route path="/usuarios" element={<Users />} />
             <Route path="/ncf" element={<Ncf />} />
+            <Route path="/empresa" element={<Empresa />} />
             <Route path="/aprendizaje-ia" element={<AIFeedbackEvents />} />
             {/* Entradas antiguas: ahora viven dentro de Ajustes de IA y de Catálogo. */}
             <Route path="/parametros-calculo" element={<Navigate to="/aprendizaje-ia?vista=parametros" replace />} />

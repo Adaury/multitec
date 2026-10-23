@@ -6,6 +6,7 @@ import type { CurrentUser } from '../lib/types'
 import { GlobalSearch } from './GlobalSearch'
 import { NotificationBell } from './NotificationBell'
 import { PendingSync } from './PendingSync'
+import { GenerationBanner } from './GenerationBanner'
 import { SystemStatus } from './SystemStatus'
 import { PageLoader } from './PageLoader'
 import { ThemeToggle } from './ThemeToggle'
@@ -36,6 +37,7 @@ const staffSidebarItems: NavItem[] = [
 const adminSidebarItems: NavItem[] = [
   { to: '/usuarios', label: 'Usuarios', icon: '⚙️' },
   { to: '/ncf', label: 'NCF', icon: '🔢' },
+  { to: '/empresa', label: 'Mi empresa', icon: '🏢' },
   { to: '/aprendizaje-ia', label: 'Ajustes de IA', icon: '🎛️' },
 ]
 
@@ -200,6 +202,7 @@ export function Layout() {
         </header>
 
         <PendingSync />
+        <GenerationBanner />
 
         <main className="flex-1 px-5 md:px-10 md:pb-10">
           <Suspense fallback={<PageLoader />}>
