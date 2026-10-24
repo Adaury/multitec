@@ -32,6 +32,7 @@ const staffSidebarItems: NavItem[] = [
   { to: '/cotizaciones', label: 'Cotizaciones', icon: '🧾' },
   { to: '/catalogo', label: 'Catálogo', icon: '📦' },
   { to: '/compras', label: 'Compras', icon: '🛒' },
+  { to: '/seguimiento', label: 'Seguimiento', icon: '📞' },
 ]
 
 const adminSidebarItems: NavItem[] = [

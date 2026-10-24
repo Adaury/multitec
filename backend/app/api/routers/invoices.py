@@ -17,11 +17,13 @@ from app.models.user import User
 from app.schemas.invoice import (
     InvoiceHistoryOut,
     InvoiceOut,
+    InvoicePaidUpdate,
     InvoicePaymentUpdate,
     InvoiceVoidRequest,
     PreInvoiceCreate,
     PreInvoiceOut,
 )
+from app.core.timeutil import today_dr
 from app.schemas.margin import MarginSummary
 from app.schemas.ncf import ConvertToInvoiceRequest
 from app.services.code_generator import next_code
@@ -250,6 +252,10 @@ def update_invoice_payment(
     invoice.itbis_withheld = payload.itbis_withheld
     invoice.isr_withheld = payload.isr_withheld
     invoice.retention_date = payload.retention_date if has_retention else None
+    # Pagada de contado, por transferencia, con tarjeta…: ya está cobrada. A crédito sigue por cobrar
+    # hasta que alguien la marque (ver /paid).
+    if payload.payment_method not in (None, "credito") and invoice.paid_at is None and invoice.voided_at is None:
+        invoice.paid_at = today_dr()
     db.add(
         InvoiceHistory(
             invoice_id=invoice.id,
@@ -260,6 +266,35 @@ def update_invoice_payment(
             ),
         )
     )
+    db.commit()
+    db.refresh(invoice)
+    return invoice
+
+
+@router.put("/api/invoices/{invoice_id}/paid", response_model=InvoiceOut)
+def mark_invoice_paid(
+    invoice_id: int,
+    payload: InvoicePaidUpdate,
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
+    """Marca una factura como cobrada (por defecto hoy) o la devuelve a 'por cobrar'. Alimenta el
+    seguimiento de cobros."""
+    invoice = db.query(Invoice).options(joinedload(Invoice.items)).filter(Invoice.id == invoice_id).one_or_none()
+    if invoice is None:
+        raise HTTPException(status_code=404, detail="Factura no encontrada")
+    if invoice.voided_at is not None:
+        raise HTTPException(status_code=400, detail="Una factura anulada no se cobra")
+    if payload.paid:
+        paid_at = payload.paid_at or today_dr()
+        if paid_at > today_dr():
+            raise HTTPException(status_code=400, detail="La fecha de cobro no puede ser futura")
+        invoice.paid_at = paid_at
+        note = f"Cobrada el {paid_at.strftime('%d/%m/%Y')}"
+    else:
+        invoice.paid_at = None
+        note = "Vuelve a por cobrar"
+    db.add(InvoiceHistory(invoice_id=invoice.id, action="cobro", note=note))
     db.commit()
     db.refresh(invoice)
     return invoice

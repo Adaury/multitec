@@ -1,8 +1,16 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, LabelHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
 
-export function Card({ children, className = '' }: { children: ReactNode; className?: string }) {
+export function Card({
+  children,
+  className = '',
+  testId,
+}: {
+  children: ReactNode
+  className?: string
+  testId?: string
+}) {
   return (
-    <div className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 ${className}`}>
+    <div data-testid={testId} className={`rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 ${className}`}>
       {children}
     </div>
   )

@@ -89,6 +89,9 @@ class Invoice(Base):
     itbis_withheld: Mapped[float] = mapped_column(Numeric(12, 2), default=0, server_default="0")
     isr_withheld: Mapped[float] = mapped_column(Numeric(12, 2), default=0, server_default="0")
     retention_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # Fecha en que se cobró. Vacío = por cobrar (alimenta el seguimiento de cobros). No es lo mismo que
+    # `payment_method`, que solo describe cómo se pagó para el 607.
+    paid_at: Mapped[date | None] = mapped_column(Date, nullable=True)
     # Anulación (formato 608): el NCF queda consumido pero la factura deja de contar como venta.
     voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     void_reason: Mapped[str | None] = mapped_column(String(2), nullable=True)

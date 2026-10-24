@@ -634,6 +634,8 @@ export interface Invoice {
   itbis_withheld: number
   isr_withheld: number
   retention_date: string | null
+  /** Fecha de cobro; null = por cobrar (ver pantalla Seguimiento). */
+  paid_at: string | null
   /** Anulación (formato 608): con fecha, la factura ya no cuenta como venta. */
   voided_at: string | null
   void_reason: string | null

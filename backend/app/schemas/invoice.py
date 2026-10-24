@@ -77,6 +77,7 @@ class InvoiceOut(BaseModel):
     itbis_withheld: float = 0
     isr_withheld: float = 0
     retention_date: date | None = None
+    paid_at: date | None = None
     voided_at: datetime | None = None
     void_reason: str | None = None
     created_by: int | None = None
@@ -85,6 +86,13 @@ class InvoiceOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class InvoicePaidUpdate(BaseModel):
+    """Marcar una factura como cobrada (con su fecha) o volver a dejarla por cobrar."""
+
+    paid: bool = True
+    paid_at: date | None = None
 
 
 class InvoicePaymentUpdate(BaseModel):

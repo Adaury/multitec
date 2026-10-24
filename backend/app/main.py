@@ -22,6 +22,7 @@ from app.api.routers import (
     engineering,
     execution,
     extensions,
+    followups,
     inventory,
     invoices,
     logbook,
@@ -142,6 +143,7 @@ app.include_router(ai_feedback_events.router)
 app.include_router(users.router)
 app.include_router(ncf.router)
 app.include_router(company.router)
+app.include_router(followups.router)
 app.include_router(reports.router)
 app.include_router(search.router)
 app.include_router(notifications.router)

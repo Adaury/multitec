@@ -29,6 +29,7 @@ const loaders = {
   Calendario: () => import('./pages/Calendario'),
   PortalCliente: () => import('./pages/PortalCliente'),
   Compras: () => import('./pages/Compras'),
+  Seguimiento: () => import('./pages/Seguimiento'),
 }
 
 const Dashboard = lazyPage(loaders.Dashboard, 'Dashboard')
@@ -36,6 +37,7 @@ const Clients = lazyPage(loaders.Clients, 'Clients')
 const ClientDetail = lazyPage(loaders.ClientDetail, 'ClientDetail')
 const Catalog = lazyPage(loaders.Catalog, 'Catalog')
 const Empresa = lazyPage(loaders.Empresa, 'Empresa')
+const Seguimiento = lazyPage(loaders.Seguimiento, 'Seguimiento')
 const Projects = lazyPage(loaders.Projects, 'Projects')
 const ProjectDetail = lazyPage(loaders.ProjectDetail, 'ProjectDetail')
 const Quotes = lazyPage(loaders.Quotes, 'Quotes')
@@ -99,6 +101,7 @@ function App() {
             <Route path="/catalogo" element={<Catalog />} />
             <Route path="/cotizaciones" element={<Quotes />} />
             <Route path="/compras" element={<Compras />} />
+            <Route path="/seguimiento" element={<Seguimiento />} />
             {/* Entradas antiguas: ahora viven dentro de Cotizaciones y Compras. */}
             <Route path="/presupuestos" element={<Navigate to="/cotizaciones?vista=presupuestos" replace />} />
             <Route path="/proveedores" element={<Navigate to="/compras?vista=proveedores" replace />} />
