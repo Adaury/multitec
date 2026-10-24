@@ -226,3 +226,33 @@ def test_background_engineering_failure_never_raises(client, admin_token):
     project = make_project(client, headers)
     with patch("app.ai_engine.documents.draft_engineering", side_effect=RuntimeError("ollama caído")):
         assert documents.draft_engineering_in_background(project["id"], "contexto", []) is False
+
+
+def test_generate_from_survey_warns_about_lines_without_a_catalog_product(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    product = _create_product(client, headers)
+
+    with (
+        patch(
+            "app.ai_engine.documents.suggest_budget_items",
+            return_value=[
+                {"product_id": product["id"], "description": product["name"], "quantity": 2},
+                {"product_id": None, "description": "rack", "quantity": 1},
+            ],
+        ),
+        patch(
+            "app.ai_engine.documents.draft_engineering",
+            return_value={
+                "recommended_equipment": "x", "distribution": "x", "conduits": "x",
+                "wiring": "x", "technical_design": "x", "observations": "x",
+            },
+        ),
+        patch("app.api.routers.ai.reindex_project"),
+    ):
+        resp = client.post(f"/api/projects/{project['id']}/generate-from-survey", headers=headers)
+
+    assert resp.status_code == 200, resp.text
+    warnings = resp.json()["warnings"]
+    assert any("«rack»" in w and "catálogo" in w for w in warnings)
+    assert not any(product["name"] in w for w in warnings)  # lo que sí coincide no se avisa

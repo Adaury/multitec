@@ -181,6 +181,13 @@ def compute_survey_items(db: Session, context: str) -> tuple[list[dict], list[st
         _resolve_param(db, STORAGE_GB_PER_MP_PER_DAY_KEY, param_overrides),
         _resolve_param(db, STORAGE_RETENTION_DAYS_KEY, param_overrides),
     )
+    # Líneas que la IA entendió pero no encontró en el catálogo (ej. "rack"): quedan en la cotización
+    # con precio 0, así que se avisa para que se revisen o se quiten antes de aprobar.
+    unmatched_notices = [
+        f"«{item['description']}» no coincide con ningún producto del catálogo (precio 0): ponle precio o quítala."
+        for item in items
+        if item.get("product_id") is None
+    ]
     labor_estimate = calculate_labor(
         items,
         _build_install_profiles(products),
@@ -190,7 +197,7 @@ def compute_survey_items(db: Session, context: str) -> tuple[list[dict], list[st
     if labor_estimate is not None:
         items = items + [build_labor_budget_item(labor_estimate)]
 
-    warnings = pack_notices + calculate_capacity_warnings(
+    warnings = pack_notices + unmatched_notices + calculate_capacity_warnings(
         items, catalog, _build_channel_capacity_profiles(products)
     )
     for item in items:

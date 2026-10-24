@@ -216,6 +216,25 @@ def _spec_number_is_not_quantity(entity: dict) -> dict:
     return entity
 
 
+# Cosas del cliente o del sitio que el modelo local a veces lista como si fueran materiales ("el celular",
+# "internet", "la casa"). Se descarta la entidad solo si TODAS sus palabras son de esta lista: "router
+# wifi" o "cable de internet" sí son productos y se conservan.
+_NOT_FOR_SALE_WORDS = {
+    "celular", "celulares", "smartphone", "movil", "computadora", "computador", "laptop", "internet",
+    "casa", "edificio", "cuarto", "vivienda", "apartamento", "local", "oficina",
+}
+
+
+def is_not_for_sale_entity(description: str) -> bool:
+    """True si la descripción es solo un lugar o algo que el cliente ya tiene (no se cotiza)."""
+    text = unicodedata.normalize("NFD", description).encode("ascii", "ignore").decode().lower()
+    words = [w for w in re.findall(r"[a-z]+", text) if w not in _STOPWORDS_ES]
+    return bool(words) and all(w in _NOT_FOR_SALE_WORDS for w in words)
+
+
+_STOPWORDS_ES = {"el", "la", "los", "las", "un", "una", "unos", "unas", "de", "del", "al", "en", "con", "y", "o"}
+
+
 def interpret_survey_items(project_context: str) -> list[dict]:
     """Extrae del expediente del proyecto los materiales, equipos, accesorios o mano de
     obra mencionados explícitamente por el técnico, con su cantidad — sin intentar
@@ -264,5 +283,10 @@ def interpret_survey_items(project_context: str) -> list[dict]:
         return json.loads(response.message.content)["entities"]
 
     entities = _call(run)
-    entities = [e for e in entities if not is_measurement_entity(str(e.get("description", "")))]
+    entities = [
+        e
+        for e in entities
+        if not is_measurement_entity(str(e.get("description", "")))
+        and not is_not_for_sale_entity(str(e.get("description", "")))
+    ]
     return [_spec_number_is_not_quantity(e) for e in entities]
