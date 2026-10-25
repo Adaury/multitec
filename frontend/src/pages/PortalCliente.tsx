@@ -220,7 +220,7 @@ export function PortalCliente() {
   }
 
   return (
-    <div className="min-h-screen bg-brand-bg dark:bg-gray-950">
+    <div className="min-h-dvh bg-brand-bg dark:bg-gray-950">
       <div className="mx-auto max-w-lg px-5 py-6 md:max-w-none md:px-10 md:py-10 lg:px-16 xl:px-24 2xl:px-32">
         <div className="flex items-center gap-2.5">
           <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-blue text-white">

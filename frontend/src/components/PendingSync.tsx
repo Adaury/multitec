@@ -50,6 +50,16 @@ export function PendingSync() {
     if (online) void send()
   }, [online, send])
 
+  // iPhone no tiene sincronización en segundo plano y, al volver a la app desde otra, el evento "online"
+  // no siempre llega: se reintenta cada vez que la app vuelve a ser visible.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && navigator.onLine) void send()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [send])
+
   if (pending.length === 0 && !message) return null
 
   const withError = pending.filter((p) => p.lastError)

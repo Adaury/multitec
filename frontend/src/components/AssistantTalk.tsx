@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { MessageCircle } from 'lucide-react'
 import { api } from '../lib/api'
 import { SURVEY_TYPES } from '../lib/surveyTypes'
 import { useSpeaker } from '../lib/useSpeaker'
@@ -154,7 +155,7 @@ export function AssistantTalk({ opening }: { opening: string }) {
         onClick={() => void start()}
         className="flex w-full items-center gap-4 rounded-2xl bg-brand-blue p-4 text-left text-white shadow active:scale-[0.99]"
       >
-        <span className="text-4xl">🗣️</span>
+        <MessageCircle className="h-10 w-10 shrink-0" aria-hidden="true" />
         <span>
           <span className="block text-lg font-bold leading-tight">Hablar con el asistente</span>
           <span className="block text-sm text-blue-100">Te pregunto qué toca hoy y me lo dices hablando</span>

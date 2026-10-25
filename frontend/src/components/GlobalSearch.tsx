@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { Search } from 'lucide-react'
 import { api } from '../lib/api'
 import type { SearchResults } from '../lib/types'
 import { IconButton } from './ui'
@@ -56,7 +57,7 @@ export function GlobalSearch() {
     <div ref={containerRef} className="relative">
       {!open && (
         <IconButton aria-label="Buscar" onClick={() => setOpen(true)}>
-          🔍
+          <Search className="h-[18px] w-[18px]" aria-hidden="true" />
         </IconButton>
       )}
 

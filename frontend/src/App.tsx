@@ -30,6 +30,8 @@ const loaders = {
   PortalCliente: () => import('./pages/PortalCliente'),
   Compras: () => import('./pages/Compras'),
   Seguimiento: () => import('./pages/Seguimiento'),
+  Auditoria: () => import('./pages/Auditoria'),
+  HojaDeTiempo: () => import('./pages/HojaDeTiempo'),
 }
 
 const Dashboard = lazyPage(loaders.Dashboard, 'Dashboard')
@@ -50,6 +52,8 @@ const AIFeedbackEvents = lazyPage(loaders.AIFeedbackEvents, 'AIFeedbackEvents')
 const Calendario = lazyPage(loaders.Calendario, 'Calendario')
 const PortalCliente = lazyPage(loaders.PortalCliente, 'PortalCliente')
 const Compras = lazyPage(loaders.Compras, 'Compras')
+const Auditoria = lazyPage(loaders.Auditoria, 'Auditoria')
+const HojaDeTiempo = lazyPage(loaders.HojaDeTiempo, 'HojaDeTiempo')
 
 // Las pantallas de uso diario se descargan en segundo plano cuando el navegador está libre, para
 // que al tocarlas abran al instante en vez de esperar la descarga.
@@ -102,6 +106,7 @@ function App() {
             <Route path="/cotizaciones" element={<Quotes />} />
             <Route path="/compras" element={<Compras />} />
             <Route path="/seguimiento" element={<Seguimiento />} />
+            <Route path="/hoja-de-tiempo" element={<HojaDeTiempo />} />
             {/* Entradas antiguas: ahora viven dentro de Cotizaciones y Compras. */}
             <Route path="/presupuestos" element={<Navigate to="/cotizaciones?vista=presupuestos" replace />} />
             <Route path="/proveedores" element={<Navigate to="/compras?vista=proveedores" replace />} />
@@ -110,6 +115,7 @@ function App() {
             <Route path="/usuarios" element={<Users />} />
             <Route path="/ncf" element={<Ncf />} />
             <Route path="/empresa" element={<Empresa />} />
+            <Route path="/auditoria" element={<Auditoria />} />
             <Route path="/aprendizaje-ia" element={<AIFeedbackEvents />} />
             {/* Entradas antiguas: ahora viven dentro de Ajustes de IA y de Catálogo. */}
             <Route path="/parametros-calculo" element={<Navigate to="/aprendizaje-ia?vista=parametros" replace />} />

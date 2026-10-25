@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Bell } from 'lucide-react'
 import { api } from '../lib/api'
 import type { AppNotification } from '../lib/types'
 import { IconButton } from './ui'
@@ -74,7 +75,7 @@ export function NotificationBell() {
     <div ref={containerRef} className="relative">
       <div className="relative">
         <IconButton aria-label="Notificaciones" onClick={() => setOpen((v) => !v)}>
-          🔔
+          <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
         </IconButton>
         {count > 0 && (
           <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">

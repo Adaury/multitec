@@ -6,6 +6,7 @@ import { useAuthStore } from '../lib/authStore'
 import type { Client, ClientInput, Project } from '../lib/types'
 import { PROJECT_STATUS_LABELS } from '../lib/types'
 import { Badge, Button, Card } from '../components/ui'
+import { ClientAssets } from '../components/ClientAssets'
 import { ClientFormFields } from '../components/ClientFormFields'
 import { MapPreview } from '../components/MapPreview'
 
@@ -139,6 +140,10 @@ export function ClientDetail() {
             {clientProjects?.length === 0 && (
               <p className="text-sm text-gray-500">Este cliente aún no tiene proyectos.</p>
             )}
+          </div>
+
+          <div className="mt-6">
+            <ClientAssets clientId={client.id} projects={clientProjects ?? []} />
           </div>
         </div>
       </div>

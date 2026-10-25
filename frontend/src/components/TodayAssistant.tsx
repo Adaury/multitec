@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import { Bot, FileText, FolderOpen, Mic, PencilLine } from 'lucide-react'
 import { api } from '../lib/api'
 import { assistantCallName } from '../lib/assistantName'
 import { useAuthStore } from '../lib/authStore'
@@ -114,7 +115,8 @@ export function TodayAssistant() {
     <Card className="space-y-4 bg-blue-50 ring-blue-100 dark:bg-blue-950 dark:ring-blue-900">
       <div>
         <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          🤖 {greeting()}, {assistantCallName(user)}.
+          <Bot className="mr-1.5 inline h-6 w-6 -translate-y-0.5 text-brand-blue" aria-hidden="true" />
+          {greeting()}, {assistantCallName(user)}.
         </p>
         <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
           {isLoading && 'Revisando tu agenda…'}
@@ -132,14 +134,14 @@ export function TodayAssistant() {
           opening={`${greeting()}, ${assistantCallName(user)}. ${data ? summarize(data) : ''}`.trim()}
         />
         <Link to="/nuevo?modo=voz" className={ROW_CLASS}>
-          <span className="text-2xl">🎙️</span>
+          <Mic className="h-7 w-7 shrink-0 text-brand-blue" aria-hidden="true" />
           <span className="min-w-0">
             <span className={ROW_TITLE}>Dictar un levantamiento</span>
             <span className={ROW_SUB}>Me lo cuentas hablando y yo armo la cotización</span>
           </span>
         </Link>
         <Link to="/nuevo" className={ROW_CLASS}>
-          <span className="text-2xl">✍️</span>
+          <PencilLine className="h-7 w-7 shrink-0 text-brand-blue" aria-hidden="true" />
           <span className="min-w-0">
             <span className={ROW_TITLE}>Escribirlo paso a paso</span>
             <span className={ROW_SUB}>Busco o creo el cliente y te voy preguntando</span>
@@ -180,7 +182,7 @@ export function TodayAssistant() {
 
           {data.ready_to_quote.slice(0, 3).map((project) => (
             <Link key={`r-${project.project_id}`} to={`/proyectos/${project.project_id}?tab=levantamiento`} className={ROW_CLASS}>
-              <span className="text-2xl">🧾</span>
+              <FileText className="h-7 w-7 shrink-0 text-brand-blue" aria-hidden="true" />
               <span className="min-w-0">
                 <span className={ROW_TITLE}>Cotizar: {project.client_name}</span>
                 <span className={ROW_SUB}>
@@ -225,7 +227,7 @@ export function TodayAssistant() {
           <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Continuar</p>
           {toContinue.map((project) => (
             <Link key={`c-${project.project_id}`} to={`/proyectos/${project.project_id}`} className={ROW_CLASS}>
-              <span className="text-2xl">📁</span>
+              <FolderOpen className="h-7 w-7 shrink-0 text-brand-blue" aria-hidden="true" />
               <span className="min-w-0">
                 <span className={ROW_TITLE}>Continuar: {project.client_name}</span>
                 <span className={ROW_SUB}>

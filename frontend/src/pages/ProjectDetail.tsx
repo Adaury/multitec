@@ -49,6 +49,8 @@ import { startGeneration, useGenerationStore } from '../lib/generationStore'
 import { useSpeechDictation } from '../lib/useSpeechDictation'
 import { Badge, Button, Card, Field, IconButton, Textarea } from '../components/ui'
 import { LineItemsEditor } from '../components/LineItemsEditor'
+import { audioExtension, pickMimeType } from '../lib/audioRecording'
+import { whatsappUrl } from '../lib/whatsapp'
 import { shrinkImage } from '../lib/imageUpload'
 import { ProjectLocationCard } from '../components/ProjectLocationCard'
 import { InvoicePaymentForm } from '../components/InvoicePaymentForm'
@@ -173,14 +175,6 @@ const TECHNICIAN_PHASES: typeof PHASES = [
   { key: 'obra', label: 'Obra', tabs: ['ejecucion', 'bitacora', 'tickets'] },
 ]
 
-/** Teléfono dominicano de 10 dígitos → formato internacional para WhatsApp (wa.me). */
-function whatsappUrl(phone: string | null | undefined): string | null {
-  const digits = (phone ?? '').replace(/\D/g, '')
-  if (digits.length === 10) return `https://wa.me/1${digits}`
-  if (digits.length === 11 && digits.startsWith('1')) return `https://wa.me/${digits}`
-  return null
-}
-
 const MARGIN_BASIS_LABELS: Record<MarginSummary['basis'], string> = {
   facturado: 'Según lo facturado',
   cotizado: 'Proyectado según cotización aprobada',
@@ -254,6 +248,10 @@ export function ProjectDetail() {
         ← Volver
       </button>
 
+      {/* Pantalla ancha (xl): el resumen del proyecto queda fijo a la izquierda y las pestañas con su
+          contenido a la derecha; por debajo de xl todo se apila en una columna, como en el teléfono. */}
+      <div className="space-y-4 md:space-y-6 xl:grid xl:grid-cols-[22rem_minmax(0,1fr)] xl:items-start xl:gap-8 xl:space-y-0">
+      <div className="space-y-4 md:space-y-6 xl:sticky xl:top-24">
       <Card>
         <div className="flex items-center justify-between">
           <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{project.code}</p>
@@ -292,7 +290,9 @@ export function ProjectDetail() {
       <ProjectLocationCard project={project} />
 
       {isAdmin && <ProjectMarginCard projectId={project.id} />}
+      </div>
 
+      <div className="min-w-0 space-y-4 md:space-y-6">
       <nav aria-label="Secciones del proyecto" className="space-y-2">
         <div
           className="grid gap-1 rounded-2xl bg-brand-gray p-1 dark:bg-gray-800"
@@ -385,6 +385,8 @@ export function ProjectDetail() {
       {tab === 'factura' && <InvoiceTab projectId={project.id} />}
       {tab === 'ampliaciones' && <ExtensionsTab projectId={project.id} />}
       {tab === 'tickets' && <TicketsTab projectId={project.id} />}
+      </div>
+      </div>
     </div>
   )
 }
@@ -692,13 +694,26 @@ function LevantamientoTab({
       setRecording(false)
       return
     }
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    const recorder = new MediaRecorder(stream)
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      // Permiso denegado o sin micrófono: sin esto el botón fallaba en silencio (sobre todo en iPhone).
+      setVoiceError(
+        'No se pudo usar el micrófono. En el iPhone: toca "aA" junto a la dirección → Configuración del sitio web → Micrófono → Permitir.',
+      )
+      return
+    }
+    setVoiceError(null)
+    const mimeType = pickMimeType()
+    const recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
     chunksRef.current = []
     recorder.ondataavailable = (e) => chunksRef.current.push(e.data)
     recorder.onstop = () => {
-      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
-      const file = new File([blob], `nota-voz-${Date.now()}.webm`, { type: blob.type })
+      const type = recorder.mimeType || mimeType || 'audio/webm'
+      const blob = new Blob(chunksRef.current, { type })
+      // La extensión sigue al formato real: un mp4 de iPhone subido como ".webm" confunde al servidor.
+      const file = new File([blob], `nota-voz-${Date.now()}.${audioExtension(type)}`, { type: blob.type })
       uploadAsset.mutate({ kind: 'audio', file })
       stream.getTracks().forEach((track) => track.stop())
     }

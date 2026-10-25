@@ -4,6 +4,7 @@ import { api, apiErrorMessage } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import { assistantCallName } from '../lib/assistantName'
 import type { CurrentUser, Role } from '../lib/types'
+import { SessionList } from '../components/SessionList'
 import { Badge, Button, Card, Field, Input } from '../components/ui'
 
 const ROLE_LABELS: Record<Role, string> = {
@@ -16,6 +17,7 @@ export function Profile() {
   const user = useAuthStore((s) => s.user)
   const setUser = useAuthStore((s) => s.setUser)
   const setToken = useAuthStore((s) => s.setToken)
+  const logout = useAuthStore((s) => s.logout)
 
   const [name, setName] = useState(user?.name ?? '')
   const [alias, setAlias] = useState(user?.assistant_alias ?? '')
@@ -144,11 +146,11 @@ export function Profile() {
               onChange={(e) => setCurrentPassword(e.target.value)}
             />
           </Field>
-          <Field label="Nueva contraseña (mínimo 8 caracteres)">
+          <Field label="Nueva contraseña (mínimo 10 caracteres)">
             <Input
               type="password"
               required
-              minLength={8}
+              minLength={10}
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
@@ -158,7 +160,7 @@ export function Profile() {
             <Input
               type="password"
               required
-              minLength={8}
+              minLength={10}
               autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
@@ -174,6 +176,21 @@ export function Profile() {
             {changePassword.isPending ? 'Guardando…' : 'Cambiar contraseña'}
           </Button>
         </form>
+      </Card>
+
+      <Card className="space-y-3 md:max-w-xl">
+        <div>
+          <p className="font-medium text-gray-800 dark:text-gray-200">Mis sesiones</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Dispositivos donde tienes la app abierta. Si perdiste el teléfono o no reconoces uno, ciérralas todas.
+          </p>
+        </div>
+        <SessionList
+          listPath="/auth/sessions"
+          closeAll={() => api.post('/auth/logout-all')}
+          closeAllLabel="Cerrar sesión en todos los dispositivos"
+          onClosedAll={() => logout()}
+        />
       </Card>
     </div>
   )

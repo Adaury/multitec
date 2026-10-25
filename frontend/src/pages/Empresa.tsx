@@ -109,7 +109,10 @@ export function Empresa() {
         </p>
       )}
 
-      <Card className="space-y-3 md:max-w-2xl">
+      {/* Pantalla ancha (xl): el logo a la izquierda y el formulario a la derecha; antes quedaba una sola
+          columna angosta con un tercio de la pantalla vacío. */}
+      <div className="space-y-4 md:space-y-6 xl:grid xl:grid-cols-[22rem_minmax(0,1fr)] xl:items-start xl:gap-8 xl:space-y-0">
+      <Card className="space-y-3 md:max-w-2xl xl:max-w-none">
         <p className="font-medium text-gray-800 dark:text-gray-200">Logo</p>
         <div className="flex h-28 items-center justify-center rounded-xl bg-white p-3 ring-1 ring-gray-200 dark:ring-gray-700">
           {company.has_logo && logoUrl ? (
@@ -151,7 +154,7 @@ export function Empresa() {
         </p>
       </Card>
 
-      <Card className="md:max-w-2xl">
+      <Card className="md:max-w-2xl xl:max-w-3xl">
         <form
           className="space-y-3"
           onSubmit={(e) => {
@@ -193,6 +196,7 @@ export function Empresa() {
           </Button>
         </form>
       </Card>
+      </div>
     </div>
   )
 }

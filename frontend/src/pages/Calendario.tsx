@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, apiErrorMessage } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
+import { formatMinutes, getPosition } from '../lib/geoPunch'
+import { longDate, whatsappUrl } from '../lib/whatsapp'
 import { directionsUrl, routeQuery, routeUrls } from '../lib/maps'
-import type { Project, Technician, Visit, VisitStatus } from '../lib/types'
+import type { Project, Technician, Visit, VisitStatus, Workload } from '../lib/types'
 import { VISIT_STATUS_LABELS } from '../lib/types'
 import { localISODate } from '../lib/format'
 import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
@@ -19,14 +21,15 @@ function addDays(iso: string, days: number) {
   return localISODate(d)
 }
 
-const STATUS_TONE: Record<VisitStatus, 'blue' | 'green' | 'red'> = {
+const STATUS_TONE: Record<VisitStatus, 'blue' | 'green' | 'red' | 'amber'> = {
   programada: 'blue',
+  en_sitio: 'amber',
   completada: 'green',
   cancelada: 'red',
 }
 
 function emptyForm(date: string) {
-  return { project_id: '', technician_id: '', scheduled_date: date, scheduled_time: '', notes: '' }
+  return { project_id: '', technician_id: '', scheduled_date: date, scheduled_time: '', duration_min: '', notes: '' }
 }
 
 export function Calendario() {
@@ -59,6 +62,19 @@ export function Calendario() {
     enabled: showForm,
   })
 
+  // Al elegir técnico y fecha, la oficina ve cuánto trabajo ya tiene ese día antes de agendar otra visita.
+  const isStaff = user?.role === 'admin' || user?.role === 'oficina'
+  const { data: workload } = useQuery({
+    queryKey: ['workload', form.technician_id, form.scheduled_date],
+    queryFn: async () =>
+      (
+        await api.get<Workload>(`/users/${form.technician_id}/workload`, {
+          params: { start: form.scheduled_date, end: form.scheduled_date },
+        })
+      ).data,
+    enabled: showForm && isStaff && !!form.technician_id && !!form.scheduled_date,
+  })
+
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['visits'] })
   }
@@ -71,6 +87,7 @@ export function Calendario() {
           technician_id: form.technician_id ? Number(form.technician_id) : null,
           scheduled_date: form.scheduled_date,
           scheduled_time: form.scheduled_time || null,
+          duration_min: form.duration_min ? Number(form.duration_min) : null,
           notes: form.notes || null,
         })
       ).data,
@@ -191,7 +208,27 @@ export function Calendario() {
                   onChange={(e) => setForm({ ...form, scheduled_time: e.target.value })}
                 />
               </Field>
+              <Field label="Duración estimada (opcional)">
+                <select
+                  className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                  value={form.duration_min}
+                  onChange={(e) => setForm({ ...form, duration_min: e.target.value })}
+                >
+                  <option value="">Sin definir</option>
+                  {[30, 60, 90, 120, 180, 240, 480].map((m) => (
+                    <option key={m} value={m}>
+                      {formatMinutes(m)}
+                    </option>
+                  ))}
+                </select>
+              </Field>
             </div>
+            {workload && workload.visits_total > 0 && (
+              <p className="rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:bg-amber-950 dark:text-amber-300">
+                {workload.name} ya tiene {workload.visits_total} {workload.visits_total === 1 ? 'visita' : 'visitas'} ese día
+                {workload.open_tickets > 0 && ` y ${workload.open_tickets} tickets abiertos`}.
+              </p>
+            )}
             <Field label="Notas">
               <Textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
             </Field>
@@ -321,6 +358,8 @@ function VisitCard({
   statusPending: boolean
   onSaved: () => void
 }) {
+  const user = useAuthStore((s) => s.user)
+  const [punchError, setPunchError] = useState<string | null>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [technicianId, setTechnicianId] = useState('')
   const [scheduledDate, setScheduledDate] = useState('')
@@ -358,6 +397,16 @@ function VisitCard({
       setIsEditing(false)
     },
     onError: (err: any) => setError(apiErrorMessage(err, 'No se pudo guardar la visita')),
+  })
+
+  const punch = useMutation({
+    mutationFn: async (kind: 'checkin' | 'checkout') => {
+      setPunchError(null)
+      const position = await getPosition() // opcional: sin GPS la hora igual se guarda
+      return (await api.post(`/visits/${visit.id}/${kind}`, position ?? undefined)).data
+    },
+    onSuccess: onSaved,
+    onError: (err: unknown) => setPunchError(apiErrorMessage(err, 'No se pudo marcar. Intenta de nuevo.')),
   })
 
   if (isEditing) {
@@ -422,6 +471,20 @@ function VisitCard({
   }
 
   const directions = directionsUrl({ address: visit.client_address, location_url: visit.client_location_url })
+  // Avisos al cliente por WhatsApp con el mensaje ya escrito (el técnico solo toca enviar).
+  const when = visit.scheduled_time ? ` a las ${visit.scheduled_time.slice(0, 5)}` : ''
+  const onTheWay = whatsappUrl(
+    visit.client_phone,
+    `Hola, le escribe ${user?.name ?? 'su técnico'} de Multitec. Voy en camino a su ubicación para la visita de hoy${when}. ¡Nos vemos en breve!`,
+  )
+  const confirmAppointment = whatsappUrl(
+    visit.client_phone,
+    `Hola, le escribe Multitec. Le recordamos su visita técnica el ${longDate(visit.scheduled_date)}${when}. ¿Nos confirma que estará disponible? Gracias.`,
+  )
+  // Marca la llegada o la salida: la persona asignada (o quien llega, si nadie la tiene) y la oficina.
+  const canPunch = user?.role !== 'tecnico' || visit.technician_id == null || visit.technician_id === user?.id
+  const clock = (iso: string) =>
+    new Date(iso).toLocaleTimeString('es-DO', { hour: '2-digit', minute: '2-digit', hour12: false })
 
   return (
     <Card className="space-y-2">
@@ -437,8 +500,47 @@ function VisitCard({
       )}
       <div className="flex gap-3 text-xs text-gray-400">
         {visit.scheduled_time && <span>🕐 {visit.scheduled_time.slice(0, 5)}</span>}
+        {visit.duration_min && <span>⏱ {formatMinutes(visit.duration_min)}</span>}
         <span>👤 {visit.technician_name ?? 'Sin asignar'}</span>
       </div>
+      {visit.checkin_at && (
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Llegó a las {clock(visit.checkin_at)}
+          {visit.checkout_at && ` · salió a las ${clock(visit.checkout_at)}`}
+          {visit.minutes_on_site != null && ` · estuvo ${formatMinutes(visit.minutes_on_site)}`}
+        </p>
+      )}
+      {punchError && <p className="text-sm text-red-600 dark:text-red-400">{punchError}</p>}
+      {visit.status === 'programada' && canPunch && (
+        <Button className="!w-auto px-4" onClick={() => punch.mutate('checkin')} disabled={punch.isPending}>
+          {punch.isPending ? 'Marcando…' : '📍 Llegué al sitio'}
+        </Button>
+      )}
+      {visit.status === 'programada' && onTheWay && confirmAppointment && (
+        <div className="flex gap-2">
+          <a
+            href={onTheWay}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-green-50 px-3 py-3 text-sm font-semibold text-green-700 active:scale-[0.98] dark:bg-green-950 dark:text-green-300"
+          >
+            💬 Voy en camino
+          </a>
+          <a
+            href={confirmAppointment}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-green-50 px-3 py-3 text-sm font-semibold text-green-700 active:scale-[0.98] dark:bg-green-950 dark:text-green-300"
+          >
+            💬 Confirmar cita
+          </a>
+        </div>
+      )}
+      {visit.status === 'en_sitio' && canPunch && (
+        <Button className="!w-auto px-4" onClick={() => punch.mutate('checkout')} disabled={punch.isPending}>
+          {punch.isPending ? 'Marcando…' : '✅ Terminé la visita'}
+        </Button>
+      )}
       {visit.notes && <p className="text-sm text-gray-600 dark:text-gray-400">{visit.notes}</p>}
       {(directions || visit.client_phone) && (
         <div className="flex gap-2">

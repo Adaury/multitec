@@ -35,7 +35,7 @@ test('a user created by an admin must replace the temporary password before usin
 
   // Cambia la contraseña y queda libre.
   await page.getByLabel('Contraseña actual').fill(temporary)
-  await page.getByLabel('Nueva contraseña (mínimo 8 caracteres)').fill(mine)
+  await page.getByLabel('Nueva contraseña (mínimo 10 caracteres)').fill(mine)
   await page.getByLabel('Confirmar nueva contraseña').fill(mine)
   await page.getByRole('button', { name: 'Cambiar contraseña' }).click()
   await expect(page.getByText(/Contraseña actualizada/)).toBeVisible({ timeout: 10000 })

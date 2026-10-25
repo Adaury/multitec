@@ -1,20 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
+import { pickMimeType } from '../lib/audioRecording'
 import type { VoiceSurveyResult } from '../lib/types'
 import { Button, Card, Field, Textarea } from './ui'
 
 const MAX_SECONDS = 5 * 60
 // La transcripción local (Whisper en CPU) + el reparto con IA pueden tardar más de lo normal.
 const TRANSCRIBE_TIMEOUT_MS = 180_000
-
-function pickMimeType(): string {
-  if (typeof MediaRecorder === 'undefined') return ''
-  for (const type of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']) {
-    if (MediaRecorder.isTypeSupported(type)) return type
-  }
-  return ''
-}
 
 function formatTime(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`

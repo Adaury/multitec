@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { CalendarDays, ClipboardList, FileText, FolderOpen, FolderPlus, Users, type LucideIcon } from 'lucide-react'
 import { api, downloadFile } from '../lib/api'
 import { Card } from '../components/ui'
 import { TodayAssistant } from '../components/TodayAssistant'
@@ -7,18 +8,18 @@ import { useAuthStore } from '../lib/authStore'
 import { formatDOP } from '../lib/format'
 import { PROJECT_STATUS_LABELS, type DashboardSummary, type MarginSummary } from '../lib/types'
 
-const quickActions = [
-  { label: 'Nuevo Proyecto', icon: '➕', to: '/proyectos?nuevo=1', staffOnly: false },
-  { label: 'Nuevo Levantamiento', icon: '📋', to: '/nuevo', staffOnly: false },
-  { label: 'Cotizaciones', icon: '🧾', to: '/cotizaciones', staffOnly: true },
+const quickActions: { label: string; icon: LucideIcon; to: string; staffOnly: boolean }[] = [
+  { label: 'Nuevo Proyecto', icon: FolderPlus, to: '/proyectos?nuevo=1', staffOnly: false },
+  { label: 'Nuevo Levantamiento', icon: ClipboardList, to: '/nuevo', staffOnly: false },
+  { label: 'Cotizaciones', icon: FileText, to: '/cotizaciones', staffOnly: true },
 ]
 
 // Accesos grandes del Inicio móvil: solo lo que se usa a diario. El resto está en "Más".
-const mobileTiles = [
-  { label: 'Clientes', icon: '👤', to: '/clientes' },
-  { label: 'Proyectos', icon: '📁', to: '/proyectos' },
-  { label: 'Cotizaciones', icon: '🧾', to: '/cotizaciones', staffOnly: true },
-  { label: 'Calendario', icon: '📅', to: '/calendario' },
+const mobileTiles: { label: string; icon: LucideIcon; to: string; staffOnly?: boolean }[] = [
+  { label: 'Clientes', icon: Users, to: '/clientes' },
+  { label: 'Proyectos', icon: FolderOpen, to: '/proyectos' },
+  { label: 'Cotizaciones', icon: FileText, to: '/cotizaciones', staffOnly: true },
+  { label: 'Calendario', icon: CalendarDays, to: '/calendario' },
 ]
 
 function MonthlyInvoicingChart({ data }: { data: DashboardSummary['monthly_invoicing'] }) {
@@ -208,7 +209,7 @@ export function Dashboard() {
               to={tile.to}
               className="flex h-36 flex-col items-center justify-center gap-3 rounded-3xl bg-white shadow-sm ring-1 ring-black/5 active:scale-[0.97] dark:bg-gray-900 dark:ring-white/10"
             >
-              <span className="text-6xl leading-none">{tile.icon}</span>
+              <tile.icon className="h-14 w-14 text-brand-blue" strokeWidth={1.5} aria-hidden="true" />
               <span className="text-lg font-semibold text-gray-800 dark:text-gray-100">{tile.label}</span>
             </Link>
           ))}
@@ -216,23 +217,27 @@ export function Dashboard() {
       </div>
 
       {/* Escritorio: el asistente del día y las acciones rápidas (la barra lateral cubre el resto). */}
-      <div className="hidden max-w-3xl md:block">
-        <TodayAssistant />
-      </div>
+      {/* En pantalla ancha (xl) el asistente va a la izquierda y las acciones rápidas a su lado, en vez de
+          apilarlas dejando media pantalla vacía; por debajo de xl se apilan como siempre. */}
+      <div className="hidden gap-8 md:grid xl:grid-cols-[minmax(0,48rem)_minmax(0,1fr)] xl:items-start">
+        <div className="max-w-3xl">
+          <TodayAssistant />
+        </div>
 
-      <div className="hidden md:block">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Acciones rápidas</h1>
-        <div className="mt-3 grid max-w-xl grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-4">
-          {quickActions.filter((action) => !action.staffOnly || canSeeReports).map((action) => (
-            <button
-              key={action.label}
-              onClick={() => navigate(action.to)}
-              className="flex flex-col items-center gap-2 rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10"
-            >
-              <span className="text-2xl">{action.icon}</span>
-              <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{action.label}</span>
-            </button>
-          ))}
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Acciones rápidas</h1>
+          <div className="mt-3 grid max-w-xl grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-4 xl:max-w-2xl">
+            {quickActions.filter((action) => !action.staffOnly || canSeeReports).map((action) => (
+              <button
+                key={action.label}
+                onClick={() => navigate(action.to)}
+                className="flex flex-col items-center gap-2 rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10"
+              >
+                <action.icon className="h-7 w-7 text-brand-blue" strokeWidth={1.75} aria-hidden="true" />
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{action.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

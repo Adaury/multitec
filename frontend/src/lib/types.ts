@@ -53,8 +53,46 @@ export interface ManagedUser {
   email: string
   role: Role
   is_active: boolean
+  phone: string | null
+  zone: string | null
+  skills: string | null
+  vehicle: string | null
+  last_login_at: string | null
   created_by: number | null
   created_at: string
+}
+
+/** Una sesión abierta (un dispositivo con la app iniciada). */
+export interface AppSession {
+  id: number
+  created_at: string
+  last_used_at: string | null
+  user_agent: string | null
+  ip: string | null
+  current: boolean
+}
+
+/** Carga de trabajo de un técnico en un rango de fechas. */
+export interface Workload {
+  user_id: number
+  name: string
+  visits_total: number
+  visits_pending: number
+  visits_done: number
+  open_tickets: number
+  hours_on_site: number
+}
+
+export interface AuditEntry {
+  id: number
+  created_at: string
+  user_id: number | null
+  user_email: string | null
+  action: string
+  entity: string | null
+  entity_id: number | null
+  detail: string | null
+  ip: string | null
 }
 
 export interface Client {
@@ -719,7 +757,7 @@ export interface AppNotification {
   created_at: string
 }
 
-export type VisitStatus = 'programada' | 'completada' | 'cancelada'
+export type VisitStatus = 'programada' | 'en_sitio' | 'completada' | 'cancelada'
 
 export interface Visit {
   id: number
@@ -733,14 +771,19 @@ export interface Visit {
   technician_name: string | null
   scheduled_date: string
   scheduled_time: string | null
+  duration_min: number | null
   notes: string | null
   status: VisitStatus
+  checkin_at: string | null
+  checkout_at: string | null
+  minutes_on_site: number | null
   created_by: number | null
   created_at: string
 }
 
 export const VISIT_STATUS_LABELS: Record<VisitStatus, string> = {
   programada: 'Programada',
+  en_sitio: 'En el sitio',
   completada: 'Completada',
   cancelada: 'Cancelada',
 }
@@ -832,3 +875,50 @@ export interface AskResponse {
   projects: string[]
 }
 
+
+export type AssetKind =
+  | 'camara'
+  | 'grabador'
+  | 'panel_alarma'
+  | 'sensor'
+  | 'control_acceso'
+  | 'cerradura'
+  | 'intercomunicador'
+  | 'switch'
+  | 'router_wifi'
+  | 'ups'
+  | 'otro'
+
+export const ASSET_KIND_LABELS: Record<AssetKind, string> = {
+  camara: 'Cámara',
+  grabador: 'Grabador (NVR/DVR)',
+  panel_alarma: 'Panel de alarma',
+  sensor: 'Sensor',
+  control_acceso: 'Control de acceso',
+  cerradura: 'Cerradura',
+  intercomunicador: 'Intercomunicador',
+  switch: 'Switch',
+  router_wifi: 'Router / WiFi',
+  ups: 'UPS',
+  otro: 'Otro',
+}
+
+/** Un equipo instalado en casa o local de un cliente. */
+export interface ClientAsset {
+  id: number
+  client_id: number
+  project_id: number | null
+  kind: AssetKind
+  name: string
+  brand: string | null
+  model: string | null
+  serial: string | null
+  mac: string | null
+  ip_address: string | null
+  location: string | null
+  installed_on: string | null
+  warranty_until: string | null
+  notes: string | null
+  created_at: string
+  warranty_status: 'vigente' | 'por_vencer' | 'vencida' | null
+}

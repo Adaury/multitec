@@ -7,6 +7,10 @@ import './index.css'
 import App from './App.tsx'
 import { queryClient } from './lib/queryClient'
 
+// iPhone: pide que el navegador no borre el almacenamiento de la app (la cola de levantamientos sin
+// enviar y las fotos) cuando hace falta espacio. Si no lo concede, no pasa nada: es solo un seguro.
+void navigator.storage?.persist?.().catch(() => {})
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>

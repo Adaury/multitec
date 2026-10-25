@@ -1,17 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { pickMimeType } from './audioRecording'
 
 const MAX_SECONDS = 12 // una orden al asistente es corta; más que esto es que se quedó abierto
 const SILENCE_AFTER_SPEECH_MS = 1400 // pausa que se toma como "ya terminé de hablar"
 const SPEECH_LEVEL = 0.035 // volumen (RMS) a partir del cual se considera que hay voz
-
-function pickMimeType(): string {
-  if (typeof MediaRecorder === 'undefined') return ''
-  // iPhone solo graba mp4/aac; Chrome y Android, webm/opus.
-  for (const type of ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']) {
-    if (MediaRecorder.isTypeSupported(type)) return type
-  }
-  return ''
-}
 
 const DENIED =
   'El micrófono está bloqueado. En el iPhone: toca "aA" junto a la dirección → Configuración del sitio web → ' +

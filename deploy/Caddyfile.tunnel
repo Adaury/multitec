@@ -1,0 +1,49 @@
+# Caddyfile para publicar Multitec con un DOMINIO PROPIO a través de Cloudflare Tunnel (ver DOMINIO.md).
+#
+# El túnel (cloudflared) hace una conexión SALIENTE a Cloudflare, así que no se abre ningún puerto del router
+# y funciona aunque el proveedor de internet comparta la IP. Cloudflare termina el HTTPS; aquí Caddy solo
+# escucha en 127.0.0.1:8080 (nadie de la red lo ve) y reparte entre la web compilada y el backend.
+#
+# Uso:  caddy run --config deploy/Caddyfile.tunnel      (o como servicio, ver DOMINIO.md)
+
+{
+	# Cloudflare ya pone el HTTPS: Caddy no pide certificados ni redirige a https.
+	auto_https off
+	servers {
+		# Confía en lo que dice cloudflared (127.0.0.1) sobre el protocolo y la IP del visitante. Sin esto Caddy
+		# reescribe X-Forwarded-Proto como http y la cookie de sesión saldría sin el atributo Secure.
+		trusted_proxies static 127.0.0.1/32
+	}
+}
+
+:8080 {
+	bind 127.0.0.1
+
+	root * ../frontend/dist
+	encode gzip
+
+	# Mismas cabeceras que deploy/Caddyfile y frontend/security-headers.ts (sin HSTS: lo pone Cloudflare).
+	# "?" = solo si el backend no la puso: /uploads ya trae una CSP más estricta (sandbox).
+	header {
+		?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-src https://www.openstreetmap.org https://maps.google.com https://www.google.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(self), microphone=(self), camera=(self)"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	handle /uploads/* {
+		reverse_proxy 127.0.0.1:8000
+	}
+
+	# SPA: cualquier ruta que no sea un archivo real cae en index.html (React Router)
+	handle {
+		try_files {path} /index.html
+		file_server
+	}
+}
