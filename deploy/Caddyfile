@@ -17,6 +17,21 @@ multitec.local {
 	root * ../frontend/dist
 	encode gzip
 
+	# Cabeceras de seguridad. Mismo contenido que frontend/security-headers.ts (que cubre
+	# `vite preview`): si cambias una, cámbiala en las dos. HSTS sin includeSubDomains ni preload
+	# a propósito: con "tls internal" el certificado es propio y un error de certificado no debe
+	# dejar a nadie bloqueado por un año.
+	header {
+		# "?" = solo si el backend no la puso: /uploads ya trae una CSP más estricta (sandbox).
+		?Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; frame-src https://www.openstreetmap.org https://maps.google.com https://www.google.com; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+		Strict-Transport-Security "max-age=2592000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "geolocation=(self), microphone=(self), camera=(self)"
+		-Server
+	}
+
 	handle /api/* {
 		reverse_proxy 127.0.0.1:8000
 	}

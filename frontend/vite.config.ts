@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { devMovil } from './dev-movil.ts'
+import { securityHeaders } from './security-headers.ts'
 
 // Los E2E locales levantan su propio backend en otro puerto (ver e2e/isolated.ts) y lo pasan
 // por esta variable; sin ella el proxy sigue apuntando al backend normal de desarrollo.
@@ -23,6 +25,8 @@ const proxy = {
 export default defineConfig({
   plugins: [
     react(),
+    // Solo en `vite` (desarrollo): http://localhost:5173/dev/movil
+    devMovil(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['icons/apple-touch-icon.png'],
@@ -58,5 +62,8 @@ export default defineConfig({
     host: true,
     proxy,
     allowedHosts: true,
+    // Solo aquí y no en `server` (desarrollo): el modo dev inyecta scripts en línea para el HMR
+    // y la CSP los bloquearía.
+    headers: securityHeaders,
   },
 })
