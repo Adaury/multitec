@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
@@ -26,6 +26,7 @@ from app.schemas.invoice import (
 from app.core.timeutil import today_dr
 from app.schemas.margin import MarginSummary
 from app.schemas.ncf import ConvertToInvoiceRequest
+from app.services.audit import audit
 from app.services.code_generator import next_code
 from app.services.csv_export import build_csv
 from app.services.document_items import resolve_item_fields
@@ -302,6 +303,7 @@ def mark_invoice_paid(
 
 @router.post("/api/invoices/{invoice_id}/void", response_model=InvoiceOut)
 def void_invoice(
+    request: Request,
     invoice_id: int,
     payload: InvoiceVoidRequest,
     db: Session = Depends(get_db),
@@ -325,6 +327,15 @@ def void_invoice(
     if payload.note:
         note += f": {payload.note}"
     db.add(InvoiceHistory(invoice_id=invoice.id, action="anulada", note=note))
+    audit(
+        db,
+        "invoice_voided",
+        user=current_user,
+        entity="invoice",
+        entity_id=invoice.id,
+        detail={"factura": invoice.code, "ncf": invoice.ncf, "motivo": payload.reason_code},
+        request=request,
+    )
     db.commit()
     db.refresh(invoice)
     return invoice

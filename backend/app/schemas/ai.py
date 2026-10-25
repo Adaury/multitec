@@ -27,7 +27,8 @@ class BudgetSuggestionOut(BaseModel):
 
 class AskRequest(BaseModel):
     project_id: int | None = None
-    question: str
+    # Sin tope, una pregunta enorme satura la IA (corre en la CPU de este equipo).
+    question: str = Field(min_length=1, max_length=2000)
 
 
 class AskResponse(BaseModel):

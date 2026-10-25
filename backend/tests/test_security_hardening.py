@@ -83,7 +83,7 @@ def test_uploaded_file_extension_comes_from_validated_type_not_filename(client, 
     headers = auth_headers(admin_token)
     project = make_project(client, headers)
 
-    files = {"file": ("evil.html", io.BytesIO(b"<script>alert(1)</script>"), "image/png")}
+    files = {"file": ("evil.html", io.BytesIO(PNG_HEADER + b"<script>alert(1)</script>"), "image/png")}
     resp = client.post(
         f"/api/projects/{project['id']}/survey/assets",
         data={"kind": "photo"},
@@ -94,6 +94,56 @@ def test_uploaded_file_extension_comes_from_validated_type_not_filename(client, 
     assert resp.status_code == 201, resp.text
     assert resp.json()["file_path"].endswith(".png")
     assert ".html" not in resp.json()["file_path"]
+
+
+def test_a_file_that_is_not_the_declared_image_is_rejected(client, admin_token):
+    """Un HTML, un PDF o un ejecutable declarado "image/png" ya no se guarda: los primeros bytes mandan."""
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    url = f"/api/projects/{project['id']}/survey/assets"
+
+    for body, declared in [
+        (b"<script>alert(1)</script>", "image/png"),
+        (b"%PDF-1.7 ...", "image/jpeg"),
+        (PNG_HEADER + b"0" * 30, "image/jpeg"),  # un PNG real declarado como JPEG
+        (b"MZ\x90\x00 programa", "image/webp"),
+    ]:
+        resp = client.post(
+            url, data={"kind": "photo"}, files={"file": ("x", io.BytesIO(body), declared)}, headers=headers
+        )
+        assert resp.status_code == 400, f"{declared} con {body[:6]!r} debió rechazarse"
+
+    jpeg = b"\xff\xd8\xff\xe0" + b"0" * 30
+    ok = client.post(url, data={"kind": "photo"}, files={"file": ("x", io.BytesIO(jpeg), "image/jpeg")}, headers=headers)
+    assert ok.status_code == 201, ok.text
+
+
+def test_an_audio_note_that_is_really_a_web_page_or_program_is_rejected(client, admin_token):
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    resp = client.post(
+        f"/api/projects/{project['id']}/survey/assets",
+        data={"kind": "audio"},
+        files={"file": ("nota.webm", io.BytesIO(b"<html>no soy audio</html>"), "audio/webm")},
+        headers=headers,
+    )
+    assert resp.status_code == 400
+
+
+def test_oversized_upload_is_cut_off_while_reading(client, admin_token, monkeypatch):
+    from app.core import config
+
+    monkeypatch.setattr(config.get_settings(), "max_upload_mb", 1)
+    headers = auth_headers(admin_token)
+    project = make_project(client, headers)
+    big = PNG_HEADER + b"0" * (2 * 1024 * 1024)
+    resp = client.post(
+        f"/api/projects/{project['id']}/survey/assets",
+        data={"kind": "photo"},
+        files={"file": ("grande.png", io.BytesIO(big), "image/png")},
+        headers=headers,
+    )
+    assert resp.status_code == 413
 
 
 PNG_HEADER = bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])

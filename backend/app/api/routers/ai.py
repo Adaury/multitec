@@ -16,6 +16,7 @@ from app.ai_engine.learning import recent_voice_examples, record_voice_feedback
 from app.ai_engine.nlu import classify_voice_transcript, summarize_survey
 from app.ai_engine.qa import answer_question
 from app.ai_engine.transcription import transcribe_audio
+from app.core.quota import ai_quota
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.budget import Budget
@@ -41,7 +42,8 @@ from app.services.access import can_see_project, project_scope
 from app.services.embeddings import reindex_project, search_projects
 from app.services.notifications import notify_quote_pending
 
-router = APIRouter(tags=["ai"])
+# Todas las rutas de este archivo llaman a la IA: la cuota por usuario va a nivel de router (core/quota.py).
+router = APIRouter(tags=["ai"], dependencies=[Depends(ai_quota)])
 
 logger = logging.getLogger("multitec.ai")
 

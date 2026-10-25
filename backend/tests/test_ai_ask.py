@@ -101,3 +101,23 @@ def test_technician_asks_without_receiving_prices_but_admin_does(client, admin_t
     technician_context = ask_as(auth_headers(tech_token))
     assert "RD$" not in technician_context
     assert "Presupuestos" not in technician_context
+
+
+def test_ai_questions_are_capped_in_length_and_in_rate(client, admin_token):
+    from app.core import quota
+
+    headers = auth_headers(admin_token)
+    too_long = client.post("/api/ai/ask", json={"question": "x" * 2001}, headers=headers)
+    assert too_long.status_code == 422
+    assert client.post("/api/ai/ask", json={"question": ""}, headers=headers).status_code == 422
+
+    # Pasada la cuota por minuto, la IA responde 429 con cuánto esperar (la IA real se evita con un mock).
+    # Las dos peticiones inválidas de arriba también cuentan para la cuota: se parte de cero.
+    quota.reset()
+    with patch("app.api.routers.ai.search_projects", return_value=[]):
+        statuses = [
+            client.post("/api/ai/ask", json={"question": "¿hola?"}, headers=headers).status_code
+            for _ in range(quota.AI_CALLS_PER_MINUTE + 3)
+        ]
+    assert statuses[: quota.AI_CALLS_PER_MINUTE] == [200] * quota.AI_CALLS_PER_MINUTE
+    assert set(statuses[quota.AI_CALLS_PER_MINUTE :]) == {429}

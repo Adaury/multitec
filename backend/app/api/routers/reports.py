@@ -1,11 +1,16 @@
+from datetime import date, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from app.core.security import require_role
+from app.core.timeutil import today_dr
 from app.db.session import get_db
 from app.schemas.margin import MarginSummary
 from app.schemas.reports import DashboardSummary
+from app.schemas.timesheet import TimesheetOut
+from app.services.timesheet import timesheet_csv_rows, timesheet_rows, timesheet_totals
 from app.services.csv_export import build_csv
 from app.core.config import get_settings
 from app.services.dgii_606 import build_606_report, build_606_rows
@@ -49,6 +54,50 @@ def export_dashboard_csv(db: Session = Depends(get_db), _=Depends(allowed_roles)
 @router.get("/margin", response_model=MarginSummary)
 def get_margin_report(db: Session = Depends(get_db), _=Depends(admin_only)):
     return company_margin_last_months(db)
+
+
+def _timesheet_range(start: date | None, end: date | None) -> tuple[date, date]:
+    """Por defecto, la semana en curso (lunes a hoy)."""
+    today = today_dr()
+    first = start or today - timedelta(days=today.weekday())
+    last = end or today
+    if last < first:
+        raise HTTPException(status_code=400, detail="La fecha final no puede ser anterior a la inicial")
+    if (last - first).days > 366:
+        raise HTTPException(status_code=400, detail="El rango no puede pasar de un año")
+    return first, last
+
+
+@router.get("/timesheet", response_model=TimesheetOut)
+def get_timesheet(
+    start: date | None = None,
+    end: date | None = None,
+    user_id: int | None = None,
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
+    """Horas en sitio por técnico, de la entrada y salida marcadas en cada visita."""
+    first, last = _timesheet_range(start, end)
+    rows = timesheet_rows(db, first, last, user_id)
+    return {"start": first, "end": last, "rows": rows, "totals": timesheet_totals(rows)}
+
+
+@router.get("/timesheet/export")
+def export_timesheet_csv(
+    start: date | None = None,
+    end: date | None = None,
+    user_id: int | None = None,
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
+    first, last = _timesheet_range(start, end)
+    rows = timesheet_rows(db, first, last, user_id)
+    headers = ["Fecha", "Técnico", "Proyecto", "Cliente", "Entrada", "Salida", "Horas"]
+    return Response(
+        content=build_csv(headers, timesheet_csv_rows(rows)),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="hoja-de-tiempo-{first}-{last}.csv"'},
+    )
 
 
 def _dgii_response(form: str, year: int, month: int, fmt: str, csv_builder, rows_builder, db: Session) -> Response:

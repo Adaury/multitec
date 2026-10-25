@@ -12,7 +12,7 @@ from app.models.logbook import LogEntry, LogEntryAsset
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.logbook import LogEntryAssetOut, LogEntryCreate, LogEntryOut
-from app.services.uploads import enforce_upload_size, stored_extension
+from app.services.uploads import enforce_matches_declared_type, read_upload, stored_extension
 
 router = APIRouter(tags=["logbook"])
 
@@ -76,8 +76,8 @@ async def upload_log_photo(
     stored_name = f"{uuid.uuid4().hex}{extension}"
     destination = entry_dir / stored_name
 
-    contents = await file.read()
-    enforce_upload_size(contents)
+    contents = await read_upload(file)
+    enforce_matches_declared_type(contents, file.content_type)
     destination.write_bytes(contents)
 
     asset = LogEntryAsset(log_entry_id=entry.id, file_path=str(destination.as_posix()), description=description)

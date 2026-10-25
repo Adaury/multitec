@@ -138,7 +138,40 @@ total de **la cotización que acaba de generar** para poder dárselo al cliente.
 montos: el menú no le ofrece Cotizaciones, Catálogo ni Compras, el servidor le rechaza esas
 rutas, y la IA (Preguntar IA) le responde sin presupuestos ni cotizaciones.
 
+**El técnico solo ve lo suyo.** Un proyecto es suyo si lo creó, es el responsable, o tiene una visita
+o un ticket asignado; un cliente, si lo creó o es cliente de un proyecto suyo. Lo demás responde 404
+(`backend/app/services/access.py`, aplicado en `require_role`: primero el rol, después la pertenencia).
+Para que un técnico vea un proyecto que creó oficina, se le pone como responsable o se le agenda una visita.
+
+## Equipo y operación
+
+- **Ficha del equipo** (Usuarios): teléfono, zona, especialidades y vehículo; último acceso; carga de
+  trabajo del día por técnico.
+- **Restablecer clave**: genera una contraseña temporal de un solo uso (no se guarda en claro), cierra las
+  sesiones de esa persona y la obliga a cambiarla al entrar.
+- **Sesiones activas** por dispositivo, con cierre individual o de todas (admin sobre cualquiera; cada
+  usuario sobre las suyas en su perfil).
+- **Auditoría** (solo admin, `/auditoria`): accesos (también los fallidos y bloqueados), usuarios, precios,
+  facturas anuladas, NCF, datos de la empresa y enlaces del portal. Solo se agrega; nunca guarda claves.
+- **Visitas con entrada y salida**: «Llegué al sitio» / «Terminé la visita» (GPS opcional, solo al tocar el
+  botón); de ahí sale la **hoja de tiempo** (`/hoja-de-tiempo`, con CSV). Avisos por WhatsApp al cliente
+  («voy en camino», «confirmar cita») con el mensaje ya escrito.
+- **Equipos instalados** por cliente: tipo, marca, modelo, serial, MAC (se normaliza), IP, ubicación, fecha
+  de instalación y garantía (vigente / por vencer / vencida).
+
 ## Seguridad
+
+- **Bloqueo por cuenta** tras 5 intentos fallidos (espera de 1, 2, 5 y 15 min), igual exista o no el
+  correo, además del límite por IP. Vive en memoria: un reinicio del servidor lo borra.
+- **Contraseñas nuevas**: mínimo 10 caracteres, sin claves comunes ni de un solo carácter ni solo dígitos.
+- **Archivos subidos**: se lee por bloques con tope de `MAX_UPLOAD_MB`, y las imágenes deben empezar con
+  los bytes reales del tipo declarado (un HTML o un PDF disfrazado de PNG se rechaza).
+- **Exportaciones CSV**: las celdas que empiezan con `= + - @` se neutralizan (inyección de fórmulas en Excel).
+- **IA**: preguntas de máximo 2000 caracteres y 30 llamadas por minuto por usuario.
+- **Cabeceras**: `Cache-Control: no-store` en `/api`, `nosniff`, `Referrer-Policy`; CORS con métodos y
+  cabeceras explícitos. La web compilada lleva CSP y demás (`frontend/security-headers.ts`, espejo en
+  `deploy/Caddyfile`).
+- **Refresh token** en cookie `HttpOnly` + `SameSite=Strict`, con rotación y detección de reutilización.
 
 - **Rate limiting** en `/api/auth/login` (10 intentos/minuto por IP) y `/api/auth/refresh`
   (30/minuto), vía `slowapi`.

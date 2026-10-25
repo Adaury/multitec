@@ -1,15 +1,17 @@
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.security import require_role
 from app.db.session import get_db
 from app.models.company_profile import CompanyProfile
+from app.models.user import User
 from app.schemas.company import CompanyOut, CompanyUpdate
 from app.services import company as company_service
-from app.services.uploads import enforce_upload_size
+from app.services.audit import audit
+from app.services.uploads import enforce_matches_declared_type, read_upload
 
 router = APIRouter(prefix="/api/company", tags=["company"])
 
@@ -29,12 +31,20 @@ def get_company(db: Session = Depends(get_db), _=Depends(allowed_roles)):
 
 
 @router.put("", response_model=CompanyOut)
-def update_company(payload: CompanyUpdate, db: Session = Depends(get_db), _=Depends(admin_only)):
+def update_company(
+    request: Request, payload: CompanyUpdate, db: Session = Depends(get_db), current_user: User = Depends(admin_only)
+):
     profile = company_service.get_profile(db) or CompanyProfile(id=1)
+    changed = []
     for field in company_service.FIELDS:
         value = getattr(payload, field)
-        setattr(profile, field, value.strip() if value and value.strip() else None)
+        new = value.strip() if value and value.strip() else None
+        if getattr(profile, field, None) != new:
+            changed.append(field)  # solo los nombres de los campos: el RNC y las cuentas no se copian a la bitácora
+        setattr(profile, field, new)
     db.add(profile)
+    if changed:
+        audit(db, "company_updated", user=current_user, entity="company", detail={"campos": changed}, request=request)
     db.commit()
     return _out(db)
 
@@ -44,8 +54,8 @@ async def upload_logo(file: UploadFile = File(...), db: Session = Depends(get_db
     base_type = (file.content_type or "").split(";")[0].strip().lower()
     if base_type not in company_service.LOGO_CONTENT_TYPES:
         raise HTTPException(status_code=400, detail="El logo debe ser una imagen PNG, JPG o WebP.")
-    contents = await file.read()
-    enforce_upload_size(contents)
+    contents = await read_upload(file)
+    enforce_matches_declared_type(contents, file.content_type)
     company_service.save_logo(db, contents)
     return _out(db)
 

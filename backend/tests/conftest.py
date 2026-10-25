@@ -44,9 +44,12 @@ def _setup_database():
 def _reset_rate_limiter():
     """Sin esto, el rate limit de /api/auth/login (10/min) se agota a mitad de la
     suite, ya que casi todos los tests hacen login al menos una vez."""
+    from app.core import lockout, quota
     from app.core.limiter import limiter
 
     limiter.reset()
+    lockout.reset()  # el bloqueo por cuenta y la cuota de IA también son globales al proceso
+    quota.reset()
     yield
 
 

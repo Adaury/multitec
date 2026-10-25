@@ -14,7 +14,7 @@ from app.models.user import User
 from app.schemas.ticket import TicketAssetOut, TicketCreate, TicketHistoryOut, TicketOut, TicketUpdate
 from app.services.code_generator import next_code
 from app.services.notifications import notify_ticket_assigned
-from app.services.uploads import enforce_upload_size, stored_extension
+from app.services.uploads import enforce_matches_declared_type, read_upload, stored_extension
 
 router = APIRouter(tags=["tickets"])
 
@@ -132,8 +132,8 @@ async def upload_ticket_photo(
     stored_name = f"{uuid.uuid4().hex}{extension}"
     destination = ticket_dir / stored_name
 
-    contents = await file.read()
-    enforce_upload_size(contents)
+    contents = await read_upload(file)
+    enforce_matches_declared_type(contents, file.content_type)
     destination.write_bytes(contents)
 
     asset = TicketAsset(ticket_id=ticket.id, file_path=str(destination.as_posix()), description=description)

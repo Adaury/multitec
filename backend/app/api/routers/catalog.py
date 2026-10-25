@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload
@@ -28,6 +28,7 @@ from app.schemas.technical_rule import (
     TechnicalRuleOut,
     TechnicalRuleUpdate,
 )
+from app.services.audit import audit
 from app.services.catalog_import import import_catalog, template_csv
 from app.services.code_generator import next_code
 
@@ -93,7 +94,12 @@ def import_products(
 
 
 @router.put("/bulk-prices", response_model=list[ProductOut])
-def update_prices_in_bulk(payload: BulkPriceUpdate, db: Session = Depends(get_db), _=Depends(admin_only)):
+def update_prices_in_bulk(
+    request: Request,
+    payload: BulkPriceUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_only),
+):
     """Cambia el precio de varios productos de una vez (todo o nada). Un precio puesto a mano deja
     de ser 'estimado'."""
     ids = [item.id for item in payload.items]
@@ -101,21 +107,49 @@ def update_prices_in_bulk(payload: BulkPriceUpdate, db: Session = Depends(get_db
     missing = sorted(set(ids) - products.keys())
     if missing:
         raise HTTPException(status_code=404, detail=f"Productos no encontrados: {missing}")
+    changes = []
     for item in payload.items:
+        if float(products[item.id].price or 0) != float(item.price):
+            changes.append({"id": item.id, "de": float(products[item.id].price or 0), "a": float(item.price)})
         products[item.id].price = item.price
         products[item.id].price_estimated = False
+    if changes:
+        audit(
+            db,
+            "catalog_prices_changed",
+            user=current_user,
+            entity="product",
+            detail={"productos": len(changes), "cambios": changes[:25]},
+            request=request,
+        )
     db.commit()
     return [products[i] for i in dict.fromkeys(ids)]
 
 
 @router.put("/{product_id}", response_model=ProductOut)
-def update_product(product_id: int, payload: ProductUpdate, db: Session = Depends(get_db), _=Depends(admin_only)):
+def update_product(
+    request: Request,
+    product_id: int,
+    payload: ProductUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_only),
+):
     product = db.get(Product, product_id)
     if product is None:
         raise HTTPException(status_code=404, detail="Producto no encontrado")
     data = payload.model_dump(exclude_unset=True)
     if "category_id" in data and data["category_id"] is not None:
         _get_category_or_404(db, data["category_id"])
+    if "price" in data and float(data["price"] or 0) != float(product.price):
+        audit(
+            db,
+            "product_price_changed",
+            user=current_user,
+            entity="product",
+            entity_id=product.id,
+            detail={"producto": product.name, "de": float(product.price), "a": float(data["price"] or 0)},
+            request=request,
+        )
     if "price" in data and "price_estimated" not in data and float(data["price"] or 0) != float(product.price):
         product.price_estimated = False
     for field, value in data.items():

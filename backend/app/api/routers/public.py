@@ -12,7 +12,9 @@ from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.quote import Quote, QuoteHistory
 from app.models.ticket import Ticket
+from app.models.user import User
 from app.schemas.public import PublicApproveIn, PublicLinkOut, PublicProjectOut, PublicRejectIn
+from app.services.audit import audit
 from app.services.notifications import (
     notify_portal_first_viewed,
     notify_quote_approved_by_client,
@@ -35,18 +37,41 @@ def _get_project_or_404(db: Session, project_id: int) -> Project:
 
 
 @router.post("/api/projects/{project_id}/public-link", response_model=PublicLinkOut)
-def create_or_rotate_public_link(project_id: int, db: Session = Depends(get_db), _=Depends(manage_roles)):
+def create_or_rotate_public_link(
+    request: Request, project_id: int, db: Session = Depends(get_db), current_user: User = Depends(manage_roles)
+):
     """Genera (o regenera, invalidando el anterior) el enlace del portal de cliente."""
     project = _get_project_or_404(db, project_id)
+    rotated = project.public_token is not None
     project.public_token = secrets.token_urlsafe(32)
+    audit(
+        db,
+        "portal_link_rotated" if rotated else "portal_link_created",
+        user=current_user,
+        entity="project",
+        entity_id=project.id,
+        detail={"proyecto": project.code},
+        request=request,
+    )
     db.commit()
     return {"token": project.public_token}
 
 
 @router.delete("/api/projects/{project_id}/public-link", status_code=status.HTTP_204_NO_CONTENT)
-def revoke_public_link(project_id: int, db: Session = Depends(get_db), _=Depends(manage_roles)):
+def revoke_public_link(
+    request: Request, project_id: int, db: Session = Depends(get_db), current_user: User = Depends(manage_roles)
+):
     project = _get_project_or_404(db, project_id)
     project.public_token = None
+    audit(
+        db,
+        "portal_link_revoked",
+        user=current_user,
+        entity="project",
+        entity_id=project.id,
+        detail={"proyecto": project.code},
+        request=request,
+    )
     db.commit()
 
 

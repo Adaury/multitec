@@ -21,5 +21,11 @@ class User(Base):
     # Cómo lo llama el asistente de IA ("Ing. Pérez"). Lo configura cada usuario en su perfil;
     # vacío = el asistente usa "Ing." + el primer nombre.
     assistant_alias: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    # Ficha del miembro del equipo (la llena el admin): cómo ubicarlo y en qué es bueno.
+    phone: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    zone: Mapped[str | None] = mapped_column(String(80), nullable=True)  # zona o sector que cubre
+    skills: Mapped[str | None] = mapped_column(String(255), nullable=True)  # separadas por coma: "CCTV, redes, alarmas"
+    vehicle: Mapped[str | None] = mapped_column(String(80), nullable=True)  # vehículo o placa
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

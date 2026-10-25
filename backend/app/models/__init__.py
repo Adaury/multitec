@@ -1,9 +1,11 @@
 from app.models.ai_feedback_event import AIFeedbackEvent
+from app.models.audit_log import AuditLog
 from app.models.budget import Budget, BudgetItem
 from app.models.calculation_parameter import CalculationParameter
 from app.models.catalog_rule import CatalogRule
 from app.models.category import Category
 from app.models.client import Client
+from app.models.client_asset import ClientAsset
 from app.models.embedding import ProjectEmbedding
 from app.models.engineering import Engineering
 from app.models.execution import ProjectStage
@@ -33,12 +35,14 @@ from app.models.visit import Visit
 
 __all__ = [
     "AIFeedbackEvent",
+    "AuditLog",
     "Budget",
     "BudgetItem",
     "CalculationParameter",
     "CatalogRule",
     "Category",
     "Client",
+    "ClientAsset",
     "Engineering",
     "Extension",
     "Invoice",

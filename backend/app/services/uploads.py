@@ -34,3 +34,62 @@ def enforce_upload_size(contents: bytes) -> None:
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail=f"El archivo supera el límite de {settings.max_upload_mb} MB",
         )
+
+
+_CHUNK = 1024 * 1024
+
+
+async def read_upload(file) -> bytes:
+    """Lee un archivo subido por bloques y corta al pasar MAX_UPLOAD_MB. Con `await file.read()` entero,
+    varias subidas enormes en paralelo agotaban la memoria antes de que se revisara el tamaño."""
+    settings = get_settings()
+    max_bytes = settings.max_upload_mb * 1024 * 1024
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(_CHUNK):
+        total += len(chunk)
+        if total > max_bytes:
+            raise HTTPException(
+                status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+                detail=f"El archivo supera el límite de {settings.max_upload_mb} MB",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
+def _is_image(head: bytes, base_type: str) -> bool:
+    if base_type == "image/jpeg":
+        return head.startswith(b"\xff\xd8\xff")
+    if base_type == "image/png":
+        return head.startswith(b"\x89PNG\r\n\x1a\n")
+    if base_type == "image/webp":
+        return head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    if base_type == "image/heic":
+        # Contenedor ISO (ftyp) con una marca HEIF/HEIC.
+        return head[4:8] == b"ftyp" and head[8:12] in (b"heic", b"heix", b"hevc", b"hevx", b"mif1", b"msf1", b"heim", b"heis")
+    return False
+
+
+# Lo que un audio nunca es: si empieza así, no es una nota de voz sino otra cosa disfrazada.
+_NOT_AUDIO_STARTS = (b"<", b"%PDF", b"MZ", b"PK\x03\x04", b"\x7fELF", b"#!", b"GIF8")
+
+
+def enforce_matches_declared_type(contents: bytes, content_type: str | None) -> None:
+    """Comprueba que el contenido corresponde al tipo que declara el cliente (los primeros bytes, no el nombre
+    ni la cabecera, que el cliente controla). Un archivo cualquiera declarado "image/png" no se guarda: acaba
+    en Pillow, en los PDF y en el navegador de otros usuarios. En imágenes es estricto; en audio solo
+    rechaza lo que claramente es otra cosa (la transcripción ya falla limpiamente con audio dañado)."""
+    base_type = (content_type or "").split(";")[0].strip().lower()
+    head = contents[:16]
+    if base_type.startswith("image/"):
+        if not _is_image(head, base_type):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El archivo no es una imagen válida del tipo indicado",
+            )
+    elif base_type.startswith("audio/") or base_type in ("video/mp4", "video/webm", "application/octet-stream"):
+        if head.startswith(_NOT_AUDIO_STARTS):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El archivo no es un audio válido",
+            )

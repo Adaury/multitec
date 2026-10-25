@@ -71,3 +71,24 @@ def test_export_dashboard_csv(client, admin_token):
 def test_export_dashboard_forbidden_for_tecnico(client, tecnico_token):
     resp = client.get("/api/reports/dashboard/export", headers=auth_headers(tecnico_token))
     assert resp.status_code == 403
+
+
+def test_csv_neutralizes_formulas_but_keeps_numbers():
+    from app.services.csv_export import build_csv
+
+    text = build_csv(
+        ["a"],
+        [['=HYPERLINK("http://malo","x")'], ["+1 809 555 0101"], ["@SUM(A1)"], ["-150.00"], [-150.0], ["Ferretería"]],
+    ).decode("utf-8")
+    assert "'=HYPERLINK" in text  # fórmula → texto
+    assert "'+1 809 555 0101" in text
+    assert "'@SUM(A1)" in text
+    assert "-150.00" in text and "'-150.00" not in text  # un monto como texto no se daña
+    assert "'Ferretería" not in text
+
+
+def test_exported_client_name_cannot_run_as_a_formula(client, admin_token):
+    headers = auth_headers(admin_token)
+    client.post("/api/clients", json={"name": '=cmd|" /C calc"!A0'}, headers=headers)
+    text = client.get("/api/clients/export", headers=headers).content.decode("utf-8")
+    assert "'=cmd" in text

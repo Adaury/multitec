@@ -11,7 +11,9 @@ from starlette.middleware.cors import CORSMiddleware
 from app.api.routers import (
     ai,
     ai_feedback_events,
+    assets,
     assistant,
+    audit,
     auth,
     budgets,
     calculation_parameters,
@@ -90,12 +92,26 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         content={"detail": "Ocurrió un error interno. Si persiste, contacta al administrador."},
     )
 
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    """Cabeceras que van aunque alguien llegue a la API sin pasar por Caddy o Vite (puerto 8000 directo,
+    túnel). Las respuestas de /api llevan datos de clientes y facturas: no-store evita que el navegador o un
+    proxy las guarde (un iPhone compartido, por ejemplo). Lo que ya trae su propia política (/uploads) se respeta."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "no-referrer")
+    if request.url.path.startswith("/api/"):
+        response.headers.setdefault("Cache-Control", "no-store")
+    return response
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # Lista explícita en vez de "*": con credenciales (cookie del refresh token) conviene decir qué se acepta.
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "Accept"],
 )
 
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
@@ -122,6 +138,8 @@ def get_upload(file_path: str, _user: User = Depends(get_current_user)):
 
 
 app.include_router(auth.router)
+app.include_router(audit.router)
+app.include_router(assets.router)
 app.include_router(clients.router)
 app.include_router(projects.router)
 app.include_router(surveys.router)

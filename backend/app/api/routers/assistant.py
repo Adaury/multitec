@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.ai_engine.conversation import understand
 from app.ai_engine.transcription import CONVERSATION_PROMPT, transcribe_audio
+from app.core.quota import ai_quota
 from app.core.security import require_role
 from app.core.timeutil import to_local, today_dr
 from app.db.session import get_db
@@ -21,7 +22,7 @@ from app.models.visit import Visit
 from app.schemas.assistant import TalkIn, TalkOut, TodayOut
 from app.services.access import client_scope, project_scope
 from app.services.reports import OPEN_TICKET_STATUSES
-from app.services.uploads import enforce_upload_size
+from app.services.uploads import enforce_matches_declared_type, read_upload
 
 router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 
@@ -188,7 +189,7 @@ UNKNOWN_REPLY = (
 )
 
 
-@router.post("/talk", response_model=TalkOut)
+@router.post("/talk", response_model=TalkOut, dependencies=[Depends(ai_quota)])
 def talk(payload: TalkIn, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
     """Un turno de la conversación del Inicio: recibe lo que el técnico dijo y devuelve qué
     responderle y a dónde llevarlo. No crea ni modifica nada: solo interpreta y dirige."""
@@ -276,7 +277,7 @@ def _respond(db: Session, current_user: User, text: str, survey_types: list[str]
 UNHEARD_REPLY = "No te escuché bien. ¿Me lo repites?"
 
 
-@router.post("/listen", response_model=TalkOut)
+@router.post("/listen", response_model=TalkOut, dependencies=[Depends(ai_quota)])
 async def listen(
     audio: UploadFile = File(...),
     survey_types: str = Form("[]"),
@@ -294,8 +295,8 @@ async def listen(
     except (ValueError, TypeError):
         types = []
 
-    contents = await audio.read()
-    enforce_upload_size(contents)
+    contents = await read_upload(audio)
+    enforce_matches_declared_type(contents, audio.content_type)
     suffix = Path(audio.filename or "").suffix or ".webm"
     with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
         tmp.write(contents)

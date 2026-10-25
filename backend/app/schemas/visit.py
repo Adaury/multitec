@@ -8,6 +8,7 @@ class VisitCreate(BaseModel):
     technician_id: int | None = None
     scheduled_date: date
     scheduled_time: time | None = None
+    duration_min: int | None = Field(default=None, ge=5, le=1440)
     notes: str | None = Field(default=None, max_length=2000)
 
 
@@ -15,8 +16,16 @@ class VisitUpdate(BaseModel):
     technician_id: int | None = None
     scheduled_date: date | None = None
     scheduled_time: time | None = None
+    duration_min: int | None = Field(default=None, ge=5, le=1440)
     notes: str | None = Field(default=None, max_length=2000)
     status: str | None = Field(default=None, max_length=20)
+
+
+class VisitPunch(BaseModel):
+    """Marcar entrada o salida. Las coordenadas son opcionales: sin GPS o sin permiso la hora igual queda."""
+
+    lat: float | None = Field(default=None, ge=-90, le=90)
+    lng: float | None = Field(default=None, ge=-180, le=180)
 
 
 class VisitOut(BaseModel):
@@ -32,8 +41,16 @@ class VisitOut(BaseModel):
     technician_name: str | None = None
     scheduled_date: date
     scheduled_time: time | None
+    duration_min: int | None = None
     notes: str | None
     status: str
+    checkin_at: datetime | None = None
+    checkin_lat: float | None = None
+    checkin_lng: float | None = None
+    checkout_at: datetime | None = None
+    checkout_lat: float | None = None
+    checkout_lng: float | None = None
+    minutes_on_site: int | None = None
     created_by: int | None = None
     created_at: datetime
 

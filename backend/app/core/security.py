@@ -51,13 +51,24 @@ def _hash_refresh_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
 
-def create_refresh_token(db: Session, user_id: int) -> str:
+def create_refresh_token(db: Session, user_id: int, request: Request | None = None) -> str:
     """Genera un refresh token de alta entropía; solo su hash SHA-256 se guarda en la
-    base de datos, así un dump de la base no permite reusar tokens directamente."""
+    base de datos, así un dump de la base no permite reusar tokens directamente.
+    Con `request` se anotan el dispositivo y la IP para mostrar "sesiones activas"."""
     settings = get_settings()
     raw_token = secrets.token_urlsafe(48)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
-    db.add(RefreshToken(user_id=user_id, token_hash=_hash_refresh_token(raw_token), expires_at=expires_at))
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=settings.refresh_token_expire_days)
+    db.add(
+        RefreshToken(
+            user_id=user_id,
+            token_hash=_hash_refresh_token(raw_token),
+            expires_at=expires_at,
+            user_agent=(request.headers.get("user-agent") or "")[:255] or None if request else None,
+            ip=request.client.host if request is not None and request.client else None,
+            last_used_at=now,
+        )
+    )
     db.commit()
     return raw_token
 
@@ -97,6 +108,19 @@ def revoke_all_refresh_tokens(db: Session, user_id: int) -> None:
     db.query(RefreshToken).filter(RefreshToken.user_id == user_id, RefreshToken.revoked.is_(False)).update(
         {"revoked": True}
     )
+
+
+def active_sessions(db: Session, user_id: int) -> list[RefreshToken]:
+    """Sesiones abiertas de un usuario: refresh tokens no revocados y no vencidos, la más reciente primero."""
+    now = datetime.now(timezone.utc)
+    rows = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.user_id == user_id, RefreshToken.revoked.is_(False))
+        .order_by(RefreshToken.created_at.desc())
+        .all()
+    )
+    # La comparación de fechas se hace aquí: SQLite (pruebas) devuelve fechas sin zona.
+    return [r for r in rows if as_utc(r.expires_at) > now]
 
 
 # Con la contraseña temporal sin cambiar, el usuario solo puede verse a sí mismo y cambiarla.

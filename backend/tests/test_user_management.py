@@ -247,3 +247,32 @@ def test_invalid_email_is_rejected(client, admin_token):
     resp = client.put(f"/api/users/{user['id']}", json={"email": "esto-no-es-un-correo"}, headers=headers)
 
     assert resp.status_code == 422
+
+
+def test_new_passwords_must_be_long_enough_and_not_common(client, admin_token):
+    from tests.conftest import auth_headers
+
+    headers = auth_headers(admin_token)
+    for bad in ["corta123", "1234567890", "contraseña123", "aaaaaaaaaaaa", "Multitec2026"]:
+        resp = client.post(
+            "/api/users", json={"name": "X", "email": "x@test.com", "password": bad, "role": "oficina"}, headers=headers
+        )
+        assert resp.status_code == 422, f"{bad} debió rechazarse"
+
+    ok = client.post(
+        "/api/users",
+        json={"name": "X", "email": "x@test.com", "password": "Tornillo-azul-47", "role": "oficina"},
+        headers=headers,
+    )
+    assert ok.status_code == 201, ok.text
+
+
+def test_changing_password_applies_the_same_policy(client, admin_token):
+    from tests.conftest import auth_headers
+
+    resp = client.post(
+        "/api/auth/change-password",
+        json={"current_password": "adminpass123", "new_password": "12345678"},
+        headers=auth_headers(admin_token),
+    )
+    assert resp.status_code == 422

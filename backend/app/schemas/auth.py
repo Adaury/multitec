@@ -1,6 +1,6 @@
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.schemas.user import _check_password_bcrypt_length
+from app.schemas.user import MIN_PASSWORD_LENGTH, check_password_policy
 
 
 class LoginRequest(BaseModel):
@@ -54,9 +54,9 @@ class ProfileUpdate(BaseModel):
 
 class ChangePasswordRequest(BaseModel):
     current_password: str
-    new_password: str = Field(min_length=8, max_length=255)
+    new_password: str = Field(min_length=MIN_PASSWORD_LENGTH, max_length=255)
 
     @field_validator("new_password")
     @classmethod
-    def _check_new_password_length(cls, v: str) -> str:
-        return _check_password_bcrypt_length(v)
+    def _check_new_password_policy(cls, v: str) -> str:
+        return check_password_policy(v)

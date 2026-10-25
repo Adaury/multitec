@@ -1,11 +1,16 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+from app.core import lockout
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.core.security import (
     DUMMY_PASSWORD_HASH,
+    _hash_refresh_token,
+    active_sessions,
     create_access_token,
     create_refresh_token,
     get_current_user,
@@ -18,6 +23,8 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import ChangePasswordRequest, CurrentUser, ProfileUpdate, RefreshRequest, Token
+from app.schemas.user import SessionOut
+from app.services.audit import audit
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -55,20 +62,38 @@ def login(
 ):
     # Los emails se guardan normalizados a minúsculas (ver schemas/user.py) — se normaliza
     # igual acá para que el login no dependa de cómo el usuario tecleó las mayúsculas.
-    user = db.query(User).filter(User.email == form_data.username.lower()).one_or_none()
+    username = form_data.username.lower()
+    # Bloqueo por cuenta (además del límite por IP): se cuenta igual exista o no el correo, así la
+    # respuesta no revela qué cuentas existen (ver core/lockout.py).
+    wait = lockout.seconds_locked(username)
+    if wait:
+        audit(db, "login_blocked", email=username, request=request, commit=True)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.",
+            headers={"Retry-After": str(wait)},
+        )
+    user = db.query(User).filter(User.email == username).one_or_none()
     # verify_password corre siempre, incluso si el email no existe (contra el hash "dummy"),
     # para que el tiempo de respuesta no delate si un email está registrado.
     password_ok = verify_password(form_data.password, user.hashed_password if user else DUMMY_PASSWORD_HASH)
     if user is None or not password_ok:
+        lockout.register_failure(username)
+        audit(db, "login_failed", email=username, request=request, commit=True)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo o contraseña incorrectos",
         )
+    lockout.register_success(username)
     if not user.is_active:
+        audit(db, "login_inactive", user=user, request=request, commit=True)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario inactivo")
 
+    user.last_login_at = datetime.now(timezone.utc)
+    audit(db, "login", user=user, request=request)
+    db.commit()  # el commit también guarda el último acceso y la fila de auditoría
     access_token = create_access_token(subject=str(user.id))
-    refresh_token = create_refresh_token(db, user.id)
+    refresh_token = create_refresh_token(db, user.id, request)
     _set_refresh_cookie(request, response, refresh_token)
     return Token(access_token=access_token, refresh_token=refresh_token)
 
@@ -92,7 +117,7 @@ def refresh(
     # robó), get_valid_refresh_token lo detecta y revoca toda la sesión (ver security.py).
     row.revoked = True
     access_token = create_access_token(subject=str(user.id))
-    refresh_token = create_refresh_token(db, user.id)
+    refresh_token = create_refresh_token(db, user.id, request)
     _set_refresh_cookie(request, response, refresh_token)
     return Token(access_token=access_token, refresh_token=refresh_token)
 
@@ -141,7 +166,32 @@ def change_password(
     # Cierra las demás sesiones (otros dispositivos, tokens robados) y devuelve un par
     # nuevo para que ésta siga activa.
     revoke_all_refresh_tokens(db, current_user.id)
+    audit(db, "password_changed", user=current_user, request=request)
     db.commit()
-    refresh_token = create_refresh_token(db, current_user.id)
+    refresh_token = create_refresh_token(db, current_user.id, request)
     _set_refresh_cookie(request, response, refresh_token)
     return Token(access_token=create_access_token(subject=str(current_user.id)), refresh_token=refresh_token)
+
+
+@router.get("/sessions", response_model=list[SessionOut])
+def my_sessions(request: Request, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    """Mis dispositivos con la sesión abierta. La actual va marcada para no cerrarla sin querer."""
+    mine = request.cookies.get(REFRESH_COOKIE)
+    current_hash = _hash_refresh_token(mine) if mine else None
+    out = []
+    for row in active_sessions(db, current_user.id):
+        item = SessionOut.model_validate(row)
+        item.current = row.token_hash == current_hash
+        out.append(item)
+    return out
+
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
+def logout_all(
+    request: Request, response: Response, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
+):
+    """Cierra la sesión en todos los dispositivos (si se perdió el teléfono, por ejemplo), incluido este."""
+    revoke_all_refresh_tokens(db, current_user.id)
+    audit(db, "logout_all", user=current_user, request=request)
+    db.commit()
+    response.delete_cookie(REFRESH_COOKIE, path="/api/auth")

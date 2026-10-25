@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.security import require_role
@@ -6,6 +6,7 @@ from app.db.session import get_db
 from app.models.ncf_sequence import NcfSequence
 from app.models.user import User
 from app.schemas.ncf import NcfSequenceCreate, NcfSequenceOut, NcfSequenceUpdate
+from app.services.audit import audit
 
 router = APIRouter(prefix="/api/ncf-sequences", tags=["ncf"])
 
@@ -19,7 +20,7 @@ def list_ncf_sequences(db: Session = Depends(get_db), _=Depends(admin_only)):
 
 @router.post("", response_model=NcfSequenceOut, status_code=status.HTTP_201_CREATED)
 def create_ncf_sequence(
-    payload: NcfSequenceCreate, db: Session = Depends(get_db), current_user: User = Depends(admin_only)
+    request: Request, payload: NcfSequenceCreate, db: Session = Depends(get_db), current_user: User = Depends(admin_only)
 ):
     sequence = NcfSequence(
         ncf_type=payload.ncf_type,
@@ -31,6 +32,16 @@ def create_ncf_sequence(
         created_by=current_user.id,
     )
     db.add(sequence)
+    db.flush()
+    audit(
+        db,
+        "ncf_sequence_created",
+        user=current_user,
+        entity="ncf_sequence",
+        entity_id=sequence.id,
+        detail={"tipo": payload.ncf_type, "desde": payload.range_start, "hasta": payload.range_end},
+        request=request,
+    )
     db.commit()
     db.refresh(sequence)
     return sequence
@@ -38,11 +49,25 @@ def create_ncf_sequence(
 
 @router.put("/{sequence_id}", response_model=NcfSequenceOut)
 def update_ncf_sequence(
-    sequence_id: int, payload: NcfSequenceUpdate, db: Session = Depends(get_db), _=Depends(admin_only)
+    request: Request,
+    sequence_id: int,
+    payload: NcfSequenceUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_only),
 ):
     sequence = db.get(NcfSequence, sequence_id)
     if sequence is None:
         raise HTTPException(status_code=404, detail="Secuencia NCF no encontrada")
+    if sequence.active != payload.active:
+        audit(
+            db,
+            "ncf_sequence_toggled",
+            user=current_user,
+            entity="ncf_sequence",
+            entity_id=sequence.id,
+            detail={"tipo": sequence.ncf_type, "activa": payload.active},
+            request=request,
+        )
     sequence.active = payload.active
     db.commit()
     db.refresh(sequence)

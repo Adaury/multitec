@@ -9,7 +9,7 @@ from app.core.security import require_role
 from app.db.session import get_db
 from app.models.survey import Survey, SurveyAsset, SurveyMarker
 from app.schemas.survey import SurveyAssetOut, SurveyMarkersUpdate, SurveyOut, SurveyUpdate
-from app.services.uploads import enforce_upload_size, stored_extension
+from app.services.uploads import enforce_matches_declared_type, read_upload, stored_extension
 
 router = APIRouter(prefix="/api/projects/{project_id}/survey", tags=["surveys"])
 
@@ -76,8 +76,8 @@ async def upload_asset(
     stored_name = f"{uuid.uuid4().hex}{extension}"
     destination = survey_dir / stored_name
 
-    contents = await file.read()
-    enforce_upload_size(contents)
+    contents = await read_upload(file)
+    enforce_matches_declared_type(contents, file.content_type)
     destination.write_bytes(contents)
 
     asset = SurveyAsset(

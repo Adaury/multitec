@@ -15,6 +15,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.models.client import Client
+from app.models.client_asset import ClientAsset
 from app.models.logbook import LogEntry
 from app.models.project import Project
 from app.models.ticket import Ticket
@@ -85,6 +86,12 @@ def enforce_assignment_scope(db: Session, user: User, path_params: dict) -> None
     if "visit_id" in path_params:
         visit = db.get(Visit, int(path_params["visit_id"]))
         if visit is not None and visit.technician_id != user.id and not can_see_project(db, user, visit.project_id):
+            raise _not_found()
+
+    # OJO: se llama client_asset_id (no asset_id): "asset_id" ya es el de las fotos del levantamiento.
+    if "client_asset_id" in path_params:
+        equipment = db.get(ClientAsset, int(path_params["client_asset_id"]))
+        if equipment is not None and not can_see_client(db, user, equipment.client_id):
             raise _not_found()
 
     if "entry_id" in path_params:

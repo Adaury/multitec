@@ -8,6 +8,28 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Administración del equipo**: ficha (teléfono, zona, especialidades, vehículo), último acceso, restablecer
+  clave temporal, sesiones activas con cierre remoto, carga de trabajo por técnico y **bitácora de auditoría**
+  (migración `b7d2e9a4c1f6`).
+- **Visitas**: entrada y salida con GPS opcional, duración estimada, **hoja de tiempo** con CSV y avisos por
+  WhatsApp al cliente. Una visita no se puede asignar a un usuario desactivado.
+- **Equipos instalados por cliente** (serial, MAC, IP, ubicación, garantía) (migración `c8e3f5a1d7b9`).
+- **El técnico solo ve lo suyo** (proyectos y clientes propios, asignados o con visita/ticket).
+- **Iconos** de línea (lucide-react) en navegación, inicio y cabecera; menú lateral de escritorio que se
+  encoge a iconos; Inicio y detalle de proyecto en dos columnas en pantalla ancha.
+- **iPhone**: `dvh`, campos de al menos 16 px, zona segura superior, `navigator.storage.persist()`, reenvío de
+  pendientes al volver a la app, nota de voz con el formato real (`.m4a` en iPhone) y error visible si falta el permiso.
+- Guía para publicar con **dominio propio** y HTTPS (`deploy/DOMINIO.md`).
+
+### Seguridad
+
+- PyJWT en lugar de python-jose; refresh token en cookie HttpOnly; bloqueo por cuenta; política de
+  contraseñas; límite y cuota de la IA; validación de archivos por contenido; neutralización de fórmulas en
+  CSV; cabeceras en la API y CSP en la web; `psycopg` 3; `pip-audit` y `npm audit` en 0.
+- Un técnico ya no recibe el token del portal del cliente (abría cotizaciones y facturas).
+
+### Añadido (anterior)
+
 - **Conversación hablada con el asistente** en el Inicio ("Hablar con el asistente"): saluda en voz
   alta por el nombre del técnico, pregunta "¿Qué toca hoy?", escucha la respuesta y lo lleva a donde
   corresponde: un levantamiento nuevo (con cliente, tipo y teléfono ya entendidos; reconoce si el
