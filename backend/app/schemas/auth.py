@@ -15,7 +15,9 @@ class Token(BaseModel):
 
 
 class RefreshRequest(BaseModel):
-    refresh_token: str
+    # Opcional: el navegador lo manda en la cookie HttpOnly; el cuerpo se conserva para clientes
+    # sin cookies (pruebas, scripts) y para migrar sesiones que aún lo tienen en localStorage.
+    refresh_token: str | None = None
 
 
 class CurrentUser(BaseModel):

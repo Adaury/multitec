@@ -1,5 +1,6 @@
 import math
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.ai_engine.ollama_client import get_client
@@ -39,12 +40,16 @@ def _cosine_similarity(a: list[float], b: list[float]) -> float:
     return dot / (norm_a * norm_b)
 
 
-def search_projects(db: Session, question: str, top_k: int = 3) -> list[Project]:
+def search_projects(db: Session, question: str, top_k: int = 3, scope=None) -> list[Project]:
     """Busca los proyectos más relevantes para una pregunta en lenguaje natural,
     comparando el embedding de la pregunta contra el embedding guardado de cada
     proyecto. Los proyectos sin embedding (nunca indexados) se omiten — se indexan la
-    primera vez que se usa alguna función de IA sobre ellos."""
-    rows = db.query(ProjectEmbedding).all()
+    primera vez que se usa alguna función de IA sobre ellos. `scope` (condición sobre Project) limita la
+    búsqueda a los proyectos que el usuario puede ver: sin él, un técnico leería expedientes ajenos."""
+    query = db.query(ProjectEmbedding)
+    if scope is not None:
+        query = query.filter(ProjectEmbedding.project_id.in_(select(Project.id).where(scope)))
+    rows = query.all()
     if not rows:
         return []
 

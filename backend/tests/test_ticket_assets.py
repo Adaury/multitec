@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import auth_headers, make_project
+from tests.conftest import assign_to_tecnico, auth_headers, make_project
 
 
 def _create_ticket(client, headers, project_id, problem="Cámara sin señal"):
@@ -92,9 +92,10 @@ def test_delete_nonexistent_photo_returns_404(client, admin_token):
     assert resp.status_code == 404
 
 
-def test_tecnico_can_upload_ticket_photo(client, tecnico_token, admin_token):
+def test_tecnico_can_upload_ticket_photo(client, tecnico_token, admin_token, db_session):
     admin_headers = auth_headers(admin_token)
     project = make_project(client, admin_headers)
+    assign_to_tecnico(db_session, project)
     ticket = _create_ticket(client, admin_headers, project["id"])
 
     resp = _upload_photo(client, auth_headers(tecnico_token), ticket["id"])

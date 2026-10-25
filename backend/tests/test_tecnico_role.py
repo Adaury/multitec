@@ -1,11 +1,12 @@
-from tests.conftest import auth_headers, make_project
+from tests.conftest import assign_to_tecnico, auth_headers, make_project
 
 
-def test_tecnico_can_view_and_create_but_not_edit_projects_and_clients(client, admin_token, tecnico_token):
+def test_tecnico_can_view_and_create_but_not_edit_projects_and_clients(client, admin_token, tecnico_token, db_session):
     """El técnico arranca levantamientos en campo (crea cliente y proyecto), pero no edita lo existente.
     El detalle de qué campos puede tocar está en test_projects.py."""
     admin_headers = auth_headers(admin_token)
     project = make_project(client, admin_headers)
+    assign_to_tecnico(db_session, project)
     tecnico_headers = auth_headers(tecnico_token)
 
     assert client.get("/api/projects", headers=tecnico_headers).status_code == 200
@@ -34,9 +35,10 @@ def test_tecnico_can_view_and_create_but_not_edit_projects_and_clients(client, a
     )
 
 
-def test_tecnico_has_full_access_to_field_work_tabs(client, admin_token, tecnico_token):
+def test_tecnico_has_full_access_to_field_work_tabs(client, admin_token, tecnico_token, db_session):
     admin_headers = auth_headers(admin_token)
     project = make_project(client, admin_headers)
+    assign_to_tecnico(db_session, project)
     tecnico_headers = auth_headers(tecnico_token)
     project_id = project["id"]
 
@@ -85,3 +87,20 @@ def test_tecnico_denied_from_commercial_and_financial_endpoints(client, admin_to
     assert client.get(f"/api/projects/{project_id}/pre-invoices", headers=tecnico_headers).status_code == 403
     assert client.get(f"/api/projects/{project_id}/extensions", headers=tecnico_headers).status_code == 403
     assert client.get("/api/catalog", headers=tecnico_headers).status_code == 403
+
+
+def test_tecnico_does_not_get_the_client_portal_token(client, admin_token, tecnico_token, db_session):
+    """El token del portal abre cotizaciones y facturas del cliente: ver el proyecto no debe
+    darle al técnico (que no tiene acceso a dinero) esa puerta trasera."""
+    admin_headers = auth_headers(admin_token)
+    project = make_project(client, admin_headers)
+    assign_to_tecnico(db_session, project)  # lo ve (es suyo), pero sin el enlace del portal
+    token = client.post(f"/api/projects/{project['id']}/public-link", headers=admin_headers).json()["token"]
+
+    as_admin = client.get(f"/api/projects/{project['id']}", headers=admin_headers).json()
+    assert as_admin["public_token"] == token
+
+    as_tecnico = client.get(f"/api/projects/{project['id']}", headers=auth_headers(tecnico_token))
+    assert as_tecnico.status_code == 200
+    assert as_tecnico.json()["public_token"] is None
+    assert token not in as_tecnico.text

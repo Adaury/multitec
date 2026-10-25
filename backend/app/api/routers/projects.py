@@ -11,6 +11,7 @@ from app.models.survey import Survey
 from app.models.user import User
 from app.schemas.margin import MarginSummary
 from app.schemas.project import ProjectCreate, ProjectDetailOut, ProjectOut, ProjectUpdate
+from app.services.access import can_see_client, project_scope
 from app.services.code_generator import next_code
 from app.services.csv_export import build_csv
 from app.services.execution import ensure_stages
@@ -28,13 +29,17 @@ admin_only = require_role("admin")
 
 
 @router.get("", response_model=list[ProjectOut])
-def list_projects(db: Session = Depends(get_db), _=Depends(allowed_roles)):
-    return db.query(Project).order_by(Project.created_at.desc()).all()
+def list_projects(db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
+    query = db.query(Project)
+    scope = project_scope(current_user)  # técnico: solo los suyos (ver services/access.py)
+    if scope is not None:
+        query = query.filter(scope)
+    return query.order_by(Project.created_at.desc()).all()
 
 
 @router.post("", response_model=ProjectOut, status_code=status.HTTP_201_CREATED)
 def create_project(payload: ProjectCreate, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
-    if db.get(Client, payload.client_id) is None:
+    if db.get(Client, payload.client_id) is None or not can_see_client(db, current_user, payload.client_id):
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     if payload.responsible_id is not None and db.get(User, payload.responsible_id) is None:
         raise HTTPException(status_code=404, detail="Responsable no encontrado")
@@ -77,7 +82,7 @@ def export_projects_csv(db: Session = Depends(get_db), _=Depends(write_roles)):
 
 
 @router.get("/{project_id}", response_model=ProjectDetailOut)
-def get_project(project_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+def get_project(project_id: int, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
     project = (
         db.query(Project)
         .options(joinedload(Project.client))
@@ -86,7 +91,12 @@ def get_project(project_id: int, db: Session = Depends(get_db), _=Depends(allowe
     )
     if project is None:
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
-    return project
+    out = ProjectDetailOut.model_validate(project)
+    if current_user.role == "tecnico":
+        # El token del portal abre cotizaciones y facturas del cliente: el técnico no ve dinero,
+        # así que tampoco el enlace que lo daría (se hace sobre la copia, no sobre el ORM).
+        out = out.model_copy(update={"public_token": None})
+    return out
 
 
 @router.get("/{project_id}/margin", response_model=MarginSummary)

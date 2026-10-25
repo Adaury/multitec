@@ -6,7 +6,8 @@ from typing import Iterable
 import bcrypt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -14,6 +15,7 @@ from app.core.timeutil import as_utc
 from app.db.session import get_db
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
+from app.services.access import enforce_assignment_scope
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
 
@@ -109,14 +111,15 @@ def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: 
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
-        user_id = payload.get("sub")
-        if user_id is None:
-            raise credentials_exception
-    except JWTError:
+        # require: sin exp o sub el token no es válido (PyJWT no los exige por defecto).
+        payload = jwt.decode(
+            token, settings.jwt_secret, algorithms=[settings.jwt_algorithm], options={"require": ["exp", "sub"]}
+        )
+        user_id = int(payload["sub"])
+    except (PyJWTError, ValueError):
         raise credentials_exception
 
-    user = db.get(User, int(user_id))
+    user = db.get(User, user_id)
     if user is None or not user.is_active:
         raise credentials_exception
     if user.must_change_password and request.url.path not in PASSWORD_CHANGE_ALLOWED_PATHS:
@@ -130,12 +133,17 @@ def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: 
 def require_role(*roles: Iterable[str]):
     allowed = set(roles)
 
-    def dependency(current_user: User = Depends(get_current_user)) -> User:
+    def dependency(
+        request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)
+    ) -> User:
         if current_user.role not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="No tienes permiso para realizar esta acción",
             )
+        # Primero el rol (403), después la pertenencia: un técnico solo ve lo suyo en las rutas con
+        # project_id, client_id, ticket_id... (ver services/access.py).
+        enforce_assignment_scope(db, current_user, request.path_params)
         return current_user
 
     return dependency

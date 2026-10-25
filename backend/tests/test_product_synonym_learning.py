@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -165,7 +166,10 @@ def _fake_ollama(matches, seen=None):
         def chat(self, **kwargs):
             if seen is not None:
                 seen["prompt"] = kwargs["messages"][0]["content"]
-            return SimpleNamespace(message=SimpleNamespace(content=f'{{"matches": {matches}}}'))
+            # Dos formatos: "matches" (índice + id) y "product_ids" (compacto, uno por elemento), que es
+            # el que pide hoy el emparejamiento con catálogos grandes.
+            ids = [m["product_id"] for m in json.loads(matches)]
+            return SimpleNamespace(message=SimpleNamespace(content=f'{{"matches": {matches}, "product_ids": {ids}}}'))
 
     return Client()
 
@@ -186,7 +190,9 @@ def test_override_for_a_product_no_longer_in_catalog_is_ignored():
     entities = [{"description": "domo", "quantity": 1}]
     with patch("app.ai_engine.catalog_matching.get_client", return_value=_fake_ollama('[{"index": 0, "product_id": 1}]')):
         items = match_entities_to_catalog(entities, CATALOG, LearnedMatches(overrides={"domo": 999}))
-    assert items[0]["product_id"] == 1
+    # El override apunta a un producto que ya no existe: se ignora. Gana la coincidencia por texto
+    # ("domo" → "Cámara domo 4MP"), que prevalece sobre lo que diga el modelo.
+    assert items[0]["product_id"] == 2
 
 
 def test_hints_reach_the_prompt_only_when_relevant():

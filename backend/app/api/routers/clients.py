@@ -7,6 +7,7 @@ from app.db.session import get_db
 from app.models.client import Client
 from app.models.user import User
 from app.schemas.client import ClientCreate, ClientOut, ClientUpdate
+from app.services.access import client_scope
 from app.services.csv_export import build_csv
 
 router = APIRouter(prefix="/api/clients", tags=["clients"])
@@ -18,8 +19,12 @@ write_roles = require_role("admin", "oficina")
 
 
 @router.get("", response_model=list[ClientOut])
-def list_clients(db: Session = Depends(get_db), _=Depends(allowed_roles)):
-    return db.query(Client).order_by(Client.name).all()
+def list_clients(db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
+    query = db.query(Client)
+    scope = client_scope(current_user)  # técnico: los de sus proyectos y los que él creó
+    if scope is not None:
+        query = query.filter(scope)
+    return query.order_by(Client.name).all()
 
 
 @router.post("", response_model=ClientOut, status_code=status.HTTP_201_CREATED)

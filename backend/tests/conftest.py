@@ -111,6 +111,16 @@ def make_project(client: TestClient, headers: dict, client_name: str = "Cliente 
     return project_resp.json()
 
 
+def assign_to_tecnico(db, project: dict, email: str = "tecnico@test.com") -> None:
+    """Un técnico solo ve lo suyo (services/access.py): lo deja como responsable del proyecto, igual que
+    haría la oficina al asignárselo."""
+    from app.models.project import Project
+
+    user = db.query(User).filter(User.email == email).one()
+    db.query(Project).filter(Project.id == project["id"]).update({"responsible_id": user.id})
+    db.commit()
+
+
 def seed_ncf_sequence(
     db,
     ncf_type: str = "B02",

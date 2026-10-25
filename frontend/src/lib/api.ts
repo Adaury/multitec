@@ -1,5 +1,5 @@
 import axios from 'axios'
-import { useAuthStore } from './authStore'
+import { LEGACY_REFRESH_STORAGE_KEY, useAuthStore } from './authStore'
 
 export const api = axios.create({ baseURL: '/api' })
 
@@ -14,16 +14,18 @@ api.interceptors.request.use((config) => {
 let refreshPromise: Promise<string> | null = null
 
 async function refreshAccessToken(): Promise<string> {
-  const refreshToken = useAuthStore.getState().refreshToken
-  if (!refreshToken) throw new Error('No hay refresh token')
-
   // Si ya hay una renovación en curso, todas las peticiones que lleguen mientras
   // esperan comparten la misma promesa en vez de disparar refresh en paralelo.
   if (!refreshPromise) {
+    // El refresh token va en una cookie HttpOnly: el navegador la manda sola. Una sesión abierta
+    // antes de ese cambio aún lo tiene en localStorage: se envía una última vez para migrarla
+    // (el servidor responde con la cookie nueva) y se borra.
+    const legacy = localStorage.getItem(LEGACY_REFRESH_STORAGE_KEY)
     refreshPromise = axios
-      .post('/api/auth/refresh', { refresh_token: refreshToken })
+      .post('/api/auth/refresh', legacy ? { refresh_token: legacy } : undefined)
       .then(({ data }) => {
-        useAuthStore.getState().setTokens(data.access_token, data.refresh_token)
+        localStorage.removeItem(LEGACY_REFRESH_STORAGE_KEY)
+        useAuthStore.getState().setToken(data.access_token)
         return data.access_token as string
       })
       .finally(() => {
@@ -37,7 +39,9 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config
-    if (error.response?.status === 401 && !original?._retry && useAuthStore.getState().refreshToken) {
+    // Con login/refresh un 401 es la respuesta real (clave mala / sesión vencida), no un token por renovar.
+    const isAuthCall = /\/auth\/(login|refresh)$/.test(original?.url ?? '')
+    if (error.response?.status === 401 && !original?._retry && !isAuthCall && useAuthStore.getState().token) {
       original._retry = true
       try {
         const newToken = await refreshAccessToken()
@@ -83,13 +87,12 @@ export async function viewFile(path: string) {
 }
 
 export async function logout() {
-  const refreshToken = useAuthStore.getState().refreshToken
-  if (refreshToken) {
-    try {
-      await api.post('/auth/logout', { refresh_token: refreshToken })
-    } catch {
-      // si falla la llamada (red, token ya vencido, etc.) igual limpiamos la sesión local
-    }
+  try {
+    // El servidor lee el refresh token de la cookie, la revoca y la borra.
+    const legacy = localStorage.getItem(LEGACY_REFRESH_STORAGE_KEY)
+    await api.post('/auth/logout', legacy ? { refresh_token: legacy } : undefined, { _retry: true } as object)
+  } catch {
+    // si falla la llamada (red, token ya vencido, etc.) igual limpiamos la sesión local
   }
   useAuthStore.getState().logout()
 }

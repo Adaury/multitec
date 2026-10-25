@@ -1,6 +1,6 @@
 from datetime import date, timedelta
 
-from tests.conftest import auth_headers, create_user, make_project
+from tests.conftest import assign_to_tecnico, auth_headers, create_user, make_project
 
 
 def test_create_and_list_visit(client, admin_token):
@@ -102,9 +102,10 @@ def test_update_visit_rejects_invalid_status(client, admin_token):
     assert resp.status_code == 400
 
 
-def test_tecnico_can_create_and_view_visits(client, tecnico_token, admin_token):
+def test_tecnico_can_create_and_view_visits(client, tecnico_token, admin_token, db_session):
     admin_headers = auth_headers(admin_token)
     project = make_project(client, admin_headers)
+    assign_to_tecnico(db_session, project)
 
     tecnico_headers = auth_headers(tecnico_token)
     created = client.post(

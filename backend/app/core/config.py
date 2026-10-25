@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 INSECURE_DEFAULT_JWT_SECRET = "change-this-secret-in-production"
@@ -9,6 +10,16 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     database_url: str = "sqlite:///./multitec.db"
+
+    @field_validator("database_url")
+    @classmethod
+    def _use_psycopg3(cls, url: str) -> str:
+        # El driver es psycopg 3. Los .env anteriores dicen "postgresql://" o "postgresql+psycopg2://"
+        # (el driver viejo): se traducen aquí para que actualizar no obligue a editar el .env.
+        for old in ("postgresql+psycopg2://", "postgresql://"):
+            if url.startswith(old):
+                return "postgresql+psycopg://" + url[len(old):]
+        return url
 
     # "development" (por defecto) o "production" — solo controla si un JWT_SECRET por
     # defecto es un warning (dev) o impide arrancar la app (producción, ver app/main.py).

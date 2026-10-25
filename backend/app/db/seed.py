@@ -87,6 +87,9 @@ def seed() -> None:
             hashed_password=hash_password(settings.admin_password),
             role="admin",
             is_active=True,
+            # Si no se definió ADMIN_PASSWORD queda el valor por defecto, que es público en el
+            # código: se obliga a cambiarlo en el primer ingreso.
+            must_change_password=settings.admin_password == type(settings).model_fields["admin_password"].default,
         )
         db.add(admin)
         db.commit()

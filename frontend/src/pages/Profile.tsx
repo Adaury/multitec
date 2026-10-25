@@ -15,7 +15,7 @@ const ROLE_LABELS: Record<Role, string> = {
 export function Profile() {
   const user = useAuthStore((s) => s.user)
   const setUser = useAuthStore((s) => s.setUser)
-  const setTokens = useAuthStore((s) => s.setTokens)
+  const setToken = useAuthStore((s) => s.setToken)
 
   const [name, setName] = useState(user?.name ?? '')
   const [alias, setAlias] = useState(user?.assistant_alias ?? '')
@@ -45,7 +45,7 @@ export function Profile() {
       (await api.post('/auth/change-password', { current_password: currentPassword, new_password: newPassword })).data,
     onSuccess: (data) => {
       // Las demás sesiones se cierran; esta sigue activa con el par de tokens nuevo.
-      setTokens(data.access_token, data.refresh_token)
+      setToken(data.access_token)
       // Ya no es temporal: se libera el resto de la app.
       if (user) setUser({ ...user, must_change_password: false })
       setCurrentPassword('')

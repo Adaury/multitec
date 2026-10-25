@@ -77,10 +77,12 @@ def test_technician_asks_without_receiving_prices_but_admin_does(client, admin_t
     )
     assert budget.status_code == 201, budget.text
 
-    create_user(db_session, "campo-ia@test.com", "fieldpass123", "tecnico")
+    tech = create_user(db_session, "campo-ia@test.com", "fieldpass123", "tecnico")
     tech_token = client.post(
         "/api/auth/login", data={"username": "campo-ia@test.com", "password": "fieldpass123"}
     ).json()["access_token"]
+    # El técnico solo pregunta por proyectos suyos (ver test_tecnico_scope.py): se lo asigna el admin.
+    client.put(f"/api/projects/{project['id']}", json={"responsible_id": tech.id}, headers=admin_headers)
 
     def ask_as(headers):
         with (

@@ -1,4 +1,4 @@
-from tests.conftest import auth_headers, create_user, make_project
+from tests.conftest import assign_to_tecnico, auth_headers, create_user, make_project
 
 
 def test_list_technicians_only_active_tecnico_role(client, admin_token, oficina_token, db_session):
@@ -83,6 +83,7 @@ def test_tecnico_can_create_ticket_preassigned_to_self(client, tecnico_token, ad
     admin_headers = auth_headers(admin_token)
     tecnico_headers = auth_headers(tecnico_token)
     project = make_project(client, admin_headers)
+    assign_to_tecnico(db_session, project)
 
     # tecnico_token fixture ya crea un usuario con role=tecnico en la BD
     from app.models.user import User

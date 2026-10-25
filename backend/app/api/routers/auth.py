@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.core.security import (
     DUMMY_PASSWORD_HASH,
@@ -20,10 +21,38 @@ from app.schemas.auth import ChangePasswordRequest, CurrentUser, ProfileUpdate, 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+# El refresh token (larga duración) viaja en una cookie HttpOnly: el JavaScript de la página no
+# puede leerla, así un XSS ya no se lleva la sesión. SameSite=Strict + path acotado a /api/auth
+# hacen que el navegador solo la envíe a estos endpoints y solo desde este mismo sitio (sin CSRF).
+REFRESH_COOKIE = "multitec_rt"
+
+
+def _set_refresh_cookie(request: Request, response: Response, raw_token: str) -> None:
+    secure = request.url.scheme == "https" or request.headers.get("x-forwarded-proto") == "https"
+    response.set_cookie(
+        REFRESH_COOKIE,
+        raw_token,
+        max_age=get_settings().refresh_token_expire_days * 86400,
+        path="/api/auth",
+        httponly=True,
+        secure=secure,
+        samesite="strict",
+    )
+
+
+def _incoming_refresh_token(request: Request, payload: RefreshRequest | None) -> str | None:
+    # El cuerpo explícito manda sobre la cookie (migración de sesiones antiguas y clientes sin cookies).
+    return (payload.refresh_token if payload else None) or request.cookies.get(REFRESH_COOKIE)
+
 
 @router.post("/login", response_model=Token)
 @limiter.limit("10/minute")
-def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+def login(
+    request: Request,
+    response: Response,
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_db),
+):
     # Los emails se guardan normalizados a minúsculas (ver schemas/user.py) — se normaliza
     # igual acá para que el login no dependa de cómo el usuario tecleó las mayúsculas.
     user = db.query(User).filter(User.email == form_data.username.lower()).one_or_none()
@@ -40,13 +69,17 @@ def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db
 
     access_token = create_access_token(subject=str(user.id))
     refresh_token = create_refresh_token(db, user.id)
+    _set_refresh_cookie(request, response, refresh_token)
     return Token(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post("/refresh", response_model=Token)
 @limiter.limit("30/minute")
-def refresh(request: Request, payload: RefreshRequest, db: Session = Depends(get_db)):
-    row = get_valid_refresh_token(db, payload.refresh_token)
+def refresh(
+    request: Request, response: Response, payload: RefreshRequest | None = None, db: Session = Depends(get_db)
+):
+    raw_token = _incoming_refresh_token(request, payload)
+    row = get_valid_refresh_token(db, raw_token) if raw_token else None
     if row is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token inválido o expirado")
 
@@ -60,12 +93,16 @@ def refresh(request: Request, payload: RefreshRequest, db: Session = Depends(get
     row.revoked = True
     access_token = create_access_token(subject=str(user.id))
     refresh_token = create_refresh_token(db, user.id)
+    _set_refresh_cookie(request, response, refresh_token)
     return Token(access_token=access_token, refresh_token=refresh_token)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(payload: RefreshRequest, db: Session = Depends(get_db)):
-    revoke_refresh_token(db, payload.refresh_token)
+def logout(request: Request, response: Response, payload: RefreshRequest | None = None, db: Session = Depends(get_db)):
+    raw_token = _incoming_refresh_token(request, payload)
+    if raw_token:
+        revoke_refresh_token(db, raw_token)
+    response.delete_cookie(REFRESH_COOKIE, path="/api/auth")
 
 
 @router.get("/me", response_model=CurrentUser)
@@ -89,6 +126,7 @@ def update_me(payload: ProfileUpdate, db: Session = Depends(get_db), current_use
 @limiter.limit("10/minute")
 def change_password(
     request: Request,
+    response: Response,
     payload: ChangePasswordRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -104,7 +142,6 @@ def change_password(
     # nuevo para que ésta siga activa.
     revoke_all_refresh_tokens(db, current_user.id)
     db.commit()
-    return Token(
-        access_token=create_access_token(subject=str(current_user.id)),
-        refresh_token=create_refresh_token(db, current_user.id),
-    )
+    refresh_token = create_refresh_token(db, current_user.id)
+    _set_refresh_cookie(request, response, refresh_token)
+    return Token(access_token=create_access_token(subject=str(current_user.id)), refresh_token=refresh_token)

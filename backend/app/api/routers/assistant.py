@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.ai_engine.conversation import understand
@@ -19,6 +19,7 @@ from app.models.ticket import Ticket
 from app.models.user import User
 from app.models.visit import Visit
 from app.schemas.assistant import TalkIn, TalkOut, TodayOut
+from app.services.access import client_scope, project_scope
 from app.services.reports import OPEN_TICKET_STATUSES
 from app.services.uploads import enforce_upload_size
 
@@ -31,10 +32,8 @@ LIMIT = 5
 
 
 def _mine(user: User):
-    """Un técnico ve lo suyo (responsable o quien lo creó); admin y oficina ven todo el negocio."""
-    if user.role == "tecnico":
-        return or_(Project.responsible_id == user.id, Project.created_by == user.id)
-    return None
+    """Un técnico ve lo suyo (ver services/access.py); admin y oficina ven todo el negocio."""
+    return project_scope(user)
 
 
 @router.get("/today", response_model=TodayOut)
@@ -222,7 +221,13 @@ def _respond(db: Session, current_user: User, text: str, survey_types: list[str]
     if intent == "new_survey":
         name = understood["client_name"]
         kind = f" de {understood['survey_type']}" if understood["survey_type"] else ""
-        existing = db.query(Client).filter(func.lower(Client.name) == name.lower()).first() if name else None
+        existing = None
+        if name:
+            client_query = db.query(Client).filter(func.lower(Client.name) == name.lower())
+            visible = client_scope(current_user)  # técnico: solo clientes suyos (services/access.py)
+            if visible is not None:
+                client_query = client_query.filter(visible)
+            existing = client_query.first()
         if existing is not None:
             out["client_id"] = existing.id
             out["client_name"] = existing.name

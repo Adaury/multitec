@@ -37,6 +37,7 @@ from app.schemas.ai import (
     IntakeParseOut,
 )
 from app.schemas.survey import SurveyOut, VoiceFeedbackIn, VoiceSurveyOut
+from app.services.access import can_see_project, project_scope
 from app.services.embeddings import reindex_project, search_projects
 from app.services.notifications import notify_quote_pending
 
@@ -285,6 +286,8 @@ def ai_ask(payload: AskRequest, db: Session = Depends(get_db), current_user: Use
     include_money = current_user.role != "tecnico"
     if payload.project_id is not None:
         project = _get_project(db, payload.project_id)
+        if not can_see_project(db, current_user, project.id):  # el id va en el cuerpo, no en la ruta
+            raise HTTPException(status_code=404, detail="Proyecto no encontrado")
         context = _build_project_context(db, project, include_money=include_money)
         if include_money:
             _reindex_quietly(db, project, context)
@@ -294,7 +297,7 @@ def ai_ask(payload: AskRequest, db: Session = Depends(get_db), current_user: Use
     # Sin project_id: búsqueda semántica entre todos los proyectos indexados, usando
     # embeddings locales (Ollama + nomic-embed-text) en vez de mandar todo el historial
     # de la empresa al modelo de texto de una vez.
-    matches = search_projects(db, payload.question, top_k=3)
+    matches = search_projects(db, payload.question, top_k=3, scope=project_scope(current_user))
     if not matches:
         return AskResponse(
             answer=(

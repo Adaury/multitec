@@ -1,6 +1,7 @@
 from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import require_role
@@ -9,6 +10,7 @@ from app.models.project import Project
 from app.models.user import User
 from app.models.visit import VISIT_STATUSES, Visit
 from app.schemas.visit import VisitCreate, VisitOut, VisitUpdate
+from app.services.access import can_see_project, project_scope
 
 router = APIRouter(prefix="/api/visits", tags=["visits"])
 
@@ -33,9 +35,12 @@ def list_visits(
     start: date | None = None,
     end: date | None = None,
     db: Session = Depends(get_db),
-    _=Depends(allowed_roles),
+    current_user: User = Depends(allowed_roles),
 ):
     query = _base_query(db)
+    scope = project_scope(current_user)
+    if scope is not None:  # técnico: sus visitas y las de sus proyectos
+        query = query.filter(or_(Visit.technician_id == current_user.id, Visit.project_id.in_(select(Project.id).where(scope))))
     if start is not None:
         query = query.filter(Visit.scheduled_date >= start)
     if end is not None:
@@ -46,7 +51,7 @@ def list_visits(
 @router.post("", response_model=VisitOut, status_code=status.HTTP_201_CREATED)
 def create_visit(payload: VisitCreate, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
     project = db.get(Project, payload.project_id)
-    if project is None:
+    if project is None or not can_see_project(db, current_user, payload.project_id):
         raise HTTPException(status_code=404, detail="Proyecto no encontrado")
     _check_technician_exists(db, payload.technician_id)
 

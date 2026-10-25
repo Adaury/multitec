@@ -86,3 +86,36 @@ def test_logout_revokes_refresh_token(client, db_session):
     # el mismo refresh token ya no debe servir para pedir un nuevo access token
     refresh_resp = client.post("/api/auth/refresh", json={"refresh_token": refresh_token})
     assert refresh_resp.status_code == 401
+
+
+def test_login_sets_httponly_strict_refresh_cookie(client, db_session):
+    create_user(db_session, "cookie1@test.com", "cookiepass123", "oficina")
+    resp = client.post("/api/auth/login", data={"username": "cookie1@test.com", "password": "cookiepass123"})
+    cookie = resp.headers["set-cookie"].lower()
+    assert "multitec_rt=" in cookie
+    assert "httponly" in cookie
+    assert "samesite=strict" in cookie
+    assert "path=/api/auth" in cookie
+
+
+def test_refresh_works_with_only_the_cookie(client, db_session):
+    create_user(db_session, "cookie2@test.com", "cookiepass123", "oficina")
+    client.post("/api/auth/login", data={"username": "cookie2@test.com", "password": "cookiepass123"})
+
+    resp = client.post("/api/auth/refresh")  # sin cuerpo: el cliente de pruebas reenvía la cookie
+    assert resp.status_code == 200
+    assert resp.json()["access_token"]
+    assert "multitec_rt=" in resp.headers["set-cookie"]  # rotó: cookie nueva
+
+
+def test_logout_revokes_the_cookie_token_and_clears_it(client, db_session):
+    create_user(db_session, "cookie3@test.com", "cookiepass123", "oficina")
+    client.post("/api/auth/login", data={"username": "cookie3@test.com", "password": "cookiepass123"})
+    stolen_copy = client.cookies.get("multitec_rt")
+
+    assert client.post("/api/auth/logout").status_code == 204
+    assert client.post("/api/auth/refresh", json={"refresh_token": stolen_copy}).status_code == 401
+
+
+def test_refresh_without_cookie_or_body_fails(client):
+    assert client.post("/api/auth/refresh").status_code == 401

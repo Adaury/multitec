@@ -1,4 +1,4 @@
-from tests.conftest import auth_headers, make_project
+from tests.conftest import assign_to_tecnico, auth_headers, make_project
 
 
 def test_client_and_project_record_created_by(client, admin_token, db_session):
@@ -48,6 +48,7 @@ def test_ticket_records_created_by(client, admin_token, tecnico_token, db_sessio
     tecnico_id = db_session.query(User).filter(User.email == "tecnico@test.com").one().id
 
     project = make_project(client, admin_headers)
+    assign_to_tecnico(db_session, project)
     ticket = client.post(
         f"/api/projects/{project['id']}/tickets",
         json={"problem": "Cámara desconectada"},

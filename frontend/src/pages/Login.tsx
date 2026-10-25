@@ -27,11 +27,10 @@ export function Login() {
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       })
       const token = data.access_token as string
-      const refreshToken = data.refresh_token as string
       const { data: user } = await api.get<CurrentUser>('/auth/me', {
         headers: { Authorization: `Bearer ${token}` },
       })
-      setSession(token, refreshToken, user)
+      setSession(token, user)
       navigate('/')
     } catch (err) {
       if (isAxiosError(err) && err.response?.status === 429) {
