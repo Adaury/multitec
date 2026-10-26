@@ -99,7 +99,7 @@ export function Ncf() {
           <p className="text-xs text-gray-500 dark:text-gray-400">
             El 607 lleva las facturas vigentes del mes con la forma de pago y las retenciones que registraste en cada
             factura (lo que falte sale vacío). El 608 lleva los comprobantes anulados desde el sistema. "Revisar" baja
-            un CSV para Excel; "Archivo DGII" baja el .txt de envío y requiere COMPANY_RNC en backend/.env.{' '}
+            un CSV para Excel; "Archivo DGII" baja el .txt de envío y requiere el RNC de la empresa en «Mi empresa».{' '}
             <strong>Verifica el archivo contra la plantilla oficial vigente en dgii.gov.do antes de remitirlo.</strong>
           </p>
           <div className="grid grid-cols-2 gap-3">

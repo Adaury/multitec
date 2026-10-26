@@ -280,7 +280,7 @@ def _build_pdf(
     closing_note: str | None = None,
 ) -> bytes:
     settings = get_settings()
-    company = company or load_company()
+    company = company or load_company(project.company_id)  # el membrete es el de la empresa DUEÑA del documento
     buf = BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=letter, topMargin=18 * mm, bottomMargin=22 * mm, leftMargin=20 * mm, rightMargin=20 * mm
@@ -479,7 +479,7 @@ def build_quote_pdf(
 
 def build_invoice_pdf(invoice: Invoice, variant: str = "detallada", company: CompanyInfo | None = None) -> bytes:
     settings = get_settings()
-    company = company or load_company()
+    company = company or load_company(invoice.company_id)
     show_line_prices = variant != "global"
     return _build_pdf(
         doc_title="Factura" if show_line_prices else "Factura — Detalle de trabajo",

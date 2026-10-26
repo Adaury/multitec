@@ -1,18 +1,21 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Budget(Base):
+class Budget(TenantMixin, Base):
     """Presupuesto — documento comercial resumido (solo total, sin precios unitarios)."""
 
     __tablename__ = "budgets"
+    # Único por empresa, no global: cada empresa lleva sus propios correlativos.
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_budgets_company_code"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(20), index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     total: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
@@ -29,7 +32,7 @@ class Budget(Base):
     items: Mapped[list["BudgetItem"]] = relationship(back_populates="budget", cascade="all, delete-orphan")
 
 
-class BudgetItem(Base):
+class BudgetItem(TenantMixin, Base):
     __tablename__ = "budget_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)

@@ -6,6 +6,7 @@ from app.models.catalog_rule import CatalogRule
 from app.models.category import Category
 from app.models.client import Client
 from app.models.client_asset import ClientAsset
+from app.models.company import Company
 from app.models.embedding import ProjectEmbedding
 from app.models.engineering import Engineering
 from app.models.execution import ProjectStage
@@ -43,6 +44,7 @@ __all__ = [
     "Category",
     "Client",
     "ClientAsset",
+    "Company",
     "Engineering",
     "Extension",
     "Invoice",

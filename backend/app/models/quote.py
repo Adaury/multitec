@@ -1,20 +1,23 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 QUOTE_STATUSES = ("pendiente", "aprobada", "no_aprobada", "archivada")
 
 
-class Quote(Base):
+class Quote(TenantMixin, Base):
     """Cotización — documento detallado con ITBIS y estados."""
 
     __tablename__ = "quotes"
+    # Único por empresa, no global: cada empresa lleva sus propios correlativos.
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_quotes_company_code"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(20), index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     source_budget_id: Mapped[int | None] = mapped_column(ForeignKey("budgets.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pendiente")
@@ -39,7 +42,7 @@ class Quote(Base):
     )
 
 
-class QuoteItem(Base):
+class QuoteItem(TenantMixin, Base):
     __tablename__ = "quote_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -56,7 +59,7 @@ class QuoteItem(Base):
     quote: Mapped["Quote"] = relationship(back_populates="items")
 
 
-class QuoteHistory(Base):
+class QuoteHistory(TenantMixin, Base):
     __tablename__ = "quote_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)

@@ -4,6 +4,7 @@ from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 # Tipo de Bienes y Servicios Comprados (columna 3 del 606): códigos 01-11 de la DGII.
 EXPENSE_TYPES = tuple(f"{i:02d}" for i in range(1, 12))
@@ -16,7 +17,7 @@ PAYMENT_TYPES = tuple(f"{i:02d}" for i in range(1, 8))
 ISR_RETENTION_TYPES = tuple(f"{i:02d}" for i in range(1, 10))
 
 
-class PurchaseInvoice(Base):
+class PurchaseInvoice(TenantMixin, Base):
     """Factura de proveedor (compra) — insumo del reporte 606 (Compras) de la DGII.
     Es independiente de Material: aquí se registra el comprobante fiscal (NCF, ITBIS,
     retenciones), no el material asignado a un proyecto."""

@@ -8,6 +8,7 @@ import {
   Clock,
   FileText,
   FolderOpen,
+  Globe,
   Hash,
   House,
   LogOut,
@@ -65,6 +66,8 @@ const adminSidebarItems: NavItem[] = [
   { to: '/auditoria', label: 'Auditoría', icon: ShieldCheck },
   { to: '/aprendizaje-ia', label: 'Ajustes de IA', icon: SlidersHorizontal },
 ]
+
+const platformSidebarItems: NavItem[] = [{ to: '/plataforma', label: 'Plataforma', icon: Globe }]
 
 // Barra inferior móvil (estilo "tab bar" con botón central): los destinos de uso diario y,
 // al centro, el "+" que arranca un levantamiento nuevo en un toque. Todo lo demás vive en la
@@ -177,7 +180,9 @@ export function Layout() {
     ...sidebarBaseItems,
     ...(isStaff ? staffSidebarItems : []),
     ...(isAdmin ? adminSidebarItems : []),
+    ...(user?.is_platform_admin ? platformSidebarItems : []),
   ]
+  const companyName = user?.company_name ?? 'Multitec'
   const moreItems: NavItem[] = [
     ...sidebarItems.filter((item) => !IN_TAB_BAR.has(item.to)),
     { to: '/perfil', label: 'Mi perfil', icon: CircleUser },
@@ -203,11 +208,11 @@ export function Layout() {
       >
         <div className="flex items-center gap-2.5 px-[18px] py-6">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-blue text-lg font-bold text-white">
-            M
+            {companyName.charAt(0).toUpperCase()}
           </span>
           {expanded && (
             <>
-              <p className="flex-1 text-lg font-semibold text-gray-900 dark:text-gray-100">Multitec</p>
+              <p className="flex-1 truncate text-lg font-semibold text-gray-900 dark:text-gray-100">{companyName}</p>
               <button
                 onClick={toggleMenuPinned}
                 aria-pressed={menuPinned}
@@ -288,7 +293,7 @@ export function Layout() {
       <div className="mx-auto flex min-h-dvh max-w-lg flex-1 flex-col pb-28 md:mx-0 md:max-w-none md:min-w-0 md:pb-0">
         <header className="sticky top-0 z-10 flex items-center gap-4 bg-brand-bg/80 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur md:px-10 md:py-6 dark:bg-gray-950/80">
           <NavLink to="/perfil" className="md:hidden">
-            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">Multitec</p>
+            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{companyName}</p>
             <p className="text-xs text-gray-500">{user?.name}</p>
           </NavLink>
           <div className="flex-1" />

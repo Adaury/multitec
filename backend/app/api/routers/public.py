@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.limiter import limiter
 from app.core.security import require_role
 from app.db.session import get_db
+from app.db.tenant import tenant_bypass
+from app.models.company import Company
 from app.models.invoice import Invoice
 from app.models.project import Project
 from app.models.quote import Quote, QuoteHistory
@@ -76,6 +78,14 @@ def revoke_public_link(
 
 
 def _get_project_by_token(db: Session, token: str) -> Project:
+    # El portal no tiene sesión: la empresa sale del proyecto al que pertenece el enlace. Esa búsqueda es lo único que corre
+    # sin filtro; después la sesión queda fijada a esa empresa y todo lo demás se filtra solo.
+    with tenant_bypass(db):
+        owner = db.query(Project.company_id).filter(Project.public_token == token).one_or_none()
+        company = db.get(Company, owner[0]) if owner else None
+    if company is None or not company.is_active:
+        raise HTTPException(status_code=404, detail="Enlace no válido")
+    db.info["company_id"] = company.id
     project = (
         db.query(Project)
         .options(

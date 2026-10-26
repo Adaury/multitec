@@ -14,7 +14,7 @@ from app.models.user import User
 from app.schemas.ticket import TicketAssetOut, TicketCreate, TicketHistoryOut, TicketOut, TicketUpdate
 from app.services.code_generator import next_code
 from app.services.notifications import notify_ticket_assigned
-from app.services.uploads import enforce_matches_declared_type, read_upload, stored_extension
+from app.services.uploads import company_dir, enforce_matches_declared_type, read_upload, stored_extension
 
 router = APIRouter(tags=["tickets"])
 
@@ -124,8 +124,7 @@ async def upload_ticket_photo(
     if file.content_type not in ALLOWED_PHOTO_TYPES:
         raise HTTPException(status_code=400, detail=f"Tipo de archivo no permitido: {file.content_type}")
 
-    settings = get_settings()
-    ticket_dir = Path(settings.upload_dir) / "tickets" / str(ticket.id)
+    ticket_dir = company_dir(db, "tickets", str(ticket.id))
     ticket_dir.mkdir(parents=True, exist_ok=True)
 
     extension = stored_extension(file.content_type)

@@ -4,9 +4,10 @@ from sqlalchemy import DateTime, ForeignKey, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class ProjectEmbedding(Base):
+class ProjectEmbedding(TenantMixin, Base):
     """Vector de embedding del expediente de un proyecto, usado para búsqueda semántica
     entre proyectos en '/api/ai/ask'. Se guarda como JSON (no ARRAY) para funcionar igual
     en SQLite y PostgreSQL sin depender de una extensión como pgvector."""

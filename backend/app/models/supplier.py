@@ -4,9 +4,10 @@ from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Supplier(Base):
+class Supplier(TenantMixin, Base):
     """Proveedor — a quién se le compran los materiales de un proyecto (§ Material)."""
 
     __tablename__ = "suppliers"

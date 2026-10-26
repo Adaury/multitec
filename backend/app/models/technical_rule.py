@@ -4,6 +4,7 @@ from sqlalchemy import JSON, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 # Los tres action_type con manejador implementado (ver app/ai_engine/rules.py). Agregar
 # uno nuevo no requiere migración — sus parámetros propios van en `action_params` (JSON),
@@ -18,7 +19,7 @@ SUPPORTED_ACTION_TYPES = (
 )
 
 
-class TechnicalRule(Base):
+class TechnicalRule(TenantMixin, Base):
     """Regla técnica general (§ docs/ai-engine-architecture.md, Motor 4) — generalización
     hacia adelante de `CatalogRule`, que se mantiene intacta y sigue funcionando igual
     (tabla `catalog_rules`, sin migrar). Misma condición ("producto fuente presente en el

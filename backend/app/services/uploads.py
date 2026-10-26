@@ -1,6 +1,29 @@
+from pathlib import Path
+
 from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.db.tenant import TenantContextError
+
+
+def company_dir(db: Session, *parts: str) -> Path:
+    """Carpeta de archivos de la empresa de la sesión: `uploads/c{id}/...`. Cada empresa guarda en la suya, y
+    `/uploads` solo sirve a cada una lo que está en la suya (los archivos anteriores a multi-empresa, sin prefijo,
+    son de la empresa 1)."""
+    company_id = db.info.get("company_id")
+    if company_id is None:
+        raise TenantContextError("No se puede guardar un archivo sin empresa activa")
+    return Path(get_settings().upload_dir, f"c{company_id}", *parts)
+
+
+def can_read_upload(company_id: int, relative_path: str) -> bool:
+    """¿Esta empresa puede leer ese archivo? Prefijo `c{id}/` = solo esa empresa; sin prefijo (archivos de antes de
+    multi-empresa) = solo la empresa 1."""
+    first = relative_path.replace("\\", "/").lstrip("/").split("/", 1)[0]
+    if first.startswith("c") and first[1:].isdigit():
+        return int(first[1:]) == company_id
+    return company_id == 1
 
 # La extensión con la que se guarda un archivo sale del tipo ya validado, nunca del nombre que
 # manda el cliente: de lo contrario "x.html" declarado como image/png se serviría desde /uploads

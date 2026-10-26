@@ -8,6 +8,7 @@ from app.core import lockout
 from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.core.security import (
+    COMPANY_SUSPENDED,
     DUMMY_PASSWORD_HASH,
     _hash_refresh_token,
     active_sessions,
@@ -21,6 +22,7 @@ from app.core.security import (
     verify_password,
 )
 from app.db.session import get_db
+from app.models.company import Company
 from app.models.user import User
 from app.schemas.auth import ChangePasswordRequest, CurrentUser, ProfileUpdate, RefreshRequest, Token
 from app.schemas.user import SessionOut
@@ -60,6 +62,8 @@ def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
+    # Aún no hay usuario ni empresa: el correo se busca entre todas (es único global). La sesión vive una sola petición.
+    db.info["bypass_tenant"] = True
     # Los emails se guardan normalizados a minúsculas (ver schemas/user.py) — se normaliza
     # igual acá para que el login no dependa de cómo el usuario tecleó las mayúsculas.
     username = form_data.username.lower()
@@ -79,7 +83,15 @@ def login(
     password_ok = verify_password(form_data.password, user.hashed_password if user else DUMMY_PASSWORD_HASH)
     if user is None or not password_ok:
         lockout.register_failure(username)
-        audit(db, "login_failed", email=username, request=request, commit=True)
+        # Con un correo conocido el intento queda en la auditoría de SU empresa (el admin la ve); con uno desconocido, sin empresa.
+        audit(
+            db,
+            "login_failed",
+            email=username,
+            company_id=user.company_id if user else None,
+            request=request,
+            commit=True,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo o contraseña incorrectos",
@@ -88,6 +100,10 @@ def login(
     if not user.is_active:
         audit(db, "login_inactive", user=user, request=request, commit=True)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario inactivo")
+    company = db.get(Company, user.company_id)
+    if company is None or not company.is_active:
+        audit(db, "login_company_suspended", user=user, request=request, commit=True)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=COMPANY_SUSPENDED)
 
     user.last_login_at = datetime.now(timezone.utc)
     audit(db, "login", user=user, request=request)
@@ -103,6 +119,7 @@ def login(
 def refresh(
     request: Request, response: Response, payload: RefreshRequest | None = None, db: Session = Depends(get_db)
 ):
+    db.info["bypass_tenant"] = True  # sin sesión todavía: se localiza al usuario por su token (global)
     raw_token = _incoming_refresh_token(request, payload)
     row = get_valid_refresh_token(db, raw_token) if raw_token else None
     if row is None:
@@ -111,6 +128,9 @@ def refresh(
     user = db.get(User, row.user_id)
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario inactivo")
+    company = db.get(Company, user.company_id)
+    if company is None or not company.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=COMPANY_SUSPENDED)
 
     # Rotación: este refresh token se revoca y se emite uno nuevo junto con el access
     # token — un refresh token es de un solo uso. Si alguien lo reusa después (porque lo

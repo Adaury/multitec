@@ -4,6 +4,7 @@ from app.db.product_catalog_seed import PRODUCT_CATALOG_SEED
 from app.db.session import SessionLocal
 from app.db.taxonomy import TAXONOMY
 from app.models.category import Category
+from app.models.company import Company
 from app.models.product import Product, resolve_code_prefix
 from app.models.user import User
 from app.services.code_generator import next_code
@@ -65,9 +66,27 @@ def seed_products(db) -> None:
     db.commit()
 
 
+ORIGINAL_COMPANY_ID = 1
+
+
+def seed_new_company(db) -> None:
+    """Lo que recibe una empresa recién creada desde el panel de plataforma: el árbol de clasificaciones del catálogo
+    (sin productos, clientes ni nada de otra empresa). `db` es una sesión de ESA empresa."""
+    seed_categories(db)
+
+
 def seed() -> None:
     settings = get_settings()
-    db = SessionLocal()
+    # Instalación nueva: se crea la empresa original (Multitec) si todavía no existe; el seed trabaja dentro de ella.
+    boot = SessionLocal(bypass_tenant=True)
+    try:
+        if boot.get(Company, ORIGINAL_COMPANY_ID) is None:
+            boot.add(Company(id=ORIGINAL_COMPANY_ID, name=settings.company_name or "Multitec", slug="multitec"))
+            boot.commit()
+    finally:
+        boot.close()
+
+    db = SessionLocal(company_id=ORIGINAL_COMPANY_ID)
     try:
         seed_categories(db)
         seed_products(db)
@@ -87,6 +106,7 @@ def seed() -> None:
             hashed_password=hash_password(settings.admin_password),
             role="admin",
             is_active=True,
+            is_platform_admin=True,  # el primer administrador es el dueño del sistema: puede crear empresas
             # Si no se definió ADMIN_PASSWORD queda el valor por defecto, que es público en el
             # código: se obliga a cambiarlo en el primer ingreso.
             must_change_password=settings.admin_password == type(settings).model_fields["admin_password"].default,

@@ -34,7 +34,7 @@ def get_company(db: Session = Depends(get_db), _=Depends(allowed_roles)):
 def update_company(
     request: Request, payload: CompanyUpdate, db: Session = Depends(get_db), current_user: User = Depends(admin_only)
 ):
-    profile = company_service.get_profile(db) or CompanyProfile(id=1)
+    profile = company_service.get_profile(db) or CompanyProfile()
     changed = []
     for field in company_service.FIELDS:
         value = getattr(payload, field)

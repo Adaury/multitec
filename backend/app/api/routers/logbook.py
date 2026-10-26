@@ -12,7 +12,7 @@ from app.models.logbook import LogEntry, LogEntryAsset
 from app.models.project import Project
 from app.models.user import User
 from app.schemas.logbook import LogEntryAssetOut, LogEntryCreate, LogEntryOut
-from app.services.uploads import enforce_matches_declared_type, read_upload, stored_extension
+from app.services.uploads import company_dir, enforce_matches_declared_type, read_upload, stored_extension
 
 router = APIRouter(tags=["logbook"])
 
@@ -68,8 +68,7 @@ async def upload_log_photo(
     if file.content_type not in ALLOWED_PHOTO_TYPES:
         raise HTTPException(status_code=400, detail=f"Tipo de archivo no permitido: {file.content_type}")
 
-    settings = get_settings()
-    entry_dir = Path(settings.upload_dir) / "logbook" / str(entry.id)
+    entry_dir = company_dir(db, "logbook", str(entry.id))
     entry_dir.mkdir(parents=True, exist_ok=True)
 
     extension = stored_extension(file.content_type)

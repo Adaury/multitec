@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, String, fun
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class NcfSequence(Base):
+class NcfSequence(TenantMixin, Base):
     """Rango de Números de Comprobante Fiscal (NCF) autorizado por la DGII para un tipo
     de comprobante (B01 crédito fiscal, B02 consumo, B14 regímenes especiales, B15
     gubernamental...). `next_number` avanza en cada factura emitida con este tipo."""

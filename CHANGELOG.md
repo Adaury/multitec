@@ -8,6 +8,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Multi-empresa**: una sola instalación y base de datos para varias empresas, con los datos separados por
+  `company_id` (migración `d9a4b7c2e1f3`). El aislamiento es automático (`TenantSession`): filtra toda
+  consulta, sella lo que se crea, rechaza datos de otra empresa y falla cerrado si la sesión no tiene empresa.
+  Correlativos, NCF, logo, archivos (`uploads/c{id}/`) y RNC de la DGII son por empresa.
+- **Panel de plataforma** (`/plataforma`, solo el dueño del sistema): crear una empresa con su administrador
+  (clave temporal de un solo uso), ver su uso, suspender / reactivar (cierra sus sesiones) y restablecer la clave
+  de su administrador. Todo queda en la auditoría.
+- **Generación de cotizaciones con IA en el servidor**: sigue aunque salgas de la app y se retoma al volver; una
+  línea con dato inválido de la IA se omite con aviso en vez de tumbar toda la cotización.
 - **Administración del equipo**: ficha (teléfono, zona, especialidades, vehículo), último acceso, restablecer
   clave temporal, sesiones activas con cierre remoto, carga de trabajo por técnico y **bitácora de auditoría**
   (migración `b7d2e9a4c1f6`).
@@ -458,6 +467,15 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 Primer commit del proyecto, con las 5 fases del brief original completas.
 
 ### Añadido
+- **Multi-empresa**: una sola instalación y base de datos para varias empresas, con los datos separados por
+  `company_id` (migración `d9a4b7c2e1f3`). El aislamiento es automático (`TenantSession`): filtra toda
+  consulta, sella lo que se crea, rechaza datos de otra empresa y falla cerrado si la sesión no tiene empresa.
+  Correlativos, NCF, logo, archivos (`uploads/c{id}/`) y RNC de la DGII son por empresa.
+- **Panel de plataforma** (`/plataforma`, solo el dueño del sistema): crear una empresa con su administrador
+  (clave temporal de un solo uso), ver su uso, suspender / reactivar (cierra sus sesiones) y restablecer la clave
+  de su administrador. Todo queda en la auditoría.
+- **Generación de cotizaciones con IA en el servidor**: sigue aunque salgas de la app y se retoma al volver; una
+  línea con dato inválido de la IA se omite con aviso en vez de tumbar toda la cotización.
 
 - **Fase 1 (fundación):** autenticación con roles (`admin` / `oficina`), módulo de
   Clientes, núcleo de Proyecto con pestañas (Información / Levantamiento / Ingeniería) y

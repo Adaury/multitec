@@ -4,9 +4,10 @@ from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Client(Base):
+class Client(TenantMixin, Base):
     __tablename__ = "clients"
 
     id: Mapped[int] = mapped_column(primary_key=True)

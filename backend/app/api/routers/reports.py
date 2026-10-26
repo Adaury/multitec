@@ -12,7 +12,7 @@ from app.schemas.reports import DashboardSummary
 from app.schemas.timesheet import TimesheetOut
 from app.services.timesheet import timesheet_csv_rows, timesheet_rows, timesheet_totals
 from app.services.csv_export import build_csv
-from app.core.config import get_settings
+from app.services.company import get_company
 from app.services.dgii_606 import build_606_report, build_606_rows
 from app.services.dgii_607 import build_607_consumption_summary, build_607_report, build_607_rows
 from app.services.dgii_608 import build_608_report, build_608_rows
@@ -104,14 +104,16 @@ def _dgii_response(form: str, year: int, month: int, fmt: str, csv_builder, rows
     """CSV (revisión en Excel) o TXT con el formato de envío de la DGII."""
     if not (1 <= month <= 12):
         raise HTTPException(status_code=400, detail="Mes inválido, debe ser 1-12")
+    # El RNC es el de la empresa de la sesión (su perfil en "Mi empresa"), no uno global del servidor.
+    company_rnc = get_company(db).rnc
     if fmt == "txt":
-        content = build_dgii_txt(form, get_settings().company_rnc, year, month, rows_builder(db, year, month))
+        content = build_dgii_txt(form, company_rnc, year, month, rows_builder(db, year, month))
         media_type = "text/plain"
     else:
         content, media_type = csv_builder(db, year, month), "text/csv"
     if fmt == "txt":
         # Nombre que usa la DGII para el archivo de envío: DGII_F_607_<RNC>_<AAAAMM>.TXT
-        filename = f"DGII_F_{form}_{company_rnc_digits(get_settings().company_rnc)}_{year:04d}{month:02d}.TXT"
+        filename = f"DGII_F_{form}_{company_rnc_digits(company_rnc)}_{year:04d}{month:02d}.TXT"
     else:
         filename = f"{form}_{year:04d}{month:02d}.csv"
     return Response(

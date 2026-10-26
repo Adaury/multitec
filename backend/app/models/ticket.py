@@ -1,20 +1,23 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 TICKET_STATUSES = ("abierto", "en_proceso", "resuelto", "cerrado")
 
 
-class Ticket(Base):
+class Ticket(TenantMixin, Base):
     """Ticket de soporte (§16) — siempre pertenece a un proyecto."""
 
     __tablename__ = "tickets"
+    # Único por empresa, no global: cada empresa lleva sus propios correlativos.
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_tickets_company_code"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(20), index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     technician_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     problem: Mapped[str] = mapped_column(Text)
@@ -33,7 +36,7 @@ class Ticket(Base):
     assets: Mapped[list["TicketAsset"]] = relationship(back_populates="ticket", cascade="all, delete-orphan")
 
 
-class TicketHistory(Base):
+class TicketHistory(TenantMixin, Base):
     __tablename__ = "ticket_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -45,7 +48,7 @@ class TicketHistory(Base):
     ticket: Mapped["Ticket"] = relationship(back_populates="history")
 
 
-class TicketAsset(Base):
+class TicketAsset(TenantMixin, Base):
     """Foto de evidencia adjunta a un ticket (p. ej. al resolverlo)."""
 
     __tablename__ = "ticket_assets"

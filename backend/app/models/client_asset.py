@@ -4,6 +4,7 @@ from sqlalchemy import Date, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 # Tipos de equipo que se ofrecen en la app; en la base es texto libre para no obligar a migrar por cada tipo nuevo.
 ASSET_KINDS = (
@@ -21,7 +22,7 @@ ASSET_KINDS = (
 )
 
 
-class ClientAsset(Base):
+class ClientAsset(TenantMixin, Base):
     """Un equipo instalado en casa o local de un cliente: qué es, dónde está, su serial y MAC, cuándo se instaló
     y hasta cuándo tiene garantía. Es la base para garantías y mantenimientos: al llegar una falla se sabe qué
     equipo es y si todavía está cubierto."""

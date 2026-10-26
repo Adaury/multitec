@@ -155,7 +155,8 @@ def _upload_survey_photo(client, headers) -> str:
     created = client.post(
         f"/api/projects/{project['id']}/survey/assets", data={"kind": "photo"}, files=files, headers=headers
     ).json()
-    return "/".join(created["file_path"].split("/")[-3:])  # surveys/<id>/<archivo>
+    parts = created["file_path"].split("/")
+    return "/".join(parts[parts.index("c1"):])  # c<empresa>/surveys/<id>/<archivo>
 
 
 def test_uploads_require_a_session_and_are_served_with_nosniff(client, admin_token):

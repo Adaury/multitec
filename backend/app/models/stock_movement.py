@@ -4,11 +4,12 @@ from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 STOCK_MOVEMENT_TYPES = ("entrada", "salida")
 
 
-class StockMovement(Base):
+class StockMovement(TenantMixin, Base):
     """Control de inventario de bodega — entradas/salidas de stock por producto del
     catálogo, independiente de los materiales asignados a un proyecto (Material, §18)."""
 

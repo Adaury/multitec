@@ -20,7 +20,7 @@ def company_rnc_digits(raw: str) -> str:
             status_code=400,
             detail=(
                 "Para generar el archivo de la DGII hace falta el RNC de la empresa (9 u 11 dígitos). "
-                "Defínelo en COMPANY_RNC en backend/.env y reinicia el backend."
+                "Escríbelo en «Mi empresa» (campo RNC)."
             ),
         )
     return digits

@@ -18,6 +18,7 @@ import threading
 from dataclasses import dataclass, field
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
 from app.ai_engine.calculation import (
@@ -255,7 +256,9 @@ def _fill_engineering(engineering: Engineering, draft: dict, engineering_notes: 
     engineering.ai_generated = True
 
 
-def draft_engineering_in_background(project_id: int, context: str, engineering_notes: list[str]) -> bool:
+def draft_engineering_in_background(
+    project_id: int, context: str, engineering_notes: list[str], company_id: int | None = None
+) -> bool:
     """Redacta y guarda el borrador de ingeniería fuera de la petición HTTP (abre su propia
     sesión). Solo escribe si la ingeniería sigue vacía cuando termina la IA, para no pisar lo que
     alguien haya editado mientras tanto. Nunca lanza: devuelve si llegó a guardar el borrador."""
@@ -266,7 +269,7 @@ def draft_engineering_in_background(project_id: int, context: str, engineering_n
     except Exception as exc:
         logger.warning("Borrador de ingeniería en segundo plano omitido (proyecto %s): %s", project_id, exc)
         return False
-    db = SessionLocal()
+    db = SessionLocal(company_id=company_id)  # el hilo no hereda la empresa de la petición: se pasa explícita
     try:
         engineering = db.query(Engineering).filter(Engineering.project_id == project_id).one_or_none()
         if not _engineering_is_empty(engineering):
@@ -282,11 +285,13 @@ def draft_engineering_in_background(project_id: int, context: str, engineering_n
         db.close()
 
 
-def start_engineering_draft(project_id: int, context: str, engineering_notes: list[str]) -> None:
+def start_engineering_draft(
+    project_id: int, context: str, engineering_notes: list[str], company_id: int | None = None
+) -> None:
     """Lanza `draft_engineering_in_background` en un hilo y vuelve de inmediato."""
     threading.Thread(
         target=draft_engineering_in_background,
-        args=(project_id, context, list(engineering_notes)),
+        args=(project_id, context, list(engineering_notes), company_id),
         name=f"engineering-draft-{project_id}",
         daemon=True,
     ).start()
@@ -304,7 +309,21 @@ def generate_documents_from_survey(
     if not items:
         raise HTTPException(status_code=400, detail="La IA no pudo derivar materiales del levantamiento")
 
-    items_in = [BudgetItemIn(**item) for item in items]
+    # Una línea inválida (cantidad 0, por ejemplo) no debe tumbar toda la cotización con un error interno:
+    # se omite y se avisa, y el resto se genera. Si ninguna sirve, se explica por qué.
+    items_in: list[BudgetItemIn] = []
+    for item in items:
+        try:
+            items_in.append(BudgetItemIn(**item))
+        except ValidationError:
+            label = str(item.get("description") or "una línea")[:80]
+            warnings.append(f"Se omitió «{label}»: la IA le dio una cantidad o un dato inválido (revísala a mano).")
+            logger.warning("Línea de presupuesto omitida por datos inválidos en el proyecto %s: %r", project_id, item)
+    if not items_in:
+        raise HTTPException(
+            status_code=400,
+            detail="La IA no pudo armar ninguna línea válida del levantamiento. Revisa las cantidades y vuelve a intentar.",
+        )
     budget = build_budget(
         db, project_id, "Generado automáticamente desde el levantamiento", items_in, created_by, ai_generated=True
     )

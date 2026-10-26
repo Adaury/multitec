@@ -72,7 +72,7 @@ def test_logo_upload_trims_white_margin_and_can_be_replaced_and_removed(client, 
     image = Image.open(BytesIO(served.content))
     assert image.width < 150 and image.height < 100  # el recuadro de 100x60 más un pequeño margen, no 400x400
 
-    with SessionLocal() as db:
+    with SessionLocal(company_id=1) as db:
         first_path = get_company(db).logo_path
     assert Path(first_path).is_file()
 

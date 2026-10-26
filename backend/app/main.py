@@ -25,12 +25,14 @@ from app.api.routers import (
     execution,
     extensions,
     followups,
+    generation,
     inventory,
     invoices,
     logbook,
     materials,
     ncf,
     notifications,
+    platform,
     projects,
     public,
     purchase_invoices,
@@ -49,6 +51,7 @@ from app.core.limiter import limiter
 from app.core.security import get_current_user
 from app.core.logging_config import configure_logging
 from app.models.user import User
+from app.services.uploads import can_read_upload
 
 configure_logging()
 settings = get_settings()
@@ -118,14 +121,16 @@ Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
 
 
 @app.get("/uploads/{file_path:path}", include_in_schema=False)
-def get_upload(file_path: str, _user: User = Depends(get_current_user)):
+def get_upload(file_path: str, user: User = Depends(get_current_user)):
     """Fotos y audios del trabajo: solo con sesión. Antes eran un directorio público y cualquiera con
     el enlace (reenviado por WhatsApp, por ejemplo) los veía. Los nombres son aleatorios, pero un
-    enlace filtrado no debe bastar."""
+    enlace filtrado no debe bastar. Además, cada empresa solo ve los archivos de su carpeta."""
     root = Path(settings.upload_dir).resolve()
     target = (root / file_path).resolve()
     if root not in target.parents or not target.is_file():
         raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    if not can_read_upload(user.company_id, target.relative_to(root).as_posix()):
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")  # 404: no revela que existe
     # Nunca se interpretan como otra cosa que lo que son (ver services/uploads.py).
     return FileResponse(
         target,
@@ -159,6 +164,8 @@ app.include_router(tickets.router)
 app.include_router(ai.router)
 app.include_router(ai_feedback_events.router)
 app.include_router(users.router)
+app.include_router(platform.router)
+app.include_router(generation.router)
 app.include_router(ncf.router)
 app.include_router(company.router)
 app.include_router(followups.router)

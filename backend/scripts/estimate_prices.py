@@ -4,6 +4,7 @@ Uso (desde la carpeta backend):
 
     venv/Scripts/python.exe scripts/estimate_prices.py          # solo muestra qué haría
     venv/Scripts/python.exe scripts/estimate_prices.py --apply  # lo aplica
+    ... --company 2                                             # otra empresa (por defecto la 1, Multitec)
 
 Regla: si el producto tiene costo, precio = costo + 35 %; si no, un precio típico según el prefijo
 de su categoría (RD$). Los productos quedan marcados como `price_estimated` (el catálogo los
@@ -49,7 +50,8 @@ def estimate(product: Product) -> float:
 
 def main() -> None:
     apply = "--apply" in sys.argv
-    with SessionLocal() as db:
+    company_id = int(sys.argv[sys.argv.index("--company") + 1]) if "--company" in sys.argv else 1
+    with SessionLocal(company_id=company_id) as db:
         products = db.query(Product).filter(Product.price == 0).order_by(Product.code).all()
         for product in products:
             price = estimate(product)

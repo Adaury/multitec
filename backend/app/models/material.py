@@ -4,11 +4,12 @@ from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 MATERIAL_STATUSES = ("disponible", "pendiente_compra", "comprado", "instalado")
 
 
-class Material(Base):
+class Material(TenantMixin, Base):
     """Inventario simple (§18) — un material del proyecto con estado."""
 
     __tablename__ = "materials"

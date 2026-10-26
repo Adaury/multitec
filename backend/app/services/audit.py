@@ -43,9 +43,13 @@ def audit(
     detail: dict | None = None,
     request: Request | None = None,
     commit: bool = False,
+    company_id: int | None = None,
 ) -> None:
+    """`company_id`: empresa a la que pertenece el registro. Por defecto la del usuario que actúa; si no hay (acceso
+    fallido con un correo desconocido) queda vacío, y el servidor de sesión pone la de la sesión cuando la hay."""
     db.add(
         AuditLog(
+            company_id=company_id if company_id is not None else (user.company_id if user else None),
             user_id=user.id if user else None,
             user_email=(user.email if user else email),
             action=action,

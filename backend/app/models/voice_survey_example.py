@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class VoiceSurveyExample(Base):
+class VoiceSurveyExample(TenantMixin, Base):
     """Aprendizaje del levantamiento por voz (Motor 7): lo que dijo el técnico, cómo lo
     repartió la IA entre Notas/Medidas/Observaciones y cómo lo dejó el técnico tras revisarlo.
     `corrected` marca las filas donde el técnico cambió algo — esas son las que más enseñan,

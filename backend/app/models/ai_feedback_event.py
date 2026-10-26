@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 ENTITY_TYPE_BUDGET_ITEM = "budget_item"
 ENTITY_TYPE_ENGINEERING = "engineering"
@@ -18,7 +19,7 @@ ORIGIN_HUMAN_MODIFIED = "human_modified"
 ORIGINS = ("ai_suggested", ORIGIN_HUMAN_ADDED, ORIGIN_HUMAN_REMOVED, ORIGIN_HUMAN_MODIFIED)
 
 
-class AIFeedbackEvent(Base):
+class AIFeedbackEvent(TenantMixin, Base):
     """Captura pasiva de Motor 7 (§ docs/ai-engine-architecture.md) — qué corrigió un
     humano sobre algo que la IA generó. Se escribe automáticamente al editar un `Budget` o
     una `Engineering` que todavía tenían `ai_generated=True` (ver

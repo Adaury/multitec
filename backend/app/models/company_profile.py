@@ -1,19 +1,21 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class CompanyProfile(Base):
-    """Datos de la empresa que salen en el membrete de cotizaciones y facturas (una sola fila).
-    Cada campo vacío (NULL) cae al valor de COMPANY_* en `.env`: así una instalación que ya
-    tenía el membrete en `.env` sigue igual hasta que alguien lo edite desde la app."""
+class CompanyProfile(TenantMixin, Base):
+    """Datos de la empresa que salen en el membrete de cotizaciones y facturas: una fila por empresa.
+    Solo la empresa 1 (la original) cae a los valores COMPANY_* de `.env` cuando un campo está vacío, para que una
+    instalación que ya tenía el membrete ahí siga igual; las empresas nuevas arrancan en blanco y no heredan nada."""
 
     __tablename__ = "company_profile"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    company_id: Mapped[int] = mapped_column(ForeignKey("companies.id"), unique=True)
     name: Mapped[str | None] = mapped_column(String(120), nullable=True)
     tagline: Mapped[str | None] = mapped_column(String(160), nullable=True)
     representative: Mapped[str | None] = mapped_column(String(120), nullable=True)

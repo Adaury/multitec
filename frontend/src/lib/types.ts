@@ -45,6 +45,35 @@ export interface CurrentUser {
   assistant_alias: string | null
   /** Contraseña temporal: hasta cambiarla solo puede ver su perfil. */
   must_change_password?: boolean
+  company_id: number
+  company_name: string
+  /** Dueño del sistema: además de su empresa, administra las empresas desde /plataforma. */
+  is_platform_admin?: boolean
+}
+
+export interface PlatformCompany {
+  id: number
+  name: string
+  slug: string
+  is_active: boolean
+  notes: string | null
+  created_at: string
+  users: number
+  projects: number
+  invoices: number
+}
+
+export interface PlatformCompanyDetail extends PlatformCompany {
+  storage_mb: number
+  team: {
+    id: number
+    name: string
+    email: string
+    role: Role
+    is_active: boolean
+    last_login_at: string | null
+    is_platform_admin: boolean
+  }[]
 }
 
 export interface ManagedUser {

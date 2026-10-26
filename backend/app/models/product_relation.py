@@ -4,6 +4,7 @@ from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 RELATION_TYPE_COMPATIBLE = "compatible_con"
 RELATION_TYPE_ALTERNATIVE = "alternativa_de"
@@ -11,7 +12,7 @@ RELATION_TYPE_REQUIRES = "requiere"
 RELATION_TYPES = (RELATION_TYPE_COMPATIBLE, RELATION_TYPE_ALTERNATIVE, RELATION_TYPE_REQUIRES)
 
 
-class ProductRelation(Base):
+class ProductRelation(TenantMixin, Base):
     """Relación informativa entre dos productos del catálogo (§ docs/ai-engine-architecture.md,
     Motor 2) — deliberadamente separada de `CatalogRule`/`TechnicalRule`: esto es
     información para quien arma el presupuesto a mano (ej. "este switch requiere este

@@ -4,9 +4,10 @@ from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Survey(Base):
+class Survey(TenantMixin, Base):
     """Levantamiento técnico — 1:1 con Project."""
 
     __tablename__ = "surveys"
@@ -25,7 +26,7 @@ class Survey(Base):
     assets: Mapped[list["SurveyAsset"]] = relationship(back_populates="survey", cascade="all, delete-orphan")
 
 
-class SurveyAsset(Base):
+class SurveyAsset(TenantMixin, Base):
     """Foto o audio adjunto a un levantamiento."""
 
     __tablename__ = "survey_assets"
@@ -43,7 +44,7 @@ class SurveyAsset(Base):
     )
 
 
-class SurveyMarker(Base):
+class SurveyMarker(TenantMixin, Base):
     """Punto numerado sobre una foto (cámara 1, NVR, switch...). `x`/`y` van de 0 a 1 sobre el
     ancho y alto de la imagen, así que no dependen de cómo se muestre. La numeración es corrida
     en todo el levantamiento y la reasigna el backend."""

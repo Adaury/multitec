@@ -36,6 +36,6 @@ test('the DGII .txt explains what is missing when the company RNC is not configu
   await page.goto('/ncf')
   await page.getByRole('button', { name: 'Archivo DGII (.txt)' }).first().click()
 
-  // El backend de pruebas no tiene COMPANY_RNC: el mensaje dice qué hacer, no un error genérico.
-  await expect(page.getByText(/COMPANY_RNC en backend\/\.env/).last()).toBeVisible()
+  // La empresa de pruebas no tiene RNC: el mensaje dice qué hacer, no un error genérico.
+  await expect(page.getByText(/Escríbelo en «Mi empresa»/).last()).toBeVisible()
 })

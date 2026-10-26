@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models.company_profile import CompanyProfile
+from app.services.uploads import company_dir
 
 FIELDS = (
     "name", "tagline", "representative", "rnc", "cedula", "address", "phone", "email", "website",
@@ -53,13 +54,18 @@ def company_from_settings() -> CompanyInfo:
     )
 
 
+ORIGINAL_COMPANY_ID = 1  # la empresa de siempre (Multitec): la única que hereda los COMPANY_* del `.env`
+
+
 def get_profile(db: Session) -> CompanyProfile | None:
-    return db.get(CompanyProfile, 1)
+    """El membrete de la empresa de la sesión (el filtro por empresa ya limita la consulta a una fila)."""
+    return db.query(CompanyProfile).one_or_none()
 
 
 def get_company(db: Session) -> CompanyInfo:
-    """Datos vigentes: lo guardado en la app manda y, campo por campo, lo vacío cae a `.env`."""
-    base = company_from_settings()
+    """Datos vigentes: lo guardado en la app manda y, campo por campo, lo vacío cae a `.env` — pero solo para la
+    empresa original: una empresa nueva nunca debe salir con el membrete, el RNC o las cuentas de Multitec."""
+    base = company_from_settings() if db.info.get("company_id") == ORIGINAL_COMPANY_ID else CompanyInfo()
     profile = get_profile(db)
     if profile is None:
         return base
@@ -69,14 +75,16 @@ def get_company(db: Session) -> CompanyInfo:
     return CompanyInfo(**values)
 
 
-def load_company() -> CompanyInfo:
-    """Igual que `get_company`, abriendo su propia sesión: para quien genera un PDF sin tener `db`."""
-    with SessionLocal() as db:
+def load_company(company_id: int) -> CompanyInfo:
+    """Igual que `get_company`, abriendo su propia sesión: para quien genera un PDF sin tener `db`. La empresa es
+    obligatoria: sin ella el membrete saldría de otra."""
+    with SessionLocal(company_id=company_id) as db:
         return get_company(db)
 
 
-def logo_directory() -> Path:
-    directory = Path(get_settings().upload_dir) / "company"
+def logo_directory(db: Session) -> Path:
+    # Un directorio por empresa (uploads/c{id}/company): sus logos no se mezclan con los de otra.
+    directory = company_dir(db, "company")
     directory.mkdir(parents=True, exist_ok=True)
     return directory
 
@@ -113,10 +121,10 @@ def save_logo(db: Session, contents: bytes) -> CompanyProfile:
     """Guarda un logo nuevo (con nombre nuevo para que el navegador no muestre el anterior en caché)
     y borra el archivo que reemplaza."""
     png = prepare_logo(contents)
-    profile = get_profile(db) or CompanyProfile(id=1)
-    destination = logo_directory() / f"logo-{uuid.uuid4().hex}.png"
+    profile = get_profile(db) or CompanyProfile()
+    destination = logo_directory(db) / f"logo-{uuid.uuid4().hex}.png"
     destination.write_bytes(png)
-    _delete_logo_file(profile.logo_path)
+    _delete_logo_file(db, profile.logo_path)
     profile.logo_path = str(destination.as_posix())
     db.add(profile)
     db.commit()
@@ -126,8 +134,8 @@ def save_logo(db: Session, contents: bytes) -> CompanyProfile:
 
 def remove_logo(db: Session) -> CompanyProfile | None:
     """Deja la empresa sin logo, también si venía del .env: un logo quitado no debe reaparecer."""
-    profile = get_profile(db) or CompanyProfile(id=1)
-    _delete_logo_file(profile.logo_path)
+    profile = get_profile(db) or CompanyProfile()
+    _delete_logo_file(db, profile.logo_path)
     profile.logo_path = ""
     db.add(profile)
     db.commit()
@@ -135,14 +143,18 @@ def remove_logo(db: Session) -> CompanyProfile | None:
     return profile
 
 
-def _delete_logo_file(path: str | None) -> None:
-    """Solo borra archivos que están dentro de la carpeta de logos de la app, nunca una ruta ajena
-    (el logo también puede venir de COMPANY_LOGO_PATH, que apunta a donde el usuario quiera)."""
+def _delete_logo_file(db: Session, path: str | None) -> None:
+    """Solo borra archivos que están dentro de la carpeta de logos DE ESTA EMPRESA, nunca una ruta ajena ni el logo de
+    otra empresa (el logo también puede venir de COMPANY_LOGO_PATH, que apunta a donde el usuario quiera). La empresa
+    original puede además limpiar la carpeta anterior a multi-empresa (`uploads/company`)."""
     if not path:
         return
+    allowed = [logo_directory(db).resolve()]
+    if db.info.get("company_id") == ORIGINAL_COMPANY_ID:
+        allowed.append((Path(get_settings().upload_dir) / "company").resolve())
     try:
         target = Path(path).resolve()
-        if logo_directory().resolve() in target.parents and target.is_file():
+        if any(folder in target.parents for folder in allowed) and target.is_file():
             target.unlink()
     except OSError:
         pass

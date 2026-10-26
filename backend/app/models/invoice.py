@@ -1,9 +1,10 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 # Forma de pago de la venta: cada una cae en su propia columna del reporte 607 de la DGII.
 PAYMENT_METHODS = (
@@ -31,13 +32,15 @@ VOID_REASONS = {
 }
 
 
-class PreInvoice(Base):
+class PreInvoice(TenantMixin, Base):
     """Prefactura (§13) — documento previo, subtotal/ITBIS/total."""
 
     __tablename__ = "pre_invoices"
+    # Único por empresa, no global: cada empresa lleva sus propios correlativos.
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_pre_invoices_company_code"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(20), index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     source_quote_id: Mapped[int | None] = mapped_column(ForeignKey("quotes.id"), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="pendiente")  # pendiente | facturada
@@ -54,7 +57,7 @@ class PreInvoice(Base):
     invoice: Mapped["Invoice"] = relationship(back_populates="pre_invoice", uselist=False)
 
 
-class PreInvoiceItem(Base):
+class PreInvoiceItem(TenantMixin, Base):
     __tablename__ = "pre_invoice_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -69,16 +72,18 @@ class PreInvoiceItem(Base):
     pre_invoice: Mapped["PreInvoice"] = relationship(back_populates="items")
 
 
-class Invoice(Base):
+class Invoice(TenantMixin, Base):
     """Factura (§14) — conversión manual desde Prefactura, solo admin."""
 
     __tablename__ = "invoices"
+    # Único por empresa, no global: cada empresa lleva sus propios correlativos.
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_invoices_company_code"), UniqueConstraint("company_id", "ncf", name="uq_invoices_company_ncf"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(20), index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     pre_invoice_id: Mapped[int] = mapped_column(ForeignKey("pre_invoices.id"), unique=True)
-    ncf: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True)
+    ncf: Mapped[str | None] = mapped_column(String(20), nullable=True)
     ncf_type: Mapped[str | None] = mapped_column(String(3), nullable=True)
     subtotal: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
     itbis: Mapped[float] = mapped_column(Numeric(12, 2), default=0)
@@ -107,7 +112,7 @@ class Invoice(Base):
     )
 
 
-class InvoiceItem(Base):
+class InvoiceItem(TenantMixin, Base):
     __tablename__ = "invoice_items"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -122,7 +127,7 @@ class InvoiceItem(Base):
     invoice: Mapped["Invoice"] = relationship(back_populates="items")
 
 
-class InvoiceHistory(Base):
+class InvoiceHistory(TenantMixin, Base):
     __tablename__ = "invoice_history"
 
     id: Mapped[int] = mapped_column(primary_key=True)

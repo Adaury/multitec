@@ -5,9 +5,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.timeutil import today_dr
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class LogEntry(Base):
+class LogEntry(TenantMixin, Base):
     """Bitácora (§12) — registro cronológico del proyecto."""
 
     __tablename__ = "log_entries"
@@ -25,7 +26,7 @@ class LogEntry(Base):
     assets: Mapped[list["LogEntryAsset"]] = relationship(back_populates="entry", cascade="all, delete-orphan")
 
 
-class LogEntryAsset(Base):
+class LogEntryAsset(TenantMixin, Base):
     __tablename__ = "log_entry_assets"
 
     id: Mapped[int] = mapped_column(primary_key=True)

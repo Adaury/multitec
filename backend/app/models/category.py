@@ -1,12 +1,13 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, String, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Category(Base):
+class Category(TenantMixin, Base):
     """Nodo de clasificación de catálogo (§ catálogo inteligente v2). Auto-referencial:
     `parent_id` nulo = categoría raíz (ej. "CCTV"); con `parent_id` = subcategoría (ej.
     "Cámaras IP"). `code_prefix` es opcional — un producto resuelve el suyo caminando hacia
@@ -14,10 +15,12 @@ class Category(Base):
     así que solo hace falta declararlo donde cambia."""
 
     __tablename__ = "categories"
+    # Único por empresa, no global: cada empresa lleva sus propios correlativos.
+    __table_args__ = (UniqueConstraint("company_id", "slug", name="uq_categories_company_slug"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
-    slug: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    slug: Mapped[str] = mapped_column(String(120), index=True)
     code_prefix: Mapped[str | None] = mapped_column(String(10), nullable=True)
     parent_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

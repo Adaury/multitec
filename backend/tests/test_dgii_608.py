@@ -105,7 +105,7 @@ def test_txt_without_company_rnc_explains_what_is_missing(client, admin_token, m
     )
 
     assert resp.status_code == 400
-    assert "COMPANY_RNC" in resp.json()["detail"]
+    assert "Mi empresa" in resp.json()["detail"]
 
 
 def test_607_places_the_income_tax_retention_in_the_official_column(client, admin_token, db_session):

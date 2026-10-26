@@ -27,6 +27,9 @@ class CurrentUser(BaseModel):
     role: str
     assistant_alias: str | None = None
     must_change_password: bool = False
+    company_id: int
+    company_name: str
+    is_platform_admin: bool = False
 
     class Config:
         from_attributes = True

@@ -4,9 +4,10 @@ from sqlalchemy import DateTime, ForeignKey, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class CatalogRule(Base):
+class CatalogRule(TenantMixin, Base):
     """Regla de sugerencia de accesorios con cantidad (§ catálogo inteligente v2).
 
     Colgada de un producto "fuente" (ej. una cámara IP); `target_tag` identifica el

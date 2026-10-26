@@ -1,12 +1,13 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, String, false, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class User(Base):
+class User(TenantMixin, Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -18,6 +19,9 @@ class User(Base):
     # La contraseña actual es temporal (la puso un admin o se restableció): hasta que el usuario la
     # cambie solo puede ver su perfil y cambiarla. Ver core/security.py::get_current_user.
     must_change_password: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # Administrador de la PLATAFORMA (el dueño del sistema): además de su empresa, puede crear y suspender empresas
+    # desde /plataforma. No es un rol de empresa: ninguna empresa puede darlo.
+    is_platform_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     # Cómo lo llama el asistente de IA ("Ing. Pérez"). Lo configura cada usuario en su perfil;
     # vacío = el asistente usa "Ing." + el primer nombre.
     assistant_alias: Mapped[str | None] = mapped_column(String(60), nullable=True)
@@ -29,3 +33,9 @@ class User(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    company: Mapped["Company"] = relationship(lazy="joined")
+
+    @property
+    def company_name(self) -> str:
+        return self.company.name

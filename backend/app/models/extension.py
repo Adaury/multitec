@@ -1,21 +1,24 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, String, Text, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.timeutil import today_dr
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 EXTENSION_STATUSES = ("pendiente", "aprobada", "rechazada")
 
 
-class Extension(Base):
+class Extension(TenantMixin, Base):
     """Ampliación (§15) — siempre pertenece al mismo proyecto, nunca crea uno nuevo."""
 
     __tablename__ = "extensions"
+    # Único por empresa, no global: cada empresa lleva sus propios correlativos.
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_extensions_company_code"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(20), index=True)
     project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     quote_id: Mapped[int | None] = mapped_column(ForeignKey("quotes.id"), index=True, nullable=True)
     title: Mapped[str] = mapped_column(String(150))

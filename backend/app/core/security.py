@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.core.timeutil import as_utc
 from app.db.session import get_db
+from app.db.tenant import tenant_bypass
+from app.models.company import Company
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.services.access import enforce_assignment_scope
@@ -143,15 +145,34 @@ def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: 
     except (PyJWTError, ValueError):
         raise credentials_exception
 
-    user = db.get(User, user_id)
+    # Al autenticar todavía no se sabe de qué empresa es la sesión: el usuario se busca sin filtro y es él quien la fija.
+    with tenant_bypass(db):
+        user = db.get(User, user_id)
+        company = db.get(Company, user.company_id) if user is not None else None
     if user is None or not user.is_active:
         raise credentials_exception
+    if company is None or not company.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=COMPANY_SUSPENDED)
     if user.must_change_password and request.url.path not in PASSWORD_CHANGE_ALLOWED_PATHS:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Debes cambiar tu contraseña temporal antes de continuar",
         )
+    # Desde aquí, todo lo que la petición lea o escriba en esta sesión es de esta empresa y de ninguna otra.
+    db.info["company_id"] = user.company_id
     return user
+
+
+COMPANY_SUSPENDED = "Tu empresa está suspendida. Contacta al administrador de la plataforma."
+
+
+def require_platform_admin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
+    """Solo el dueño de la plataforma. Su panel actúa sobre TODAS las empresas, así que el filtro por empresa se
+    apaga para esta petición; cada escritura dentro de él debe indicar su empresa explícitamente."""
+    if not current_user.is_platform_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo el administrador de la plataforma")
+    db.info["bypass_tenant"] = True
+    return current_user
 
 
 def require_role(*roles: Iterable[str]):

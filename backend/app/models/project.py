@@ -1,10 +1,11 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import Date, DateTime, ForeignKey, String, Text, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.timeutil import today_dr
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 PROJECT_STATES = (
     "levantamiento",
@@ -16,11 +17,13 @@ PROJECT_STATES = (
 )
 
 
-class Project(Base):
+class Project(TenantMixin, Base):
     __tablename__ = "projects"
+    # Único por empresa, no global: cada empresa lleva sus propios correlativos.
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_projects_company_code"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(20), index=True)
     client_id: Mapped[int] = mapped_column(ForeignKey("clients.id"), index=True)
     responsible_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True, nullable=True)
     date: Mapped[date] = mapped_column(Date, default=today_dr)

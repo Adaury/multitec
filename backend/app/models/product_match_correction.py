@@ -4,9 +4,10 @@ from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class ProductMatchCorrection(Base):
+class ProductMatchCorrection(TenantMixin, Base):
     """Aprendizaje de sinónimos (Motor 7): lo que el técnico dijo ("domo", "cable de red") y el
     producto que un humano puso en su lugar al corregir un presupuesto generado por la IA.
     `ai_product_id` es lo que había puesto la IA (None = no logró emparejarlo). Con la misma

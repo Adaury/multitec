@@ -167,9 +167,9 @@ def test_background_engineering_returns_the_quote_first_and_fills_engineering_af
         "observations": "Ninguna",
     }
 
-    def run_inline(project_id, context, notes):
+    def run_inline(project_id, context, notes, company_id=None):
         # El hilo real se sustituye por una ejecución inmediata: misma lógica, sin carreras.
-        documents.draft_engineering_in_background(project_id, context, notes)
+        documents.draft_engineering_in_background(project_id, context, notes, company_id)
 
     with (
         patch(
@@ -212,7 +212,7 @@ def test_background_engineering_does_not_overwrite_what_someone_wrote_meanwhile(
 
     draft = {k: "IA" for k in ("recommended_equipment", "distribution", "conduits", "wiring", "technical_design", "observations")}
     with patch("app.ai_engine.documents.draft_engineering", return_value=draft):
-        saved = documents.draft_engineering_in_background(project["id"], "contexto", [])
+        saved = documents.draft_engineering_in_background(project["id"], "contexto", [], company_id=1)
 
     assert saved is False
     engineering = client.get(f"/api/projects/{project['id']}/engineering", headers=headers).json()
@@ -225,7 +225,7 @@ def test_background_engineering_failure_never_raises(client, admin_token):
     headers = auth_headers(admin_token)
     project = make_project(client, headers)
     with patch("app.ai_engine.documents.draft_engineering", side_effect=RuntimeError("ollama caído")):
-        assert documents.draft_engineering_in_background(project["id"], "contexto", []) is False
+        assert documents.draft_engineering_in_background(project["id"], "contexto", [], company_id=1) is False
 
 
 def test_generate_from_survey_warns_about_lines_without_a_catalog_product(client, admin_token):

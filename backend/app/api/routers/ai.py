@@ -241,13 +241,20 @@ def generate_from_survey(
     'pendiente': aprobar sigue siendo una decisión humana (staff u oficina, o el cliente
     desde el portal), no se auto-aprueba aquí. El pipeline en sí (Motor 1-6) vive en
     `app.ai_engine.documents.generate_documents_from_survey`; este endpoint solo arma el
-    contexto, comitea y notifica."""
+    contexto, comitea y notifica. La app usa la versión en segundo plano (routers/generation.py), que corre
+    esto mismo en un hilo del servidor; esta se conserva por compatibilidad."""
+    return run_generation(db, project_id, current_user.id, background_engineering)
+
+
+def run_generation(db: Session, project_id: int, user_id: int, background_engineering: bool) -> GenerateFromSurveyOut:
+    """El trabajo completo: arma el contexto, genera, guarda y avisa. Lo usan el endpoint síncrono y el hilo del
+    trabajo en segundo plano (que le da su propia sesión)."""
     project = _get_project(db, project_id)
     context = _build_project_context(db, project)
     _reindex_quietly(db, project, context)
 
     document_set = generate_documents_from_survey(
-        db, project_id, context, current_user.id, defer_engineering=background_engineering
+        db, project_id, context, user_id, defer_engineering=background_engineering
     )
 
     db.commit()
@@ -256,7 +263,7 @@ def generate_from_survey(
     notify_quote_pending(db, document_set.quote)
     if document_set.engineering_pending:
         # Ya está comiteada la cotización: el borrador de ingeniería se redacta aparte.
-        start_engineering_draft(project_id, context, document_set.engineering_notes)
+        start_engineering_draft(project_id, context, document_set.engineering_notes, db.info.get("company_id"))
     return GenerateFromSurveyOut(
         budget=document_set.budget,
         quote=document_set.quote,

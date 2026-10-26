@@ -46,10 +46,12 @@ def _reset_rate_limiter():
     suite, ya que casi todos los tests hacen login al menos una vez."""
     from app.core import lockout, quota
     from app.core.limiter import limiter
+    from app.services import generation_jobs
 
     limiter.reset()
-    lockout.reset()  # el bloqueo por cuenta y la cuota de IA también son globales al proceso
+    lockout.reset()  # el bloqueo por cuenta, la cuota de IA y los trabajos de generación son globales al proceso
     quota.reset()
+    generation_jobs.reset()
     yield
 
 
@@ -57,10 +59,24 @@ def _reset_rate_limiter():
 def _clean_tables():
     """Cada test parte de una base vacía — se trunca todo después de correr."""
     yield
-    db = SessionLocal()
+    db = SessionLocal(bypass_tenant=True)
     try:
         for table in reversed(Base.metadata.sorted_tables):
             db.execute(table.delete())
+        db.commit()
+    finally:
+        db.close()
+
+
+@pytest.fixture(autouse=True)
+def _company_one(_clean_tables):
+    """La empresa 1 (la original) existe en cada prueba: es la dueña de todo lo que se crea sin decir otra.
+    Va después de `_clean_tables` para que su fila se borre junto con las demás al terminar."""
+    from app.models.company import Company
+
+    db = SessionLocal(bypass_tenant=True)
+    try:
+        db.add(Company(id=1, name="Multitec", slug="multitec"))
         db.commit()
     finally:
         db.close()
@@ -73,19 +89,39 @@ def client():
 
 @pytest.fixture
 def db_session():
-    db = SessionLocal()
+    """Sesión de prueba: pertenece a la empresa 1, igual que la de una petición de un usuario de esa empresa."""
+    db = SessionLocal(company_id=1)
     try:
         yield db
     finally:
         db.close()
 
 
-def create_user(db, email: str, password: str, role: str) -> User:
-    user = User(name=email.split("@")[0], email=email, hashed_password=hash_password(password), role=role)
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+def create_user(db, email: str, password: str, role: str, company_id: int = 1, is_platform_admin: bool = False) -> User:
+    from app.db.tenant import tenant_bypass
+
+    user = User(
+        name=email.split("@")[0],
+        email=email,
+        hashed_password=hash_password(password),
+        role=role,
+        company_id=company_id,
+        is_platform_admin=is_platform_admin,
+    )
+    # Si el usuario es de una empresa distinta a la de la sesión de prueba, se crea sin filtro (como lo haría el panel).
+    with tenant_bypass(db) if db.info.get("company_id") != company_id else _nullcontext():
+        db.add(user)
+        db.commit()
+        db.refresh(user)
     return user
+
+
+class _nullcontext:
+    def __enter__(self):
+        return None
+
+    def __exit__(self, *exc):
+        return False
 
 
 def auth_headers(token: str) -> dict:

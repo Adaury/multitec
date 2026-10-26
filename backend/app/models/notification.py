@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Notification(Base):
+class Notification(TenantMixin, Base):
     """Notificación dentro de la app — la contraparte "en vivo" de las que ya se mandan
     por correo (ver services/notifications.py). Solo aplica a usuarios del sistema
     (admin/oficina/tecnico); la de factura emitida al cliente sigue siendo solo email,

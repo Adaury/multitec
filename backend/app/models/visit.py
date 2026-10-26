@@ -4,12 +4,13 @@ from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text,
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 # "en_sitio" = el técnico ya llegó (marcó entrada) y todavía no terminó.
 VISIT_STATUSES = ("programada", "en_sitio", "completada", "cancelada")
 
 
-class Visit(Base):
+class Visit(TenantMixin, Base):
     """Visita técnica agendada a un proyecto — calendario simple por fecha."""
 
     __tablename__ = "visits"

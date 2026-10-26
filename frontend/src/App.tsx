@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, type ComponentType } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { PageLoader } from './components/PageLoader'
-import { ProtectedRoute, RoleRoute } from './components/ProtectedRoute'
+import { PlatformRoute, ProtectedRoute, RoleRoute } from './components/ProtectedRoute'
 import { Login } from './pages/Login'
 
 // Cada pantalla se descarga solo cuando se visita (antes todo iba en un único archivo de ~540 KB).
@@ -32,6 +32,7 @@ const loaders = {
   Seguimiento: () => import('./pages/Seguimiento'),
   Auditoria: () => import('./pages/Auditoria'),
   HojaDeTiempo: () => import('./pages/HojaDeTiempo'),
+  Plataforma: () => import('./pages/Plataforma'),
 }
 
 const Dashboard = lazyPage(loaders.Dashboard, 'Dashboard')
@@ -54,6 +55,7 @@ const PortalCliente = lazyPage(loaders.PortalCliente, 'PortalCliente')
 const Compras = lazyPage(loaders.Compras, 'Compras')
 const Auditoria = lazyPage(loaders.Auditoria, 'Auditoria')
 const HojaDeTiempo = lazyPage(loaders.HojaDeTiempo, 'HojaDeTiempo')
+const Plataforma = lazyPage(loaders.Plataforma, 'Plataforma')
 
 // Las pantallas de uso diario se descargan en segundo plano cuando el navegador está libre, para
 // que al tocarlas abran al instante en vez de esperar la descarga.
@@ -120,6 +122,10 @@ function App() {
             {/* Entradas antiguas: ahora viven dentro de Ajustes de IA y de Catálogo. */}
             <Route path="/parametros-calculo" element={<Navigate to="/aprendizaje-ia?vista=parametros" replace />} />
             <Route path="/clasificaciones" element={<Navigate to="/catalogo?vista=clasificaciones" replace />} />
+          </Route>
+          <Route element={<PlatformRoute />}>
+            <Route path="/plataforma" element={<Plataforma />} />
+            <Route path="/plataforma/:id" element={<Plataforma />} />
           </Route>
         </Route>
       </Route>

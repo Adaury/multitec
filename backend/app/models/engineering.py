@@ -4,9 +4,10 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 
-class Engineering(Base):
+class Engineering(TenantMixin, Base):
     """Ingeniería — 1:1 con Project."""
 
     __tablename__ = "engineering"

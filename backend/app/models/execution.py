@@ -4,11 +4,12 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, UniqueCon
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 STAGE_NAMES = ("inicio", "instalacion", "configuracion", "pruebas", "entrega")
 
 
-class ProjectStage(Base):
+class ProjectStage(TenantMixin, Base):
     """Ejecución por etapas (§11) — orden fijo y secuencial."""
 
     __tablename__ = "project_stages"

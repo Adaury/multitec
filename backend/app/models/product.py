@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, Numeric, String, Text, func, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.tenant import TenantMixin
 
 # Prefijo de respaldo cuando ninguna categoría/ancestro en la cadena declaró code_prefix
 # (§ catálogo inteligente v2 — ver app/db/taxonomy.py, categoría "Otros").
@@ -22,11 +23,13 @@ def resolve_code_prefix(category: "Category | None") -> str:
     return FALLBACK_CODE_PREFIX
 
 
-class Product(Base):
+class Product(TenantMixin, Base):
     __tablename__ = "products"
+    # Único por empresa, no global: cada empresa lleva sus propios correlativos.
+    __table_args__ = (UniqueConstraint("company_id", "code", name="uq_products_company_code"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    code: Mapped[str] = mapped_column(String(20), unique=True, index=True)
+    code: Mapped[str] = mapped_column(String(20), index=True)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), index=True, nullable=True)
     name: Mapped[str] = mapped_column(String(150))
     unit: Mapped[str] = mapped_column(String(20), default="unidad")
