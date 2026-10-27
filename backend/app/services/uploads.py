@@ -33,6 +33,7 @@ _EXTENSION_BY_TYPE = {
     "image/png": ".png",
     "image/heic": ".heic",
     "image/webp": ".webp",
+    "application/pdf": ".pdf",
     "audio/mpeg": ".mp3",
     "audio/mp4": ".m4a",
     "audio/m4a": ".m4a",
@@ -109,6 +110,12 @@ def enforce_matches_declared_type(contents: bytes, content_type: str | None) -> 
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="El archivo no es una imagen válida del tipo indicado",
+            )
+    elif base_type == "application/pdf":
+        if not contents.startswith(b"%PDF-"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El archivo no es un PDF válido",
             )
     elif base_type.startswith("audio/") or base_type in ("video/mp4", "video/webm", "application/octet-stream"):
         if head.startswith(_NOT_AUDIO_STARTS):

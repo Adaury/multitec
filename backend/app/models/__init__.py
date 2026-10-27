@@ -23,6 +23,7 @@ from app.models.product_relation import ProductRelation
 from app.models.project import Project
 from app.models.purchase_invoice import PurchaseInvoice
 from app.models.quote import Quote, QuoteHistory, QuoteItem
+from app.models.quote_comparison import QuoteComparison
 from app.models.refresh_token import RefreshToken
 from app.models.sequence import CodeSequence
 from app.models.stock_movement import StockMovement
@@ -67,6 +68,7 @@ __all__ = [
     "PurchaseInvoice",
     "Quote",
     "QuoteHistory",
+    "QuoteComparison",
     "QuoteItem",
     "RefreshToken",
     "CodeSequence",

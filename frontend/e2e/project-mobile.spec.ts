@@ -25,7 +25,7 @@ test('project screen on a phone: grouped sections, folded map and quick contact 
   await expect(page.getByText('Cámaras de seguridad (CCTV)').first()).toBeVisible()
 
   // El mapa arranca plegado; "Cómo llegar" sigue a un toque.
-  await expect(page.getByRole('link', { name: /Cómo llegar/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Cómo llegar/ })).toBeVisible()
   await expect(page.locator('iframe[title="Mapa de la ubicación"]')).toHaveCount(0)
   await page.getByRole('button', { name: /Ver mapa/ }).click()
   await expect(page.locator('iframe[title="Mapa de la ubicación"]')).toHaveCount(1)
@@ -58,4 +58,31 @@ test('project screen on a phone: grouped sections, folded map and quick contact 
   await expect(
     page.getByRole('navigation', { name: 'Secciones del proyecto' }).getByRole('button', { name: 'Comercial', exact: true }),
   ).toHaveAttribute('aria-current', 'true')
+})
+
+// Un proyecto con solo dirección (sin coordenadas): el servidor la ubica y el mapa se muestra con OpenStreetMap.
+test('a project with only an address shows a map once the server locates it', async ({ page, request }) => {
+  await page.route('**/api/geo/search*', (route) =>
+    route.fulfill({ json: { lat: 18.4861, lng: -69.9312, display_name: 'Santo Domingo' } }),
+  )
+  await page.goto('/')
+  const token = await page.evaluate(() => localStorage.getItem('multitec_token'))
+  const headers = { Authorization: `Bearer ${token}` }
+  const client = await (await request.post('/api/clients', { headers, data: { name: unique('Solo Direccion') } })).json()
+  const project = await (
+    await request.post('/api/projects', {
+      headers,
+      data: { client_id: client.id, address: 'Av. Principal 120, Santo Domingo' },
+    })
+  ).json()
+
+  await page.goto(`/proyectos/${project.id}`)
+  await page.getByRole('button', { name: /Ver mapa/ }).click()
+  await expect(page.locator('iframe[title="Mapa de la ubicación"]')).toHaveAttribute(
+    'src',
+    /openstreetmap\.org\/export\/embed\.html\?.*marker=18\.4861%2C-69\.9312/,
+  )
+  // Sin coordenadas en el enlace, Waze y Apple Maps reciben las del servidor
+  await page.getByRole('button', { name: /Cómo llegar/ }).click()
+  await expect(page.getByRole('menuitem', { name: 'Waze' })).toHaveAttribute('href', /waze\.com\/ul\?ll=18\.4861%2C-69\.9312/)
 })

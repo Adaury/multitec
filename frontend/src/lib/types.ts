@@ -58,6 +58,12 @@ export interface PlatformCompany {
   is_active: boolean
   notes: string | null
   created_at: string
+  trial_ends_at: string | null
+  /** Días que le quedan a la prueba (negativo = venció hace N días); null = sin vencimiento. */
+  days_left: number | null
+  max_users: number | null
+  is_demo: boolean
+  state: 'activa' | 'prueba' | 'vencida' | 'suspendida'
   users: number
   projects: number
   invoices: number
@@ -256,6 +262,8 @@ export interface SurveyMarker {
   /** Numeración corrida en todo el levantamiento (la asigna el servidor). */
   number: number
   label: string | null
+  /** Tipo de equipo: el elegido o el deducido del nombre (camara, grabador, switch...). */
+  point_kind: string
   /** Posición de 0 a 1 sobre el ancho / alto de la foto. */
   x: number
   y: number
@@ -563,6 +571,8 @@ export const QUOTE_HISTORY_LABELS: Record<string, string> = {
   archivada: 'Archivada',
   reactivada: 'Reactivada',
   editada: 'Editada',
+  repreciada: 'Precios actualizados',
+  nueva_version: 'Nueva versión creada',
 }
 
 export type MaterialStatus = 'disponible' | 'pendiente_compra' | 'comprado' | 'instalado'

@@ -7,6 +7,7 @@ import { assistantCallName } from '../lib/assistantName'
 import { useAuthStore } from '../lib/authStore'
 import { formatDOP } from '../lib/format'
 import { directionsUrl } from '../lib/maps'
+import { NavigateMenu } from './NavigateMenu'
 import { PROJECT_STATUS_LABELS, type CurrentUser, type TodaySummary } from '../lib/types'
 import { AssistantTalk } from './AssistantTalk'
 import { Card } from './ui'
@@ -167,14 +168,13 @@ export function TodayAssistant() {
                   </span>
                 </Link>
                 {route && (
-                  <a
-                    href={route}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="shrink-0 rounded-full bg-brand-blue px-3 py-1.5 text-xs font-medium text-white"
+                  <NavigateMenu
+                    place={{ address: visit.address, location_url: visit.location_url }}
+                    wrapperClassName="shrink-0"
+                    className="rounded-full bg-brand-blue px-3 py-1.5 text-xs font-medium text-white"
                   >
                     Cómo llegar
-                  </a>
+                  </NavigateMenu>
                 )}
               </div>
             )

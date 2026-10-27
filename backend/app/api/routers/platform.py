@@ -5,6 +5,7 @@ apagado en estas rutas (ver require_platform_admin) y cada escritura lleva su `c
 import re
 import secrets
 import unicodedata
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -28,10 +29,15 @@ from app.schemas.platform import (
     CompanyOut,
     CompanyUpdate,
     CompanyUserOut,
+    DemoAccount,
+    DemoCreate,
+    DemoCreated,
     ResetAdminRequest,
+    SetUserPassword,
     TemporaryPassword,
 )
 from app.services.audit import audit
+from app.services.demo_company import build_users, seed_demo_content
 
 router = APIRouter(prefix="/api/platform", tags=["platform"])
 
@@ -65,6 +71,21 @@ def _counts(db: Session) -> dict[str, dict[int, int]]:
     }
 
 
+def _days_left(company: Company) -> int | None:
+    if company.trial_ends_at is None:
+        return None
+    ends = company.trial_ends_at if company.trial_ends_at.tzinfo else company.trial_ends_at.replace(tzinfo=timezone.utc)
+    return (ends - datetime.now(timezone.utc)).days
+
+
+def _state(company: Company) -> str:
+    if not company.is_active:
+        return "suspendida"
+    if company.trial_expired:
+        return "vencida"
+    return "prueba" if company.trial_ends_at is not None else "activa"
+
+
 def _out(company: Company, counts: dict[str, dict[int, int]]) -> CompanyOut:
     return CompanyOut(
         id=company.id,
@@ -73,6 +94,11 @@ def _out(company: Company, counts: dict[str, dict[int, int]]) -> CompanyOut:
         is_active=company.is_active,
         notes=company.notes,
         created_at=company.created_at,
+        trial_ends_at=company.trial_ends_at,
+        days_left=_days_left(company),
+        max_users=company.max_users,
+        is_demo=company.is_demo,
+        state=_state(company),
         users=counts["users"].get(company.id, 0),
         projects=counts["projects"].get(company.id, 0),
         invoices=counts["invoices"].get(company.id, 0),
@@ -113,7 +139,13 @@ def create_company(
     if db.query(User.id).filter(User.email == payload.admin_email).first() is not None:
         raise HTTPException(status_code=400, detail="Ya existe un usuario con ese correo")
 
-    company = Company(name=payload.name, slug=_unique_slug(db, payload.name), notes=payload.notes)
+    company = Company(
+        name=payload.name,
+        slug=_unique_slug(db, payload.name),
+        notes=payload.notes,
+        max_users=payload.max_users,
+        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=payload.trial_days) if payload.trial_days else None,
+    )
     db.add(company)
     db.flush()  # necesitamos el id para colgarle lo demás
     temporary = secrets.token_urlsafe(9)
@@ -153,7 +185,64 @@ def create_company(
 
     db.refresh(company)
     return CompanyCreated(
-        company=_out(company, _counts(db)), admin_email=payload.admin_email, temporary_password=temporary
+        company=_out(company, _counts(db)),
+        admin_email=payload.admin_email,
+        admin_user_id=db.query(User.id).filter(User.email == payload.admin_email).scalar(),
+        temporary_password=temporary,
+    )
+
+
+@router.post("/demos", response_model=DemoCreated, status_code=status.HTTP_201_CREATED)
+def create_demo_company(
+    request: Request,
+    payload: DemoCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_platform_admin),
+):
+    """Empresa de demostración: un administrador y varios técnicos de prueba con clave temporal (se muestran una sola
+    vez), clientes y proyectos de ejemplo ya repartidos, y vencimiento automático."""
+    name = payload.name or f"Multitec Demo {db.query(Company).filter(Company.is_demo.is_(True)).count() + 1}"
+    company = Company(
+        name=name,
+        slug=_unique_slug(db, name),
+        notes="Empresa de demostración",
+        is_demo=True,
+        max_users=payload.technicians + 1,
+        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=payload.days),
+    )
+    db.add(company)
+    db.flush()
+    db.add(CompanyProfile(company_id=company.id, name=name))
+    users = build_users(
+        company.id, company.slug, payload.technicians, current_user.id, hash_password, lambda: secrets.token_urlsafe(9)
+    )
+    for user, _password in users:
+        db.add(user)
+    audit(
+        db,
+        "demo_company_created",
+        user=current_user,
+        company_id=company.id,
+        entity="company",
+        entity_id=company.id,
+        detail={"empresa": name, "tecnicos": payload.technicians, "dias": payload.days},
+        request=request,
+    )
+    db.commit()
+
+    admin_id = next(user.id for user, _ in users if user.role == "admin")
+    technician_ids = [user.id for user, _ in users if user.role == "tecnico"]
+    with SessionLocal(company_id=company.id) as company_db:
+        seed_new_company(company_db)
+        seed_demo_content(company_db, admin_id, technician_ids)
+
+    db.refresh(company)
+    return DemoCreated(
+        company=_out(company, _counts(db)),
+        accounts=[
+            DemoAccount(user_id=user.id, name=user.name, email=user.email, role=user.role, temporary_password=password)
+            for user, password in users
+        ],
     )
 
 
@@ -183,6 +272,19 @@ def update_company(
         company.name = data["name"].strip()
     if "notes" in data:
         company.notes = data["notes"]
+    if data.get("clear_trial"):
+        company.trial_ends_at = None
+    elif data.get("extend_days"):
+        now = datetime.now(timezone.utc)
+        current = company.trial_ends_at
+        if current is not None and current.tzinfo is None:
+            current = current.replace(tzinfo=timezone.utc)
+        base = current if current is not None and current > now else now
+        company.trial_ends_at = base + timedelta(days=data["extend_days"])
+    if data.get("clear_max_users"):
+        company.max_users = None
+    elif data.get("max_users"):
+        company.max_users = data["max_users"]
     audit(
         db,
         "company_edited",
@@ -279,3 +381,38 @@ def reset_admin_password(
     )
     db.commit()
     return TemporaryPassword(user_id=admin.id, email=admin.email, temporary_password=temporary)
+
+
+@router.post("/companies/{company_id}/users/{user_id}/password", response_model=TemporaryPassword)
+def set_user_password(
+    request: Request,
+    company_id: int,
+    user_id: int,
+    payload: SetUserPassword | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_platform_admin),
+):
+    """Cambia la clave de cualquier usuario de una empresa (a mano o al azar), p. ej. para las cuentas de una demo.
+    Queda como temporal: la persona la cambia al entrar. Se muestra una sola vez."""
+    _get_company(db, company_id)
+    target = db.query(User).filter(User.company_id == company_id, User.id == user_id).first()
+    if target is None:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en esa empresa")
+    if target.is_platform_admin:
+        raise HTTPException(status_code=400, detail="Para la cuenta de la plataforma usa tu perfil")
+    password = (payload.password if payload else None) or secrets.token_urlsafe(9)
+    target.hashed_password = hash_password(password)
+    target.must_change_password = True
+    revoke_all_refresh_tokens(db, target.id)
+    audit(
+        db,
+        "password_set_by_platform",
+        user=current_user,
+        company_id=company_id,
+        entity="user",
+        entity_id=target.id,
+        detail={"objetivo": target.email, "manual": bool(payload and payload.password)},
+        request=request,
+    )
+    db.commit()
+    return TemporaryPassword(user_id=target.id, email=target.email, temporary_password=password)

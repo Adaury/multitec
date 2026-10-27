@@ -41,6 +41,7 @@ from app.schemas.survey import SurveyOut, VoiceFeedbackIn, VoiceSurveyOut
 from app.services.access import can_see_project, project_scope
 from app.services.embeddings import reindex_project, search_projects
 from app.services.notifications import notify_quote_pending
+from app.services.survey_points import marker_counts, points_context
 
 # Todas las rutas de este archivo llaman a la IA: la cuota por usuario va a nivel de router (core/quota.py).
 router = APIRouter(tags=["ai"], dependencies=[Depends(ai_quota)])
@@ -76,6 +77,9 @@ def _build_project_context(db: Session, project: Project, include_money: bool = 
         lines.append(f"Observaciones: {survey.observations or '-'}")
         if survey.ai_summary:
             lines.append(f"Resumen IA previo: {survey.ai_summary}")
+        points = points_context(marker_counts(db, project.id))
+        if points:
+            lines.append(points)
 
     engineering = db.query(Engineering).filter(Engineering.project_id == project.id).one_or_none()
     if engineering and any(
@@ -225,7 +229,7 @@ def ai_budget_suggestions(project_id: int, db: Session = Depends(get_db), _=Depe
     context = _build_project_context(db, project)
     _reindex_quietly(db, project, context)
 
-    items, warnings, _engineering_notes = compute_survey_items(db, context)
+    items, warnings, _engineering_notes = compute_survey_items(db, context, project_id)
     return BudgetSuggestionOut(items=items, warnings=warnings)
 
 

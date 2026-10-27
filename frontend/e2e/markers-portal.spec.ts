@@ -22,7 +22,10 @@ test('mark equipment on a survey photo and see the numbered annex in the quote P
   await expect(page.getByAltText('Foto del levantamiento')).toHaveJSProperty('complete', true)
   const box = (await surface.boundingBox())!
   await surface.click({ position: { x: box.width * 0.25, y: box.height * 0.4 } })
+  // El primer toque es una cámara; se cambia el tipo a marcar y el segundo es un NVR
+  await page.getByRole('radio', { name: 'NVR / DVR' }).click()
   await surface.click({ position: { x: box.width * 0.7, y: box.height * 0.6 } })
+  await expect(page.getByTestId('marker-summary')).toHaveText('En esta foto: 1 cámara · 1 nvr / dvr')
   await page.getByPlaceholder('Nombre del punto').nth(1).fill('NVR')
   await page.getByRole('button', { name: 'Guardar puntos' }).click()
 
@@ -32,6 +35,7 @@ test('mark equipment on a survey photo and see the numbered annex in the quote P
   const markers = survey.assets[0].markers
   expect(markers.map((m: { number: number }) => m.number)).toEqual([1, 2])
   expect(markers[1].label).toBe('NVR')
+  expect(markers.map((m: { point_kind: string }) => m.point_kind)).toEqual(['camara', 'grabador'])
 
   // La cotización con fotos es un PDF más grande que la normal.
   const plain = await (await page.request.get(`/api/quotes/${quote.id}/pdf`, { headers: api.headers })).body()

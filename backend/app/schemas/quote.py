@@ -83,3 +83,26 @@ class PurchaseListPreviewOut(BaseModel):
     quote_id: int
     already_generated: bool
     items: list[PurchaseListPreviewItem]
+
+
+class PriceChange(BaseModel):
+    item_id: int
+    description: str
+    quantity: float
+    old_price: float
+    new_price: float
+
+
+class RepricePreviewOut(BaseModel):
+    """Qué cambiaría al volver a poner los precios actuales del catálogo, sin guardar nada."""
+
+    changes: list[PriceChange]
+    total_old: float
+    total_new: float
+
+
+class RepriceOut(BaseModel):
+    quote: QuoteOut
+    # True cuando la cotización original ya no se podía editar (aprobada, rechazada...) y se creó una nueva.
+    created_new: bool
+    changes: list[PriceChange]

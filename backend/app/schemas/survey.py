@@ -13,6 +13,8 @@ class SurveyMarkerOut(BaseModel):
     id: int
     number: int
     label: str | None
+    # Tipo efectivo: el que eligió el técnico o, si no eligió, el que se deduce del nombre (cámara, grabador...).
+    point_kind: str
     x: float
     y: float
 
@@ -24,6 +26,7 @@ class SurveyMarkerIn(BaseModel):
     x: float = Field(ge=0, le=1)
     y: float = Field(ge=0, le=1)
     label: str | None = Field(default=None, max_length=80)
+    kind: str | None = Field(default=None, max_length=30)
 
 
 class SurveyMarkersUpdate(BaseModel):

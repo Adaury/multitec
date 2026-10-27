@@ -33,7 +33,10 @@ test('quick survey: GPS is captured automatically and the assistant creates the 
     'href',
     /google\.com\/maps\/search\/.*18\.4861,-69\.9312/,
   )
-  await expect(page.getByRole('link', { name: /Cómo llegar/ })).toHaveAttribute('href', /destination=18\.4861,-69\.9312/)
+  await page.getByRole('button', { name: /Cómo llegar/ }).click()
+  await expect(page.getByRole('menuitem', { name: 'Google Maps' })).toHaveAttribute('href', /destination=18\.4861,-69\.9312/)
+  await expect(page.getByRole('menuitem', { name: 'Waze' })).toHaveAttribute('href', /waze\.com\/ul\?ll=18\.4861%2C-69\.9312/)
+  await expect(page.getByRole('menuitem', { name: 'Apple Maps' })).toHaveAttribute('href', /maps\.apple\.com\/\?daddr=/)
 
   // El menú de búsqueda ofrece crear el cliente cuando no existe y arranca el asistente. Como el
   // nombre ya se escribió en el buscador, el asistente no lo vuelve a preguntar: va al teléfono.

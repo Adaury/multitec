@@ -9,6 +9,7 @@ from app.core.security import require_role
 from app.db.session import get_db
 from app.models.survey import Survey, SurveyAsset, SurveyMarker
 from app.schemas.survey import SurveyAssetOut, SurveyMarkersUpdate, SurveyOut, SurveyUpdate
+from app.services.survey_points import POINT_KIND_KEYS
 from app.services.uploads import company_dir, enforce_matches_declared_type, read_upload, stored_extension
 
 router = APIRouter(prefix="/api/projects/{project_id}/survey", tags=["surveys"])
@@ -110,7 +111,10 @@ def update_markers(
     asset.markers.clear()
     db.flush()
     for item in payload.markers:
-        asset.markers.append(SurveyMarker(x=item.x, y=item.y, label=(item.label or "").strip() or None, number=0))
+        kind = item.kind if item.kind in POINT_KIND_KEYS else None  # un tipo desconocido se ignora y se deduce del nombre
+        asset.markers.append(
+            SurveyMarker(x=item.x, y=item.y, label=(item.label or "").strip() or None, kind=kind, number=0)
+        )
     db.flush()
 
     number = 1

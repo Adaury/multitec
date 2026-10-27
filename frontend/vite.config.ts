@@ -29,6 +29,10 @@ export default defineConfig({
     devMovil(),
     VitePWA({
       registerType: 'autoUpdate',
+      // Limpieza forzada: `PWA_RESET=1 npm run build` genera un service worker que se desinstala solo, borra la copia
+      // guardada de la app y recarga las pestañas abiertas. Sirve cuando un teléfono se quedó con una versión vieja y
+      // muestra la pantalla en blanco. Después se compila normal y el teléfono instala la versión buena.
+      selfDestroying: process.env.PWA_RESET === '1',
       includeAssets: ['icons/apple-touch-icon.png'],
       manifest: {
         name: 'Multitec ERP',

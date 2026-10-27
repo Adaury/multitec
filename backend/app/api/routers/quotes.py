@@ -14,11 +14,14 @@ from app.models.quote import Quote, QuoteHistory, QuoteItem
 from app.models.user import User
 from app.schemas.margin import MarginSummary
 from app.schemas.quote import (
+    PriceChange,
     PurchaseListPreviewOut,
     QuoteCreate,
     QuoteHistoryOut,
     QuoteOut,
     QuoteUpdate,
+    RepriceOut,
+    RepricePreviewOut,
     RejectIn,
 )
 from app.services.code_generator import next_code
@@ -234,3 +237,119 @@ def get_quote_history(quote_id: int, db: Session = Depends(get_db), _=Depends(al
         .order_by(QuoteHistory.created_at)
         .all()
     )
+
+
+# --- Actualizar precios y nuevas versiones --------------------------------------------------------------------------
+
+
+def _price_changes(db: Session, quote: Quote) -> list[tuple[QuoteItem, float]]:
+    """Líneas cuyo precio ya no coincide con el del catálogo. Las líneas sin producto (texto libre) no se tocan."""
+    ids = {item.product_id for item in quote.items if item.product_id is not None}
+    prices = {p.id: float(p.price) for p in db.query(Product).filter(Product.id.in_(ids)).all()} if ids else {}
+    out = []
+    for item in quote.items:
+        new = prices.get(item.product_id) if item.product_id is not None else None
+        if new is not None and abs(new - float(item.unit_price)) > 0.005:
+            out.append((item, new))
+    return out
+
+
+def _totals_with(quote: Quote, overrides: dict[int, float]) -> float:
+    settings = get_settings()
+    lines = [LineInput(i.quantity, overrides.get(i.id, float(i.unit_price))) for i in quote.items]
+    return float(compute_totals(lines, settings.itbis_rate)[2])
+
+
+def _change_rows(changes: list[tuple[QuoteItem, float]]) -> list[PriceChange]:
+    return [
+        PriceChange(
+            item_id=item.id,
+            description=item.description,
+            quantity=float(item.quantity),
+            old_price=float(item.unit_price),
+            new_price=new,
+        )
+        for item, new in changes
+    ]
+
+
+def _copy_as_new_version(db: Session, quote: Quote, user: User, prices: dict[int, float]) -> Quote:
+    """Cotización nueva (pendiente) con las mismas líneas y, si se piden, otros precios: para corregir algo que ya no
+    se puede editar (aprobada, rechazada) sin tocar lo que el cliente ya vio."""
+    settings = get_settings()
+    new = Quote(
+        code=next_code(db, "COT"),
+        project_id=quote.project_id,
+        source_budget_id=quote.source_budget_id,
+        notes=quote.notes,
+        created_by=user.id,
+    )
+    for item in quote.items:
+        price = prices.get(item.id, float(item.unit_price))
+        new.items.append(
+            QuoteItem(
+                product_id=item.product_id,
+                description=item.description,
+                quantity=item.quantity,
+                unit_price=price,
+                subtotal=round(float(item.quantity) * price, 2),
+                note=item.note,
+            )
+        )
+    lines = [LineInput(i.quantity, i.unit_price) for i in new.items]
+    new.subtotal, new.itbis, new.total = compute_totals(lines, settings.itbis_rate)
+    db.add(new)
+    db.flush()
+    db.add(QuoteHistory(quote_id=new.id, action="creada", note=f"Nueva versión de {quote.code}"))
+    db.add(QuoteHistory(quote_id=quote.id, action="nueva_version", note=f"Se creó {new.code}"))
+    return new
+
+
+@router.get("/api/quotes/{quote_id}/reprice-preview", response_model=RepricePreviewOut)
+def reprice_preview(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_roles)):
+    quote = _get_quote(db, quote_id)
+    changes = _price_changes(db, quote)
+    return RepricePreviewOut(
+        changes=_change_rows(changes),
+        total_old=float(quote.total),
+        total_new=_totals_with(quote, {item.id: new for item, new in changes}),
+    )
+
+
+@router.post("/api/quotes/{quote_id}/reprice", response_model=RepriceOut)
+def reprice_quote(quote_id: int, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
+    """Vuelve a poner los precios actuales del catálogo. Una cotización pendiente se actualiza en su lugar; si ya no se
+    puede editar (aprobada, rechazada, archivada) se crea una nueva versión pendiente y la original queda intacta."""
+    quote = _get_quote(db, quote_id)
+    changes = _price_changes(db, quote)
+    if not changes:
+        raise HTTPException(status_code=400, detail="Los precios de esta cotización ya son los del catálogo")
+    rows = _change_rows(changes)
+    new_prices = {item.id: new for item, new in changes}
+
+    if quote.status == "pendiente":
+        settings = get_settings()
+        for item, new in changes:
+            item.unit_price = new
+            item.subtotal = round(float(item.quantity) * new, 2)
+        lines = [LineInput(i.quantity, i.unit_price) for i in quote.items]
+        quote.subtotal, quote.itbis, quote.total = compute_totals(lines, settings.itbis_rate)
+        quote.stale_notified = False
+        db.add(QuoteHistory(quote_id=quote.id, action="repreciada", note=f"{len(changes)} precio(s) actualizado(s)"))
+        result, created_new = quote, False
+    else:
+        result, created_new = _copy_as_new_version(db, quote, current_user, new_prices), True
+        db.add(QuoteHistory(quote_id=result.id, action="repreciada", note=f"{len(changes)} precio(s) actualizado(s)"))
+    db.commit()
+    db.refresh(result)
+    return RepriceOut(quote=result, created_new=created_new, changes=rows)
+
+
+@router.post("/api/quotes/{quote_id}/new-version", response_model=QuoteOut, status_code=status.HTTP_201_CREATED)
+def new_quote_version(quote_id: int, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)):
+    """Copia la cotización como una nueva pendiente para poder editarla (con la original aprobada o rechazada no se puede)."""
+    quote = _get_quote(db, quote_id)
+    new = _copy_as_new_version(db, quote, current_user, {})
+    db.commit()
+    db.refresh(new)
+    return new

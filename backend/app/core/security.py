@@ -14,7 +14,7 @@ from app.core.config import get_settings
 from app.core.timeutil import as_utc
 from app.db.session import get_db
 from app.db.tenant import tenant_bypass
-from app.models.company import Company
+from app.models.company import COMPANY_SUSPENDED, Company  # noqa: F401  (COMPANY_SUSPENDED se re-exporta)
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.services.access import enforce_assignment_scope
@@ -151,8 +151,9 @@ def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: 
         company = db.get(Company, user.company_id) if user is not None else None
     if user is None or not user.is_active:
         raise credentials_exception
-    if company is None or not company.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=COMPANY_SUSPENDED)
+    reason = company.access_block_reason if company is not None else COMPANY_SUSPENDED
+    if reason:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
     if user.must_change_password and request.url.path not in PASSWORD_CHANGE_ALLOWED_PATHS:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -163,7 +164,6 @@ def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: 
     return user
 
 
-COMPANY_SUSPENDED = "Tu empresa está suspendida. Contacta al administrador de la plataforma."
 
 
 def require_platform_admin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:

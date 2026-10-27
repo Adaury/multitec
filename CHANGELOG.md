@@ -8,6 +8,23 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Periodo de prueba, tope de usuarios y empresas demo** (migración `e1b5c8d2f4a6`): cada empresa puede tener fecha
+  de vencimiento (al vencer funciona como suspendida hasta que la plataforma la extiende) y un máximo de usuarios
+  activos. El panel crea una **empresa demo** con administrador, técnicos de prueba con clave temporal y
+  clientes/proyectos de ejemplo repartidos entre ellos.
+- **Cotización con IA más exacta**: cada punto marcado en las fotos lleva un tipo (cámara, NVR, switch...) y la IA recibe
+  los conteos como dato fijo; si la cotización trae menos de lo marcado, la corrige (una sola línea) o avisa
+  (migración `f2c6d9e3a5b7`).
+- **Actualizar precios** de una cotización con los del catálogo, viendo antes qué cambia. Una pendiente se actualiza en su
+  lugar; una aprobada o rechazada genera una versión nueva y la original queda intacta. «Crear nueva versión para editar».
+- **Comparar otra cotización** (PDF con texto, foto o texto pegado) con el levantamiento y con la cotización propia: la IA
+  solo lee el documento (se puede corregir) y la comparación es por reglas fijas (migración `a4e8f1b6c2d9`, `pypdf`).
+- **Claves de las cuentas nuevas** (empresa o demo): editar la clave, descargar el archivo con los accesos y enviar el enlace
+  por WhatsApp o correo.
+- **Mapa y «Cómo llegar»**: las direcciones sin coordenadas se ubican con OpenStreetMap (el mapa gratuito de Google ya no
+  existe) y «Cómo llegar» ofrece Google Maps, Waze y Apple Maps.
+- **Pantalla de recuperación** si la app falla al abrir (en vez de una pantalla negra) y recarga automática una vez cuando el
+  teléfono guardó una versión vieja; `PWA_RESET=1 npm run build` genera la limpieza forzada del service worker.
 - **Multi-empresa**: una sola instalación y base de datos para varias empresas, con los datos separados por
   `company_id` (migración `d9a4b7c2e1f3`). El aislamiento es automático (`TenantSession`): filtra toda
   consulta, sella lo que se crea, rechaza datos de otra empresa y falla cerrado si la sesión no tiene empresa.
@@ -468,6 +485,23 @@ Primer commit del proyecto, con las 5 fases del brief original completas.
 
 ### Añadido
 - **Multi-empresa**: una sola instalación y base de datos para varias empresas, con los datos separados por
+- **Periodo de prueba, tope de usuarios y empresas demo** (migración `e1b5c8d2f4a6`): cada empresa puede tener fecha
+  de vencimiento (al vencer funciona como suspendida hasta que la plataforma la extiende) y un máximo de usuarios
+  activos. El panel crea una **empresa demo** con administrador, técnicos de prueba con clave temporal y
+  clientes/proyectos de ejemplo repartidos entre ellos.
+- **Cotización con IA más exacta**: cada punto marcado en las fotos lleva un tipo (cámara, NVR, switch...) y la IA recibe
+  los conteos como dato fijo; si la cotización trae menos de lo marcado, la corrige (una sola línea) o avisa
+  (migración `f2c6d9e3a5b7`).
+- **Actualizar precios** de una cotización con los del catálogo, viendo antes qué cambia. Una pendiente se actualiza en su
+  lugar; una aprobada o rechazada genera una versión nueva y la original queda intacta. «Crear nueva versión para editar».
+- **Comparar otra cotización** (PDF con texto, foto o texto pegado) con el levantamiento y con la cotización propia: la IA
+  solo lee el documento (se puede corregir) y la comparación es por reglas fijas (migración `a4e8f1b6c2d9`, `pypdf`).
+- **Claves de las cuentas nuevas** (empresa o demo): editar la clave, descargar el archivo con los accesos y enviar el enlace
+  por WhatsApp o correo.
+- **Mapa y «Cómo llegar»**: las direcciones sin coordenadas se ubican con OpenStreetMap (el mapa gratuito de Google ya no
+  existe) y «Cómo llegar» ofrece Google Maps, Waze y Apple Maps.
+- **Pantalla de recuperación** si la app falla al abrir (en vez de una pantalla negra) y recarga automática una vez cuando el
+  teléfono guardó una versión vieja; `PWA_RESET=1 npm run build` genera la limpieza forzada del service worker.
   `company_id` (migración `d9a4b7c2e1f3`). El aislamiento es automático (`TenantSession`): filtra toda
   consulta, sella lo que se crea, rechaza datos de otra empresa y falla cerrado si la sesión no tiene empresa.
   Correlativos, NCF, logo, archivos (`uploads/c{id}/`) y RNC de la DGII son por empresa.

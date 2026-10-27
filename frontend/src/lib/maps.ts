@@ -61,24 +61,49 @@ export function viewUrl(place: Place): string | null {
   return place.location_url?.trim() || null
 }
 
-/** URL del mapa incrustado (iframe). Null si no hay coordenadas ni dirección: un enlace corto
- * de Maps no se puede incrustar sin la API.
- *
- * Con coordenadas se usa OpenStreetMap: su mapa incrustado no pide clave y carga siempre,
- * mientras que el de Google se queda en blanco en varios iPhone. Solo con una dirección (sin
- * coordenadas) se recurre al de Google, que sí la sabe buscar. Tocar el mapa abre Google Maps. */
+/** URL del mapa incrustado (iframe) de OpenStreetMap para unas coordenadas: no pide clave y carga siempre.
+ * (El mapa incrustado gratuito de Google ya no existe: responde 404.) Tocar el mapa abre Google Maps. */
+export function embedFromCoords(coords: Coords): string {
+  const dLng = 0.003
+  const dLat = 0.002 // el recuadro es más ancho que alto
+  const bbox = [coords.lng - dLng, coords.lat - dLat, coords.lng + dLng, coords.lat + dLat]
+    .map((n) => n.toFixed(5))
+    .join('%2C')
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`
+}
+
+/** Mapa incrustado cuando el enlace trae coordenadas. Con solo una dirección hay que ubicarla primero
+ * (ver MapPreview → /api/geo/search); un enlace corto de Maps no se puede incrustar. */
 export function embedUrl(place: Place): string | null {
   const coords = parseCoords(place.location_url)
-  if (coords) {
-    const dLng = 0.003
-    const dLat = 0.002 // el recuadro es más ancho que alto
-    const bbox = [coords.lng - dLng, coords.lat - dLat, coords.lng + dLng, coords.lat + dLat]
-      .map((n) => n.toFixed(5))
-      .join('%2C')
-    return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${coords.lat}%2C${coords.lng}`
-  }
+  return coords ? embedFromCoords(coords) : null
+}
+
+export interface NavigationLink {
+  id: 'google' | 'waze' | 'apple'
+  label: string
+  href: string
+}
+
+/** Enlaces para llegar con la app de navegación que prefiera cada quien: Google Maps, Waze y Apple Maps (en iPhone
+ * abre la app de Mapas). Con coordenadas se apunta al punto exacto; si no, se pasa la dirección. */
+export function navigationLinks(place: Place, geocoded?: Coords | null): NavigationLink[] {
+  const coords = parseCoords(place.location_url) ?? geocoded ?? null
   const address = place.address?.trim()
-  return address ? `https://maps.google.com/maps?q=${encodeURIComponent(address)}&z=16&output=embed` : null
+  const destination = coords ? `${coords.lat},${coords.lng}` : address
+  const links: NavigationLink[] = []
+  const google = directionsUrl(place)
+  if (google) links.push({ id: 'google', label: 'Google Maps', href: google })
+  if (destination) {
+    const q = encodeURIComponent(destination)
+    links.push({
+      id: 'waze',
+      label: 'Waze',
+      href: coords ? `https://waze.com/ul?ll=${q}&navigate=yes` : `https://waze.com/ul?q=${q}&navigate=yes`,
+    })
+    links.push({ id: 'apple', label: 'Apple Maps', href: `https://maps.apple.com/?daddr=${q}&dirflg=d` })
+  }
+  return links
 }
 
 /** Enlace de Maps a un punto exacto (lo que se guarda al capturar el GPS). */

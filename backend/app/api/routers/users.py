@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.core.security import active_sessions, hash_password, require_role, revoke_all_refresh_tokens
 from app.core.timeutil import today_dr
 from app.db.session import get_db
+from app.models.company import Company
 from app.models.refresh_token import RefreshToken
 from app.models.ticket import Ticket
 from app.models.user import User
@@ -28,6 +29,19 @@ router = APIRouter(prefix="/api/users", tags=["users"])
 
 admin_only = require_role("admin")
 allowed_roles = require_role("admin", "oficina", "tecnico")
+
+
+def _ensure_free_seat(db: Session, company_id: int) -> None:
+    """Respeta el tope de usuarios activos que la plataforma le puso a la empresa (si tiene)."""
+    company = db.get(Company, company_id)
+    if company is None or company.max_users is None:
+        return
+    active = db.query(User).filter(User.is_active.is_(True)).count()
+    if active >= company.max_users:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Tu plan permite hasta {company.max_users} usuarios activos. Desactiva a alguien o pide ampliar el plan.",
+        )
 
 
 @router.get("", response_model=list[UserOut])
@@ -96,6 +110,7 @@ def create_user(
     db: Session = Depends(get_db),
     current_user: User = Depends(admin_only),
 ):
+    _ensure_free_seat(db, current_user.company_id)
     user = User(
         name=payload.name,
         email=payload.email,
@@ -163,6 +178,8 @@ def update_user(
 
     if data.get("is_active") is False:
         revoke_all_refresh_tokens(db, user.id)
+    if data.get("is_active") is True and not user.is_active:
+        _ensure_free_seat(db, current_user.company_id)
 
     # Un correo vacío o nulo no es un cambio: nunca se borra.
     if "email" in data and not data["email"]:

@@ -56,6 +56,8 @@ import { ProjectLocationCard } from '../components/ProjectLocationCard'
 import { InvoicePaymentForm } from '../components/InvoicePaymentForm'
 import { InvoiceVoidForm } from '../components/InvoiceVoidForm'
 import { PhotoMarkerEditor } from '../components/PhotoMarkerEditor'
+import { QuotePricing } from '../components/QuotePricing'
+import { QuoteComparisonPanel } from '../components/QuoteComparisonPanel'
 import { UploadAudio, UploadImage } from '../components/UploadMedia'
 import { VoiceRecorderCard, VoiceReviewCard, transcribeAsset } from '../components/VoiceSurvey'
 
@@ -1341,6 +1343,10 @@ function QuoteTab({ projectId, project }: { projectId: number; project: ProjectD
         ))}
         {quotes?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay cotizaciones.</p>}
       </div>
+
+      <div className="md:max-w-3xl">
+        <QuoteComparisonPanel projectId={projectId} quotes={quotes ?? []} />
+      </div>
     </div>
   )
 }
@@ -1657,6 +1663,8 @@ function QuoteCard({
               </div>
             )}
           </div>
+
+          <QuotePricing quote={quote} projectId={projectId} />
 
           {quote.status === 'pendiente' && (
             <div className="flex gap-2">

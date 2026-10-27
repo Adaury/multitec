@@ -55,8 +55,16 @@ class SurveyMarker(TenantMixin, Base):
     asset_id: Mapped[int] = mapped_column(ForeignKey("survey_assets.id", ondelete="CASCADE"), index=True)
     number: Mapped[int] = mapped_column(Integer)
     label: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    # Tipo de equipo (camara, grabador, switch...): lo elige el técnico; si falta se deduce del nombre (services/survey_points.py).
+    kind: Mapped[str | None] = mapped_column(String(30), nullable=True)
     x: Mapped[float] = mapped_column(Float)
     y: Mapped[float] = mapped_column(Float)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     asset: Mapped["SurveyAsset"] = relationship(back_populates="markers")
+
+    @property
+    def point_kind(self) -> str:
+        from app.services.survey_points import marker_kind  # import tardío: el servicio importa este modelo
+
+        return marker_kind(self)

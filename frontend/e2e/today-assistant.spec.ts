@@ -41,10 +41,12 @@ test('the assistant greets the user and says what there is to do today', async (
 
   // Cada pendiente es un toque: lleva directo a la pantalla donde se resuelve.
   await expect(page.getByText(/09:30 · Cliente Visita Hoy/).filter({ visible: true })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Cómo llegar' }).filter({ visible: true }).first()).toHaveAttribute(
+  await page.getByRole('button', { name: 'Cómo llegar' }).filter({ visible: true }).first().click()
+  await expect(page.getByRole('menuitem', { name: 'Google Maps' }).filter({ visible: true })).toHaveAttribute(
     'href',
     /destination=/,
   )
+  await expect(page.getByRole('menuitem', { name: 'Waze' }).filter({ visible: true })).toHaveAttribute('href', /waze\.com/)
   const cotizar = page.getByRole('link', { name: /Cotizar: Cliente Por Cotizar/ }).filter({ visible: true })
   await expect(cotizar).toBeVisible()
   await expect(cotizar).toHaveAttribute('href', new RegExp(`/proyectos/${readyProject.id}\\?tab=levantamiento`))

@@ -9,6 +9,7 @@ import { directionsUrl, routeQuery, routeUrls } from '../lib/maps'
 import type { Project, Technician, Visit, VisitStatus, Workload } from '../lib/types'
 import { VISIT_STATUS_LABELS } from '../lib/types'
 import { localISODate } from '../lib/format'
+import { NavigateMenu } from '../components/NavigateMenu'
 import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
 
 function todayISO() {
@@ -545,14 +546,12 @@ function VisitCard({
       {(directions || visit.client_phone) && (
         <div className="flex gap-2">
           {directions && (
-            <a
-              href={directions}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-brand-blue px-4 py-3 text-sm font-semibold text-white active:scale-[0.98]"
+            <NavigateMenu
+              place={{ address: visit.client_address, location_url: visit.client_location_url }}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-brand-blue px-4 py-3 text-sm font-semibold text-white active:scale-[0.98]"
             >
               🧭 Cómo llegar
-            </a>
+            </NavigateMenu>
           )}
           {visit.client_phone && (
             <a

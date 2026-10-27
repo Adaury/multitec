@@ -53,6 +53,7 @@ from app.models.product import Product
 from app.models.quote import Quote
 from app.models.technical_rule import TechnicalRule
 from app.schemas.budget import BudgetItemIn
+from app.services.survey_points import marker_counts, reconcile_items
 
 logger = logging.getLogger("multitec.ai")
 
@@ -149,7 +150,9 @@ def _resolve_param(db: Session, key: str, overrides: dict[str, float]) -> float:
     return get_calculation_parameter(db, key)
 
 
-def compute_survey_items(db: Session, context: str) -> tuple[list[dict], list[str], list[str]]:
+def compute_survey_items(
+    db: Session, context: str, project_id: int | None = None
+) -> tuple[list[dict], list[str], list[str]]:
     """Motor 1-5 sobre el expediente de un proyecto: interpreta, resuelve contra
     catálogo, aplica reglas (Motor 4) y las calculadoras de Motor 5. No persiste nada —
     la usan tanto la vista previa (`ai_budget_suggestions`) como el orquestador que sí
@@ -171,6 +174,14 @@ def compute_survey_items(db: Session, context: str) -> tuple[list[dict], list[st
     # paquetes; las cantidades que generan las reglas ya las define quien escribió la regla.
     items, pack_notices = convert_loose_units_to_packs(items, {p.id: p.pack_size for p in products})
     items = expand_with_rules(items, catalog, rules)
+    # Los puntos que el técnico marcó en las fotos son el dato más fiable de cuántos equipos van: se cuadran las
+    # cantidades con ellos ANTES de calcular almacenamiento, mano de obra y capacidad, que dependen de esas cantidades.
+    point_warnings: list[str] = []
+    if project_id is not None:
+        counts = marker_counts(db, project_id)
+        if counts:
+            reconciled = reconcile_items(items, counts, {p.id: p.category_name for p in products})
+            items, point_warnings = reconciled.items, reconciled.warnings
     param_overrides = resolve_calculation_parameter_overrides(items, technical_rules)
     engineering_notes = resolve_engineering_notes(items, technical_rules)
 
@@ -198,7 +209,7 @@ def compute_survey_items(db: Session, context: str) -> tuple[list[dict], list[st
     if labor_estimate is not None:
         items = items + [build_labor_budget_item(labor_estimate)]
 
-    warnings = pack_notices + unmatched_notices + calculate_capacity_warnings(
+    warnings = point_warnings + pack_notices + unmatched_notices + calculate_capacity_warnings(
         items, catalog, _build_channel_capacity_profiles(products)
     )
     for item in items:
@@ -305,7 +316,7 @@ def generate_documents_from_survey(
     para no pisar lo que oficina ya haya editado a mano). No comitea, no notifica — el
     caller (`api/routers/ai.py::generate_from_survey`) decide cuándo hacer ambas cosas,
     igual que ya hacían `build_budget`/`build_quote_from_budget` antes de esta función."""
-    items, warnings, engineering_notes = compute_survey_items(db, context)
+    items, warnings, engineering_notes = compute_survey_items(db, context, project_id)
     if not items:
         raise HTTPException(status_code=400, detail="La IA no pudo derivar materiales del levantamiento")
 

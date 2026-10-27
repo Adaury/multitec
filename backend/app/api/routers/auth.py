@@ -101,9 +101,10 @@ def login(
         audit(db, "login_inactive", user=user, request=request, commit=True)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario inactivo")
     company = db.get(Company, user.company_id)
-    if company is None or not company.is_active:
-        audit(db, "login_company_suspended", user=user, request=request, commit=True)
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=COMPANY_SUSPENDED)
+    reason = company.access_block_reason if company is not None else COMPANY_SUSPENDED
+    if reason:
+        audit(db, "login_company_blocked", user=user, request=request, commit=True)
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
 
     user.last_login_at = datetime.now(timezone.utc)
     audit(db, "login", user=user, request=request)
@@ -129,8 +130,9 @@ def refresh(
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Usuario inactivo")
     company = db.get(Company, user.company_id)
-    if company is None or not company.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=COMPANY_SUSPENDED)
+    reason = company.access_block_reason if company is not None else COMPANY_SUSPENDED
+    if reason:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
 
     # Rotación: este refresh token se revoca y se emite uno nuevo junto con el access
     # token — un refresh token es de un solo uso. Si alguien lo reusa después (porque lo

@@ -57,3 +57,12 @@ export function UploadAudio({ filePath, ...props }: AudioProps) {
   const url = useUploadUrl(filePath)
   return <audio src={url} {...props} />
 }
+
+/** Abre en otra pestaña un archivo guardado en /uploads (un PDF, por ejemplo). Se abre la pestaña dentro del toque del
+ * usuario y se navega cuando llega el archivo, igual que `viewFile`. */
+export async function openUpload(filePath: string) {
+  const newWindow = window.open('', '_blank')
+  const url = await loadUpload(filePath)
+  if (newWindow) newWindow.location.href = url
+  else window.open(url, '_blank')
+}
