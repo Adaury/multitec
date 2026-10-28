@@ -194,6 +194,20 @@ Si escribes código que abre su propia sesión (un hilo, un script), pásale la 
   forzada del service worker; después se compila normal. La app también muestra una pantalla de recuperación en vez
   de quedarse negra.
 
+## Ayuda con videos
+
+El menú **Ayuda** (`/ayuda`, para todos los roles) reúne la guía completa en video (4 min), el paso a paso con un video
+corto por tema —cada uno con sus pasos en texto— y las preguntas frecuentes. Cada persona ve lo que le corresponde por
+rol: el técnico no ve lo de cotizaciones ni la plataforma, y «Plataforma» solo lo ve el dueño del sistema. En la pantalla
+de entrada, «Aprende a usar el sistema» muestra dos videos sin iniciar sesión (se cargan solo al abrirlo y no se
+descargan hasta pulsar reproducir, para no gastar datos en la obra).
+
+- Textos: `frontend/src/lib/contenidoAyuda.ts` (pasos y preguntas) y `frontend/src/lib/tutoriales.ts` (catálogo de videos,
+  con su transcripción). Se pueden corregir sin tocar la pantalla.
+- Videos: `frontend/public/videos/<id>.mp4` y `<id>.jpg` (MP4 H.264, que es lo que reproduce el iPhone).
+- Regrabarlos cuando cambie la pantalla: `frontend/scripts/videos/README.md` (se recorre la app sola, con datos de ejemplo
+  en un entorno aislado, con voz en español).
+
 ## Seguridad
 
 - **Bloqueo por cuenta** tras 5 intentos fallidos (espera de 1, 2, 5 y 15 min), igual exista o no el

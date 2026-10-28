@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import { Button, Card, Field, Input } from '../components/ui'
+import { TutorialesLogin } from '../components/TutorialesLogin'
 import type { CurrentUser } from '../lib/types'
 
 export function Login() {
@@ -97,6 +98,7 @@ export function Login() {
             </Button>
           </form>
         </Card>
+        <TutorialesLogin />
       </div>
     </div>
   )

@@ -1,0 +1,19 @@
+[
+  {"id": "intro", "text": "Bienvenido a Multitec, el sistema para empresas de seguridad electrónica. En esta guía verás cómo un levantamiento hecho en la obra se convierte en una cotización, con ayuda de la inteligencia artificial."},
+  {"id": "login", "text": "Entra con tu correo y tu contraseña. Cada empresa ve únicamente sus propios datos."},
+  {"id": "inicio", "text": "En Inicio, el asistente te dice qué hay para hoy: las visitas, los levantamientos listos para cotizar y las cotizaciones que esperan respuesta."},
+  {"id": "cliente", "text": "Primero registra al cliente, con su teléfono y su dirección."},
+  {"id": "proyecto", "text": "Luego crea el proyecto de esa obra."},
+  {"id": "levantamiento", "text": "En el levantamiento escribes lo que viste en la obra y subes las fotos."},
+  {"id": "marcar", "text": "Sobre la foto marcas dónde irá cada equipo y eliges qué es: una cámara, un grabador, un switch. La inteligencia artificial cuenta esos puntos para dar cantidades exactas."},
+  {"id": "ia", "text": "Con un toque, la inteligencia artificial arma la cotización con los precios de tu catálogo. Trabaja en el servidor, así que puedes salir de la pantalla y seguir con otra cosa. Esta parte se acelera en el video."},
+  {"id": "cotizacion", "text": "Aquí está la cotización. Revisa las líneas y los avisos: si lo marcado en la foto no cuadra con lo cotizado, el sistema te lo dice."},
+  {"id": "precios", "text": "Si cambian los precios del catálogo, pulsa Actualizar precios. Ves exactamente qué cambia antes de aplicarlo."},
+  {"id": "comparar", "text": "También puedes subir, o pegar, la cotización de un competidor. Se compara línea por línea con la tuya y con el levantamiento. Esta parte también se acelera."},
+  {"id": "mapa", "text": "En la ficha del proyecto, el mapa ubica la dirección de la obra. Y Cómo llegar te deja elegir entre Google Maps, Waze o Apple Maps."},
+  {"id": "plataforma", "text": "El dueño del sistema administra las empresas desde Plataforma: crea empresas con su administrador, controla el periodo de prueba y crea demostraciones para que los técnicos prueben la aplicación."},
+  {"id": "demo", "text": "Al crear la demostración salen las cuentas de los técnicos, cada una con su clave temporal. Puedes editar la clave, descargar el archivo con los accesos, o enviarlos por WhatsApp o por correo."},
+  {"id": "tecnico", "text": "El técnico entra desde su iPhone. La primera vez cambia su clave temporal, y solo ve los proyectos que le asignaron."},
+  {"id": "tecnico2", "text": "Desde el teléfono hace el levantamiento en la obra, toma las fotos y marca los equipos. Todo queda sincronizado con la oficina."},
+  {"id": "fin", "text": "Eso es todo. Multitec: del levantamiento a la cotización, sin papeles."}
+]

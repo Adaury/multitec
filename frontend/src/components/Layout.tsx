@@ -4,6 +4,7 @@ import {
   Bot,
   Building2,
   CalendarDays,
+  CircleHelp,
   CircleUser,
   Clock,
   FileText,
@@ -68,6 +69,9 @@ const adminSidebarItems: NavItem[] = [
 ]
 
 const platformSidebarItems: NavItem[] = [{ to: '/plataforma', label: 'Plataforma', icon: Globe }]
+
+// La ayuda (videos, paso a paso y preguntas frecuentes) es para todos los roles.
+const helpSidebarItems: NavItem[] = [{ to: '/ayuda', label: 'Ayuda', icon: CircleHelp }]
 
 // Barra inferior móvil (estilo "tab bar" con botón central): los destinos de uso diario y,
 // al centro, el "+" que arranca un levantamiento nuevo en un toque. Todo lo demás vive en la
@@ -181,6 +185,7 @@ export function Layout() {
     ...(isStaff ? staffSidebarItems : []),
     ...(isAdmin ? adminSidebarItems : []),
     ...(user?.is_platform_admin ? platformSidebarItems : []),
+    ...helpSidebarItems,
   ]
   const companyName = user?.company_name ?? 'Multitec'
   const moreItems: NavItem[] = [

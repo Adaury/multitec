@@ -8,6 +8,9 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Ayuda con videos** (`/ayuda`, todos los roles): guía completa de 4 minutos, paso a paso con un video corto por tema y sus
+  pasos en texto, y preguntas frecuentes, filtradas por rol. «Aprende a usar el sistema» en la pantalla de entrada. Videos MP4
+  (H.264) con portada en `frontend/public/videos/`; los scripts para regrabarlos están en `frontend/scripts/videos/`.
 - **Periodo de prueba, tope de usuarios y empresas demo** (migración `e1b5c8d2f4a6`): cada empresa puede tener fecha
   de vencimiento (al vencer funciona como suspendida hasta que la plataforma la extiende) y un máximo de usuarios
   activos. El panel crea una **empresa demo** con administrador, técnicos de prueba con clave temporal y
@@ -490,6 +493,9 @@ Primer commit del proyecto, con las 5 fases del brief original completas.
 
 ### Añadido
 - **Multi-empresa**: una sola instalación y base de datos para varias empresas, con los datos separados por
+- **Ayuda con videos** (`/ayuda`, todos los roles): guía completa de 4 minutos, paso a paso con un video corto por tema y sus
+  pasos en texto, y preguntas frecuentes, filtradas por rol. «Aprende a usar el sistema» en la pantalla de entrada. Videos MP4
+  (H.264) con portada en `frontend/public/videos/`; los scripts para regrabarlos están en `frontend/scripts/videos/`.
 - **Periodo de prueba, tope de usuarios y empresas demo** (migración `e1b5c8d2f4a6`): cada empresa puede tener fecha
   de vencimiento (al vencer funciona como suspendida hasta que la plataforma la extiende) y un máximo de usuarios
   activos. El panel crea una **empresa demo** con administrador, técnicos de prueba con clave temporal y

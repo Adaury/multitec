@@ -33,6 +33,7 @@ const loaders = {
   Auditoria: () => import('./pages/Auditoria'),
   HojaDeTiempo: () => import('./pages/HojaDeTiempo'),
   Plataforma: () => import('./pages/Plataforma'),
+  Ayuda: () => import('./pages/Ayuda'),
 }
 
 const Dashboard = lazyPage(loaders.Dashboard, 'Dashboard')
@@ -56,6 +57,7 @@ const Compras = lazyPage(loaders.Compras, 'Compras')
 const Auditoria = lazyPage(loaders.Auditoria, 'Auditoria')
 const HojaDeTiempo = lazyPage(loaders.HojaDeTiempo, 'HojaDeTiempo')
 const Plataforma = lazyPage(loaders.Plataforma, 'Plataforma')
+const Ayuda = lazyPage(loaders.Ayuda, 'Ayuda')
 
 // Las pantallas de uso diario se descargan en segundo plano cuando el navegador está libre, para
 // que al tocarlas abran al instante en vez de esperar la descarga.
@@ -100,6 +102,8 @@ function App() {
           <Route path="/proyectos/:id" element={<ProjectDetail />} />
           <Route path="/preguntar" element={<Ask />} />
           <Route path="/perfil" element={<Profile />} />
+          {/* La ayuda es para todos los roles: no lleva RoleRoute. */}
+          <Route path="/ayuda" element={<Ayuda />} />
           <Route path="/nuevo" element={<QuickSurvey />} />
           <Route path="/calendario" element={<Calendario />} />
           {/* Dinero y compras: el técnico no tiene acceso (ver README → Roles y permisos). */}
