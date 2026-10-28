@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { LEGACY_REFRESH_STORAGE_KEY, useAuthStore } from './authStore'
+import { safeStorage } from './safeStorage'
 
 export const api = axios.create({ baseURL: '/api' })
 
@@ -20,11 +21,11 @@ async function refreshAccessToken(): Promise<string> {
     // El refresh token va en una cookie HttpOnly: el navegador la manda sola. Una sesión abierta
     // antes de ese cambio aún lo tiene en localStorage: se envía una última vez para migrarla
     // (el servidor responde con la cookie nueva) y se borra.
-    const legacy = localStorage.getItem(LEGACY_REFRESH_STORAGE_KEY)
+    const legacy = safeStorage.get(LEGACY_REFRESH_STORAGE_KEY)
     refreshPromise = axios
       .post('/api/auth/refresh', legacy ? { refresh_token: legacy } : undefined)
       .then(({ data }) => {
-        localStorage.removeItem(LEGACY_REFRESH_STORAGE_KEY)
+        safeStorage.remove(LEGACY_REFRESH_STORAGE_KEY)
         useAuthStore.getState().setToken(data.access_token)
         return data.access_token as string
       })
@@ -89,7 +90,7 @@ export async function viewFile(path: string) {
 export async function logout() {
   try {
     // El servidor lee el refresh token de la cookie, la revoca y la borra.
-    const legacy = localStorage.getItem(LEGACY_REFRESH_STORAGE_KEY)
+    const legacy = safeStorage.get(LEGACY_REFRESH_STORAGE_KEY)
     await api.post('/auth/logout', legacy ? { refresh_token: legacy } : undefined, { _retry: true } as object)
   } catch {
     // si falla la llamada (red, token ya vencido, etc.) igual limpiamos la sesión local

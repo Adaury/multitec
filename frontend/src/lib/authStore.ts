@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { CurrentUser } from './types'
+import { safeStorage } from './safeStorage'
 
 interface AuthState {
   token: string | null
@@ -16,20 +17,20 @@ const STORAGE_KEY = 'multitec_token'
 export const LEGACY_REFRESH_STORAGE_KEY = 'multitec_refresh_token'
 
 export const useAuthStore = create<AuthState>((set) => ({
-  token: localStorage.getItem(STORAGE_KEY),
+  token: safeStorage.get(STORAGE_KEY),
   user: null,
   setSession: (token, user) => {
-    localStorage.setItem(STORAGE_KEY, token)
+    safeStorage.set(STORAGE_KEY, token)
     set({ token, user })
   },
   setToken: (token) => {
-    localStorage.setItem(STORAGE_KEY, token)
+    safeStorage.set(STORAGE_KEY, token)
     set({ token })
   },
   setUser: (user) => set({ user }),
   logout: () => {
-    localStorage.removeItem(STORAGE_KEY)
-    localStorage.removeItem(LEGACY_REFRESH_STORAGE_KEY)
+    safeStorage.remove(STORAGE_KEY)
+    safeStorage.remove(LEGACY_REFRESH_STORAGE_KEY)
     set({ token: null, user: null })
   },
 }))

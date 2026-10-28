@@ -25,6 +25,7 @@ from app.api.routers import (
     execution,
     extensions,
     followups,
+    client_errors,
     comparisons,
     generation,
     geo,
@@ -177,6 +178,7 @@ app.include_router(users.router)
 app.include_router(platform.router)
 app.include_router(generation.router)
 app.include_router(comparisons.router)
+app.include_router(client_errors.router)
 app.include_router(geo.router)
 app.include_router(ncf.router)
 app.include_router(company.router)

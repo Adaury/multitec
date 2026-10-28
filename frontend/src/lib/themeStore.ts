@@ -1,11 +1,12 @@
 import { create } from 'zustand'
+import { safeStorage } from './safeStorage'
 
 type Theme = 'light' | 'dark'
 
 const STORAGE_KEY = 'multitec_theme'
 
 function getInitialTheme(): Theme {
-  const stored = localStorage.getItem(STORAGE_KEY)
+  const stored = safeStorage.get(STORAGE_KEY)
   if (stored === 'light' || stored === 'dark') return stored
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
@@ -26,7 +27,7 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
   theme: initialTheme,
   toggleTheme: () => {
     const next: Theme = get().theme === 'dark' ? 'light' : 'dark'
-    localStorage.setItem(STORAGE_KEY, next)
+    safeStorage.set(STORAGE_KEY, next)
     applyTheme(next)
     set({ theme: next })
   },

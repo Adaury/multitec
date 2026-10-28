@@ -34,6 +34,7 @@ import { GenerationBanner } from './GenerationBanner'
 import { SystemStatus } from './SystemStatus'
 import { PageLoader } from './PageLoader'
 import { ThemeToggle } from './ThemeToggle'
+import { safeStorage } from '../lib/safeStorage'
 
 interface NavItem {
   to: string
@@ -87,7 +88,7 @@ const MENU_PIN_KEY = 'multitec_menu_pinned'
 
 function readMenuPinned(): boolean {
   try {
-    return localStorage.getItem(MENU_PIN_KEY) === '1'
+    return safeStorage.get(MENU_PIN_KEY) === '1'
   } catch {
     return false
   }
@@ -156,7 +157,7 @@ export function Layout() {
     const next = !menuPinned
     setMenuPinned(next)
     try {
-      localStorage.setItem(MENU_PIN_KEY, next ? '1' : '0')
+      safeStorage.set(MENU_PIN_KEY, next ? '1' : '0')
     } catch {
       // modo privado o almacenamiento bloqueado: el pin solo dura esta sesión
     }
