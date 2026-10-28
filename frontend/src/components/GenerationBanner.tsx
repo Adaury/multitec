@@ -1,13 +1,18 @@
+import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { useGenerationStore } from '../lib/generationStore'
+import { rehydrateJobs, useGenerationStore } from '../lib/generationStore'
 import { formatDOP } from '../lib/format'
 
 /** Barra fija con las cotizaciones que la IA está armando (o acaba de armar). Se ve en todas las
  * pantallas: el técnico puede ir a tickets, al inicio o a otro proyecto sin perder de vista que la
- * IA sigue trabajando, y al terminar toca para abrir la cotización. */
+ * IA sigue trabajando, y al terminar toca para abrir la cotización. La generación corre en el servidor:
+ * al abrir la app (o volver a ella) se recupera el avance, aunque la página se haya recargado. */
 export function GenerationBanner() {
   const jobs = useGenerationStore((state) => state.jobs)
   const dismiss = useGenerationStore((state) => state.dismiss)
+  useEffect(() => {
+    void rehydrateJobs()
+  }, [])
   const list = Object.values(jobs)
   if (list.length === 0) return null
 

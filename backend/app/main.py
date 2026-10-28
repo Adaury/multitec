@@ -52,6 +52,7 @@ from app.core.config import INSECURE_DEFAULT_JWT_SECRET, get_settings
 from app.core.limiter import limiter
 from app.core.security import get_current_user
 from app.core.logging_config import configure_logging
+from app.db.tenant import TenantReferenceError
 from app.models.user import User
 from app.services.uploads import can_read_upload
 
@@ -84,6 +85,13 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
+
+
+@app.exception_handler(TenantReferenceError)
+async def tenant_reference_handler(request: Request, exc: TenantReferenceError) -> JSONResponse:
+    """Algo apuntaba a un registro de otra empresa (o inexistente): para quien llama es un «no encontrado»."""
+    logger.warning("Referencia a otra empresa rechazada en %s %s: %s", request.method, request.url.path, exc)
+    return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "No encontrado"})
 
 
 @app.exception_handler(Exception)

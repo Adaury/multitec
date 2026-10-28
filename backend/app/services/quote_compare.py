@@ -59,7 +59,7 @@ def extract_text(contents: bytes, content_type: str) -> str:
             reader = PdfReader(io.BytesIO(contents))
             pages = [(page.extract_text() or "") for page in reader.pages[:MAX_PDF_PAGES]]
         except Exception:
-            raise HTTPException(status_code=400, detail="No se pudo leer ese PDF. Súbelo como foto o pega el texto.")
+            raise HTTPException(status_code=400, detail="No se pudo leer ese PDF. Súbelo como foto o pega el texto.") from None
         text = "\n".join(pages).strip()
         if len(text) < 20:
             raise HTTPException(
@@ -194,7 +194,7 @@ def compare(db: Session, project_id: int, ext_items: list[dict], ext_total: floa
     used_e: set[int] = set()
     used_o: set[int] = set()
     pairs: list[tuple[int, int, float]] = []
-    for score, ei, oi in scored:
+    for score, ei, oi in scored:  # noqa: B007
         if score < MATCH_THRESHOLD or ei in used_e or oi in used_o:
             continue
         used_e.add(ei)

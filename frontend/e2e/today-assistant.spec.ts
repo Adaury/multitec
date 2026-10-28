@@ -24,7 +24,12 @@ test('the assistant greets the user and says what there is to do today', async (
   })
   expect(survey.ok()).toBeTruthy()
 
-  // Una cotización esperando respuesta.
+  // Una cotización esperando respuesta. «Para hoy» muestra solo las 3 primeras: se archivan las que dejaron otras pruebas
+  // (la base de la corrida es compartida) para que la de esta prueba siempre salga.
+  const existing = await (await api.get('/quotes')).json()
+  for (const quote of existing.filter((q: { status: string }) => q.status === 'pendiente')) {
+    await api.post(`/quotes/${quote.id}/archive`)
+  }
   const waiting = await createQuote(api, unique('Cliente Esperando'))
 
   await page.goto('/')

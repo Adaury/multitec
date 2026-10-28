@@ -41,3 +41,17 @@ def test_search_not_found_and_provider_down(client, admin_token):
     ):
         down = client.get("/api/geo/search", params={"q": "otra calle 123 santiago"}, headers=h)
     assert down.status_code == 503 and "Cómo llegar" in down.json()["detail"]
+
+
+def test_search_is_limited_to_the_configured_countries_and_never_falls_back_worldwide(client, admin_token):
+    geo.reset_cache()
+    seen = []
+
+    def fake_get(url, params=None, **kwargs):
+        seen.append(dict(params))
+        return _response([])
+
+    with patch("app.api.routers.geo.httpx.get", side_effect=fake_get), patch("app.api.routers.geo.time.sleep"):
+        resp = client.get("/api/geo/search", params={"q": "calle duarte 45 inventada"}, headers=auth_headers(admin_token))
+    assert resp.status_code == 404
+    assert len(seen) == 1 and seen[0]["countrycodes"] == "do"  # una sola consulta, acotada a República Dominicana

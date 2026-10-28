@@ -13,6 +13,7 @@ from collections import OrderedDict
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from app.core.config import get_settings
 from app.core.limiter import limiter
 from app.core.security import get_current_user
 from app.models.user import User
@@ -40,27 +41,29 @@ def reset_cache() -> None:
 
 
 def _lookup(query: str) -> dict | None:
-    """Una consulta a Nominatim, primero acotada a República Dominicana y luego sin acotar."""
+    """Una consulta a Nominatim acotada a los países configurados (GEO_COUNTRY_CODES, por defecto República Dominicana).
+    No hay segundo intento sin acotar: una calle de otro país que se llame igual mostraría un mapa equivocado, y un mapa
+    equivocado es peor que ninguno (queda «Cómo llegar»)."""
     global _last_call
-    for country in ("do", None):
-        with _call_lock:  # a lo sumo una consulta por segundo
-            wait = 1.0 - (time.monotonic() - _last_call)
-            if wait > 0:
-                time.sleep(wait)
-            _last_call = time.monotonic()
-        params = {"q": query, "format": "jsonv2", "limit": 1}
-        if country:
-            params["countrycodes"] = country
-        response = httpx.get(NOMINATIM_URL, params=params, headers={"User-Agent": USER_AGENT}, timeout=6.0)
-        response.raise_for_status()
-        results = response.json()
-        if results:
-            return {
-                "lat": float(results[0]["lat"]),
-                "lng": float(results[0]["lon"]),
-                "display_name": results[0].get("display_name", ""),
-            }
-    return None
+    with _call_lock:  # a lo sumo una consulta por segundo
+        wait = 1.0 - (time.monotonic() - _last_call)
+        if wait > 0:
+            time.sleep(wait)
+        _last_call = time.monotonic()
+    params = {"q": query, "format": "jsonv2", "limit": 1}
+    countries = ",".join(c.strip().lower() for c in get_settings().geo_country_codes.split(",") if c.strip())
+    if countries:
+        params["countrycodes"] = countries
+    response = httpx.get(NOMINATIM_URL, params=params, headers={"User-Agent": USER_AGENT}, timeout=6.0)
+    response.raise_for_status()
+    results = response.json()
+    if not results:
+        return None
+    return {
+        "lat": float(results[0]["lat"]),
+        "lng": float(results[0]["lon"]),
+        "display_name": results[0].get("display_name", ""),
+    }
 
 
 @router.get("/search")
@@ -84,7 +87,7 @@ def search_address(
         found = _lookup(key)
     except (httpx.HTTPError, ValueError, KeyError):
         logger.warning("No se pudo consultar Nominatim para una dirección", exc_info=True)
-        raise HTTPException(status_code=503, detail="El mapa no está disponible ahora. Usa «Cómo llegar».")
+        raise HTTPException(status_code=503, detail="El mapa no está disponible ahora. Usa «Cómo llegar».") from None
     with _lock:
         _cache[key] = (now + (_FOUND_TTL if found else _MISSING_TTL), found)
         while len(_cache) > _CACHE_MAX:

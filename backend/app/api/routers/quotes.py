@@ -249,7 +249,7 @@ def _price_changes(db: Session, quote: Quote) -> list[tuple[QuoteItem, float]]:
     out = []
     for item in quote.items:
         new = prices.get(item.product_id) if item.product_id is not None else None
-        if new is not None and abs(new - float(item.unit_price)) > 0.005:
+        if new is not None and new > 0 and abs(new - float(item.unit_price)) > 0.005:
             out.append((item, new))
     return out
 

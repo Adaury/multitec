@@ -23,6 +23,11 @@ class TenantContextError(RuntimeError):
     intento de saltarse el aislamiento: nunca debe resolverse devolviendo todo."""
 
 
+class TenantReferenceError(TenantContextError):
+    """Se intentó guardar algo que apunta a un registro de OTRA empresa (o que no existe), p. ej. una cotización sobre el
+    proyecto de otra empresa. Para quien llama es un «no encontrado»: ver el manejador en app/main.py."""
+
+
 class TenantMixin:
     """Marca una tabla como "de una empresa". La columna es obligatoria; `TenantSession` la llena al insertar."""
 

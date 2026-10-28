@@ -159,6 +159,41 @@ Para que un técnico vea un proyecto que creó oficina, se le pone como responsa
 - **Equipos instalados** por cliente: tipo, marca, modelo, serial, MAC (se normaliza), IP, ubicación, fecha
   de instalación y garantía (vigente / por vencer / vencida).
 
+## Varias empresas y panel de plataforma
+
+Una sola instalación y una sola base de datos sirven a varias empresas, con los datos separados por `company_id`.
+El aislamiento es automático (`app/db/session.py` → `TenantSession`): toda consulta se filtra por la empresa de la
+sesión, lo que se crea se sella con ella, un dato de otra empresa se rechaza y, si la sesión no tiene empresa, falla
+en vez de devolver todo. Correlativos, NCF, logo, archivos (`uploads/c{id}/`) y RNC de la DGII son por empresa.
+Si escribes código que abre su propia sesión (un hilo, un script), pásale la empresa: `SessionLocal(company_id=…)`.
+
+- **Panel de plataforma** (`/plataforma`, solo quien tiene `is_platform_admin`: el dueño del sistema): crear una empresa
+  con su administrador (clave temporal de un solo uso), ver usuarios / proyectos / facturas / archivos, suspender y
+  reactivar (cierra sus sesiones), cambiar la clave de cualquier cuenta y todo queda en la auditoría.
+- **Periodo de prueba y tope de usuarios**: cada empresa puede tener fecha de vencimiento (al vencer funciona como
+  suspendida hasta extenderla con +7 / +14 / +30 días) y un máximo de usuarios activos. Multitec no vence.
+- **Empresa demo para técnicos**: «Crear demo para técnicos» arma una empresa con un administrador, los técnicos que
+  pidas (con su clave temporal), 3 clientes y proyectos de ejemplo repartidos entre ellos, y vencimiento automático.
+  Las claves se pueden editar, descargar en un archivo y enviar por WhatsApp o correo. Los correos de la demo usan
+  `example.com` (reservado, nunca recibe correo).
+
+## Cotización: puntos marcados, precios y comparación
+
+- **Puntos marcados** en las fotos del levantamiento: cada punto lleva un tipo (cámara, NVR/DVR, switch, gabinete,
+  punto de red, cerradura/lector, sensor/alarma). La IA recibe los conteos como dato fijo y, ya armada la cotización,
+  los cuadra: si lo marcado es más que lo cotizado y hay una sola línea de ese equipo, la sube; si no, avisa.
+- **Actualizar precios**: vuelve a poner los precios del catálogo viendo antes qué cambia. Una cotización pendiente se
+  actualiza en su lugar; una aprobada o rechazada genera una versión nueva y la original queda intacta.
+- **Comparar otra cotización** (pestaña Cotización): se sube la de un competidor o proveedor (PDF con texto, foto o
+  texto pegado). La IA solo **lee** el documento y oficina puede corregir lo que entendió; la comparación es por reglas
+  fijas contra la cotización propia y contra los puntos marcados. Un PDF escaneado hay que subirlo como foto.
+- **Mapa y «Cómo llegar»**: las direcciones sin coordenadas se ubican con OpenStreetMap (`GEO_COUNTRY_CODES`, por
+  defecto `do`) porque el mapa incrustado gratuito de Google ya no existe; «Cómo llegar» ofrece Google Maps, Waze y
+  Apple Maps.
+- **Teléfono con la app vieja guardada**: si la app queda en blanco, `PWA_RESET=1 npm run build` publica una limpieza
+  forzada del service worker; después se compila normal. La app también muestra una pantalla de recuperación en vez
+  de quedarse negra.
+
 ## Seguridad
 
 - **Bloqueo por cuenta** tras 5 intentos fallidos (espera de 1, 2, 5 y 15 min), igual exista o no el

@@ -92,3 +92,14 @@ def test_new_version_copies_a_closed_quote_so_it_can_be_edited(client, admin_tok
     assert body["status"] == "pendiente" and len(body["items"]) == 3 and body["total"] == quote["total"]
     edit = client.put(f"/api/quotes/{body['id']}", json={"items": [{"description": "Solo esto", "unit_price": 10}]}, headers=h)
     assert edit.status_code == 200
+
+
+def test_a_catalog_price_of_zero_never_zeroes_a_quote_line(client, admin_token):
+    """Un producto sin precio en el catálogo (0) no debe dejar la línea de la cotización en 0 al actualizar precios."""
+    h = auth_headers(admin_token)
+    project = make_project(client, h)
+    cam, nvr = _product(client, h, "Camara IP", 100), _product(client, h, "NVR 8ch", 1000)
+    quote = _quote(client, h, project["id"], cam, nvr)
+    _raise_price(client, h, cam, 0)
+    assert client.get(f"/api/quotes/{quote['id']}/reprice-preview", headers=h).json()["changes"] == []
+    assert client.post(f"/api/quotes/{quote['id']}/reprice", headers=h).status_code == 400

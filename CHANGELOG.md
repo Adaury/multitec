@@ -53,6 +53,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
   contraseñas; límite y cuota de la IA; validación de archivos por contenido; neutralización de fórmulas en
   CSV; cabeceras en la API y CSP en la web; `psycopg` 3; `pip-audit` y `npm audit` en 0.
 - Un técnico ya no recibe el token del portal del cliente (abría cotizaciones y facturas).
+- **Aislamiento entre empresas (revisión)**: una empresa podía crear presupuestos, cotizaciones y prefacturas colgados del
+  proyecto de OTRA empresa (con un aviso por correo que mostraba el cliente ajeno) y un administrador de otra empresa podía
+  cerrar sesiones ajenas conociendo los ids. Ahora la sesión rechaza guardar cualquier fila que apunte a un registro de otra
+  empresa (responde «No encontrado») y la ruta de sesiones comprueba la empresa. La prueba de aislamiento recorría solo 2
+  rutas por cómo FastAPI anida los routers; ahora recorre las 203 operaciones del esquema OpenAPI.
 
 ### Añadido (anterior)
 

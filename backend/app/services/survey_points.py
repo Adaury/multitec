@@ -16,9 +16,9 @@ from app.models.survey import Survey, SurveyMarker
 POINT_KINDS: dict[str, tuple[str, str | None]] = {
     "camara": ("Cámara", r"c[áa]mara|cctv|\bdomo\b|bullet|\bptz\b"),
     "grabador": ("NVR / DVR", r"\bnvr\b|\bdvr\b|grabador"),
-    "switch": ("Switch", r"\bswitch\b|\bpoe\b"),
+    "switch": ("Switch", r"\bswitch(es)?\b"),
     "gabinete": ("Gabinete / rack", r"gabinete|\brack\b"),
-    "punto_red": ("Punto de red / WiFi", r"punto de red|access point|\bwifi\b|\bwi-fi\b|\bap\b"),
+    "punto_red": ("Punto de red / WiFi", r"punto de red|access point|\brouter\b|\bwifi\b|\bwi-fi\b|\bap\b"),
     "acceso": ("Cerradura / lector", r"cerradura|lector|control de acceso|huella|chapa|cerco"),
     "sensor": ("Sensor / alarma", r"sensor|alarma|sirena|panel de alarma|detector"),
     "otro": ("Otro", None),
@@ -28,7 +28,7 @@ POINT_KIND_KEYS = tuple(POINT_KINDS)
 # Líneas que mencionan el equipo pero son accesorios: no cuentan como «la cámara» al revisar cantidades.
 _ACCESSORY_WORDS = re.compile(
     r"fuente|cable|conector|soporte|caja|base\b|balun|adaptador|disco|ba[ñn]o|jack|patch|canaleta|tubo|mano de obra"
-    r"|instalaci[óo]n|licencia|cubierta|ventilador",
+    r"|instalaci[óo]n|licencia|cubierta|ventilador|\bkit\b|paquete|combo",
     re.IGNORECASE,
 )
 

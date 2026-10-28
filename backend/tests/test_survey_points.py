@@ -100,3 +100,44 @@ def test_marker_kind_is_saved_and_counted_and_drives_the_generated_quote(client,
     camera_line = next(i for i in body["quote"]["items"] if i["product_id"] == product["id"])
     assert camera_line["quantity"] == 3
     assert any("de 1 a 3" in w for w in body["warnings"])
+
+
+def test_catalog_category_names_are_classified_like_the_real_taxonomy():
+    """Las categorías reales del catálogo (app/db/taxonomy.py): un inyector PoE no es un switch, y «Switches» sí."""
+    from app.services.survey_points import is_kind_line
+
+    def line(category):
+        return {"product_id": 1, "description": "Producto X"}, {1: category}
+
+    for category, kind in [
+        ("Cámaras IP", "camara"),
+        ("Cámaras PTZ", "camara"),
+        ("NVR", "grabador"),
+        ("DVR", "grabador"),
+        ("Switch PoE", "switch"),
+        ("Switches administrables", "switch"),
+        ("Rack", "gabinete"),
+        ("Access Point", "punto_red"),
+        ("Router", "punto_red"),
+        ("Lectores Biométricos", "acceso"),
+        ("Cerraduras Magnéticas", "acceso"),
+        ("Sensores", "sensor"),
+    ]:
+        item, cats = line(category)
+        assert is_kind_line(item, kind, cats), (category, kind)
+    for category, kind in [
+        ("Inyectores PoE", "switch"),
+        ("Fuentes de Alimentación", "camara"),
+        ("Discos Duros", "grabador"),
+        ("Cable UTP Categoría 6", "camara"),
+    ]:
+        item, cats = line(category)
+        assert not is_kind_line(item, kind, cats), (category, kind)
+
+
+def test_a_kit_line_is_not_treated_as_a_single_camera():
+    """«Kit CCTV 4 cámaras» (1 unidad) no debe subirse a 4 kits solo porque se marcaron 4 cámaras."""
+    items = [{"product_id": None, "description": "Kit CCTV 4 cámaras con NVR", "quantity": 1}]
+    result = reconcile_items(items, {"camara": 4}, {})
+    assert result.items[0]["quantity"] == 1
+    assert "no trae ese equipo" in result.warnings[0]

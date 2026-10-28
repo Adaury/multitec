@@ -178,7 +178,7 @@ def create_company(
         # Solo el correo repetido (dos altas a la vez) es un error del usuario; cualquier otra causa se deja subir.
         if db.query(User.id).filter(User.email == payload.admin_email).first() is None:
             raise
-        raise HTTPException(status_code=400, detail="Ya existe un usuario con ese correo")
+        raise HTTPException(status_code=400, detail="Ya existe un usuario con ese correo") from None
 
     with SessionLocal(company_id=company.id) as company_db:  # el catálogo base se siembra DENTRO de la empresa nueva
         seed_new_company(company_db)

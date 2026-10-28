@@ -1,10 +1,8 @@
 import uuid
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.config import get_settings
 from app.core.security import require_role
 from app.core.timeutil import today_dr
 from app.db.session import get_db

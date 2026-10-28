@@ -1,12 +1,11 @@
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, select
 from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.orm import Session, sessionmaker, with_loader_criteria
-
 from sqlalchemy.sql.util import find_tables
 
 from app.core.config import get_settings
 from app.db.base import Base
-from app.db.tenant import TenantContextError, TenantMixin
+from app.db.tenant import TenantContextError, TenantMixin, TenantReferenceError
 
 settings = get_settings()
 
@@ -108,6 +107,44 @@ def _stamp_company(session, flush_context, instances) -> None:
     for obj in list(session.deleted):
         if isinstance(obj, TenantMixin) and obj.company_id != company_id:
             raise TenantContextError(f"{type(obj).__name__} es de otra empresa")
+    _check_parent_references(session, company_id)
+
+
+def _check_parent_references(session: Session, company_id: int | None) -> None:
+    """Lo que se guarda solo puede apuntar a registros de la MISMA empresa. El `company_id` de una fila nueva lo pone la
+    sesión, pero un `project_id` que manda el cliente en la URL es otra cosa: sin esta revisión, la empresa B podría
+    crear una cotización colgada del proyecto de la empresa A (la fila sería de B, pero apuntaría a datos de A y
+    arrastraría su nombre en avisos y reportes). Corre en todo guardado, así que cubre también las rutas futuras."""
+    if company_id is None:
+        return
+    tenant_tables = _tenant_table_names()
+    wanted: dict = {}  # columna referenciada -> ids que se quieren apuntar
+    candidates = [o for o in session.new if isinstance(o, TenantMixin) and o.company_id is not None]
+    candidates += [o for o in session.dirty if isinstance(o, TenantMixin) and session.is_modified(o)]
+    for obj in candidates:
+        mapper = sa_inspect(type(obj))
+        state = sa_inspect(obj)
+        is_new = obj in session.new
+        for column in obj.__table__.columns:
+            for fk in column.foreign_keys:
+                if fk.column.table.name not in tenant_tables:
+                    continue
+                attr = mapper.get_property_by_column(column).key
+                if not is_new and not state.attrs[attr].history.has_changes():
+                    continue
+                value = getattr(obj, attr)
+                if value is not None:
+                    wanted.setdefault(fk.column, set()).add(value)
+    if not wanted:
+        return
+    connection = session.connection()
+    for target, ids in wanted.items():
+        rows = connection.execute(
+            select(target).where(target.in_(ids), target.table.c.company_id == company_id)
+        )
+        missing = ids - {row[0] for row in rows}
+        if missing:
+            raise TenantReferenceError(f"Referencia a {target.table.name} que no existe o es de otra empresa")
 
 
 SessionLocal = sessionmaker(class_=TenantSession, autocommit=False, autoflush=False, bind=engine)

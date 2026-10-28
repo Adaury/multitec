@@ -110,19 +110,15 @@ async def upload_comparison(
     if file is None and not (text or "").strip():
         raise HTTPException(status_code=400, detail="Sube un PDF o una foto, o pega el texto de la cotización")
 
-    file_path = filename = None
+    contents: bytes | None = None
+    base_type = ""
     if file is not None:
         base_type = (file.content_type or "").split(";")[0].strip().lower()
         if base_type not in ALLOWED_TYPES:
             raise HTTPException(status_code=400, detail="Sube un PDF o una foto (JPG, PNG o WebP)")
         contents = await read_upload(file)
         enforce_matches_declared_type(contents, file.content_type)
-        source = extract_text(contents, base_type)  # puede fallar con un mensaje claro: antes de guardar nada
-        folder = company_dir(db, "comparisons", str(project_id))
-        folder.mkdir(parents=True, exist_ok=True)
-        destination = folder / f"{uuid.uuid4().hex}{stored_extension(file.content_type)}"
-        destination.write_bytes(contents)
-        file_path, filename = str(destination.as_posix()), (file.filename or "")[:255] or None
+        source = extract_text(contents, base_type)
     else:
         source = (text or "").strip()
 
@@ -132,6 +128,15 @@ async def upload_comparison(
             status_code=400,
             detail="No encontré líneas de productos en ese documento. Prueba con otro archivo o pega el texto.",
         )
+
+    # El archivo se guarda solo cuando todo lo anterior salió bien: así una lectura fallida no deja archivos huérfanos.
+    file_path = filename = None
+    if file is not None and contents is not None:
+        folder = company_dir(db, "comparisons", str(project_id))
+        folder.mkdir(parents=True, exist_ok=True)
+        destination = folder / f"{uuid.uuid4().hex}{stored_extension(file.content_type)}"
+        destination.write_bytes(contents)
+        file_path, filename = str(destination.as_posix()), (file.filename or "")[:255] or None
     row = QuoteComparison(
         project_id=project_id,
         quote_id=quote_id,

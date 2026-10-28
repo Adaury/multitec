@@ -39,6 +39,14 @@ const env = {
   // Sin SMTP ni claves reales: los correos solo se registran en el log (modo consola).
   SMTP_HOST: '',
   ANTHROPIC_API_KEY: '',
+  // Los datos de la empresa de pruebas son los de pruebas, no los del .env real de quien corre la suite: sin esto, tener
+  // COMPANY_RNC en backend/.env cambiaba el resultado de las pruebas del archivo de la DGII.
+  COMPANY_RNC: '',
+  COMPANY_NAME: 'Multitec',
+  COMPANY_ADDRESS: '',
+  COMPANY_PHONE: '',
+  COMPANY_CEDULA: '',
+  COMPANY_REPRESENTATIVE: '',
 }
 
 function run(args) {

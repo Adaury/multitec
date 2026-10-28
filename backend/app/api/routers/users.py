@@ -255,6 +255,10 @@ def revoke_user_session(
     db: Session = Depends(get_db),
     current_user: User = Depends(admin_only),
 ):
+    # RefreshToken es global (no lleva empresa): sin comprobar primero que el usuario es de ESTA empresa, un admin de otra
+    # podía cerrar sesiones ajenas con solo conocer los ids.
+    if db.get(User, user_id) is None:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
     session = db.get(RefreshToken, session_id)
     if session is None or session.user_id != user_id:
         raise HTTPException(status_code=404, detail="Sesión no encontrada")

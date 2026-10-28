@@ -84,6 +84,8 @@ class Settings(BaseSettings):
 
     # IA local (Ollama) — ver app/ai_engine/
     ollama_host: str = "http://localhost:11434"
+    # Países donde se buscan las direcciones del mapa (códigos ISO de 2 letras, separados por coma; vacío = todo el mundo).
+    geo_country_codes: str = "do"
     ai_model: str = "llama3.2"
     ai_vision_model: str = "llava"
     ai_embedding_model: str = "nomic-embed-text"
