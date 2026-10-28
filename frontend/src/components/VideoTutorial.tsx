@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { posterUrl, videoUrl, type Tutorial } from '../lib/tutoriales'
 
 type VideoTutorialProps = {
@@ -9,21 +9,87 @@ type VideoTutorialProps = {
   nivelTitulo?: 'h3' | 'h4' | 'h5'
 }
 
+type VideoConPantallaCompleta = HTMLVideoElement & {
+  webkitEnterFullscreen?: () => void
+  webkitRequestFullscreen?: () => Promise<void> | void
+}
+
+/** Espera a que el video conozca su tamaño y duración: el reproductor del iPhone solo abre la pantalla completa
+ * cuando ya los sabe (y el video no se descarga hasta pulsar reproducir, para no gastar datos). */
+function esperarMetadatos(video: HTMLVideoElement, maxMs = 2500): Promise<void> {
+  if (video.readyState >= 1) return Promise.resolve()
+  return new Promise((resolve) => {
+    const terminar = () => {
+      video.removeEventListener('loadedmetadata', terminar)
+      resolve()
+    }
+    video.addEventListener('loadedmetadata', terminar)
+    video.preload = 'metadata'
+    video.load()
+    setTimeout(terminar, maxMs)
+  })
+}
+
 /** Reproductor de un video tutorial con su transcripción. Si el archivo no existe (o el navegador no lo puede
- * reproducir) muestra un aviso en vez de un reproductor roto, y la transcripción sigue disponible. */
+ * reproducir) muestra un aviso en vez de un reproductor roto, y la transcripción sigue disponible.
+ *
+ * Pantalla completa: el botón de los controles nativos no siempre funciona (la app dentro de un marco sin permiso,
+ * algunos navegadores del iPhone), así que hay un botón propio que prueba la pantalla completa del navegador y, si no se
+ * puede, ocupa toda la pantalla desde la propia página. En los dos casos el video sigue reproduciéndose. */
 export function VideoTutorial({ tutorial, mostrarDescripcion = true, nivelTitulo = 'h3' }: VideoTutorialProps) {
   const [fallo, setFallo] = useState(false)
+  const [ampliado, setAmpliado] = useState(false)
+  const videoRef = useRef<VideoConPantallaCompleta>(null)
   const idTranscripcion = useId()
   const Titulo = nivelTitulo
 
   useEffect(() => setFallo(false), [tutorial.id])
+
+  const cerrarAmpliado = useCallback(() => setAmpliado(false), [])
+
+  // Pantalla completa de la propia página: sin scroll por detrás y se cierra con Escape
+  useEffect(() => {
+    if (!ampliado) return
+    const anterior = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const alTeclear = (e: KeyboardEvent) => e.key === 'Escape' && cerrarAmpliado()
+    window.addEventListener('keydown', alTeclear)
+    return () => {
+      document.body.style.overflow = anterior
+      window.removeEventListener('keydown', alTeclear)
+    }
+  }, [ampliado, cerrarAmpliado])
+
+  async function pantallaCompleta() {
+    const video = videoRef.current
+    if (!video) return
+    try {
+      if (video.requestFullscreen) {
+        await video.requestFullscreen()
+        return
+      }
+      // iPhone: el reproductor nativo (solo con el video ya preparado)
+      if (video.webkitEnterFullscreen) {
+        await esperarMetadatos(video)
+        video.webkitEnterFullscreen()
+        return
+      }
+      if (video.webkitRequestFullscreen) {
+        await video.webkitRequestFullscreen()
+        return
+      }
+    } catch {
+      // el navegador no la permite aquí (marco sin permiso, restricciones): se usa la de la página
+    }
+    setAmpliado(true)
+  }
 
   return (
     <figure
       className="m-0 overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900"
       data-testid={`video-${tutorial.id}`}
     >
-      <div className="aspect-video w-full bg-gray-900">
+      <div className={ampliado ? 'fixed inset-0 z-[100] flex bg-black' : 'relative aspect-video w-full bg-gray-900'}>
         {fallo ? (
           <div role="status" className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center text-sm text-gray-200">
             <span aria-hidden="true" className="text-2xl">
@@ -33,19 +99,40 @@ export function VideoTutorial({ tutorial, mostrarDescripcion = true, nivelTitulo
             <p className="text-xs text-gray-400">Mientras tanto, puedes leer los pasos que aparecen debajo.</p>
           </div>
         ) : (
-          <video
-            key={tutorial.id}
-            className="h-full w-full"
-            src={videoUrl(tutorial.id)}
-            poster={posterUrl(tutorial.id)}
-            controls
-            preload="none"
-            playsInline
-            aria-label={`Video: ${tutorial.titulo}`}
-            onError={() => setFallo(true)}
-          >
-            Tu navegador no puede reproducir este video. Lee los pasos que aparecen debajo.
-          </video>
+          <>
+            <video
+              ref={videoRef}
+              key={tutorial.id}
+              className={ampliado ? 'h-full w-full object-contain' : 'h-full w-full'}
+              src={videoUrl(tutorial.id)}
+              poster={posterUrl(tutorial.id)}
+              controls
+              preload="none"
+              playsInline
+              aria-label={`Video: ${tutorial.titulo}`}
+              onError={() => setFallo(true)}
+            >
+              Tu navegador no puede reproducir este video. Lee los pasos que aparecen debajo.
+            </video>
+            {ampliado ? (
+              <button
+                type="button"
+                onClick={cerrarAmpliado}
+                className="absolute right-3 top-[max(0.75rem,env(safe-area-inset-top))] rounded-full bg-black/70 px-4 py-2 text-sm font-semibold text-white"
+              >
+                ✕ Cerrar
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={pantallaCompleta}
+                aria-label="Ver el video en pantalla completa"
+                className="absolute right-2 top-2 rounded-full bg-black/60 px-3 py-1.5 text-xs font-medium text-white"
+              >
+                ⛶ Pantalla completa
+              </button>
+            )}
+          </>
         )}
       </div>
 

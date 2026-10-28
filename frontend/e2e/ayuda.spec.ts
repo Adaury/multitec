@@ -23,6 +23,45 @@ test('the help page shows the full guide, the step by step with its videos and t
   await expect(page.getByText(/te genera una clave temporal de un solo uso/)).toBeVisible()
 })
 
+test('the video goes full screen with the browser full screen when it is allowed', async ({ page }) => {
+  await page.goto('/ayuda')
+  const video = page.getByTestId('video-01-entrar-al-sistema')
+  await video.getByRole('button', { name: 'Ver el video en pantalla completa' }).click()
+  await expect.poll(() => page.evaluate(() => document.fullscreenElement?.tagName ?? null)).toBe('VIDEO')
+  await page.evaluate(() => document.exitFullscreen())
+})
+
+test('when the browser does not allow full screen (frame without permission, some iPhone browsers) the video fills the page', async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    // Como en un marco sin permiso o en un navegador sin la API: ninguna de las formas nativas existe
+    for (const name of ['requestFullscreen', 'webkitRequestFullscreen', 'webkitEnterFullscreen'] as const) {
+      Object.defineProperty(HTMLVideoElement.prototype, name, { value: undefined, configurable: true })
+    }
+  })
+  await page.goto('/ayuda')
+  const figure = page.getByTestId('video-01-entrar-al-sistema')
+  const video = figure.locator('video')
+  const small = (await video.boundingBox())!
+  await figure.getByRole('button', { name: 'Ver el video en pantalla completa' }).click()
+
+  // Ocupa toda la ventana, sin scroll por detrás, y el botón pasa a ser «Cerrar»
+  const viewport = page.viewportSize()!
+  await expect.poll(async () => (await video.boundingBox())?.width).toBe(viewport.width)
+  expect((await video.boundingBox())!.height).toBe(viewport.height)
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe('hidden')
+  expect(small.width).toBeLessThan(viewport.width + 1)
+
+  // Se cierra con el botón o con Escape, y el video vuelve a su sitio
+  await figure.getByRole('button', { name: /Cerrar/ }).click()
+  await expect.poll(async () => (await video.boundingBox())?.height).toBeLessThan(viewport.height)
+  await figure.getByRole('button', { name: 'Ver el video en pantalla completa' }).click()
+  await page.keyboard.press('Escape')
+  await expect(figure.getByRole('button', { name: 'Ver el video en pantalla completa' })).toBeVisible()
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe('')
+})
+
 test('the videos and their covers are served without a session and support seeking (iPhone needs ranges)', async ({
   request,
 }) => {

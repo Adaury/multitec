@@ -8,6 +8,11 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Marcar equipos en fotos del teléfono**: las posiciones de los puntos se medían contra el recuadro y no contra la foto, así que
+  en fotos verticales (las normales del teléfono) salían corridas en el anexo de la cotización. Ahora se miden sobre la foto, un
+  toque en el margen no crea un punto, la hoja del teléfono ya no se mueve al añadir el primer punto y se avisa mientras la foto carga.
+- **Videos de la Ayuda en pantalla completa**: botón propio «Pantalla completa» que usa la del navegador y, si no se puede (marco sin
+  permiso, algunos navegadores del iPhone), ocupa toda la pantalla desde la propia página.
 - **Ayuda con videos** (`/ayuda`, todos los roles): guía completa de 4 minutos, paso a paso con un video corto por tema y sus
   pasos en texto, y preguntas frecuentes, filtradas por rol. «Aprende a usar el sistema» en la pantalla de entrada. Videos MP4
   (H.264) con portada en `frontend/public/videos/`; los scripts para regrabarlos están en `frontend/scripts/videos/`.
@@ -493,6 +498,11 @@ Primer commit del proyecto, con las 5 fases del brief original completas.
 
 ### Añadido
 - **Multi-empresa**: una sola instalación y base de datos para varias empresas, con los datos separados por
+- **Marcar equipos en fotos del teléfono**: las posiciones de los puntos se medían contra el recuadro y no contra la foto, así que
+  en fotos verticales (las normales del teléfono) salían corridas en el anexo de la cotización. Ahora se miden sobre la foto, un
+  toque en el margen no crea un punto, la hoja del teléfono ya no se mueve al añadir el primer punto y se avisa mientras la foto carga.
+- **Videos de la Ayuda en pantalla completa**: botón propio «Pantalla completa» que usa la del navegador y, si no se puede (marco sin
+  permiso, algunos navegadores del iPhone), ocupa toda la pantalla desde la propia página.
 - **Ayuda con videos** (`/ayuda`, todos los roles): guía completa de 4 minutos, paso a paso con un video corto por tema y sus
   pasos en texto, y preguntas frecuentes, filtradas por rol. «Aprende a usar el sistema» en la pantalla de entrada. Videos MP4
   (H.264) con portada en `frontend/public/videos/`; los scripts para regrabarlos están en `frontend/scripts/videos/`.
