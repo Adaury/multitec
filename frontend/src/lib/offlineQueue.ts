@@ -15,6 +15,8 @@ export interface PendingSurvey {
   photos: Blob[]
   /** Se llena cuando el proyecto ya se creó en el servidor: un reintento no lo duplica. */
   projectId?: number
+  /** Se marca justo ANTES de crear el proyecto: si la respuesta se pierde (sin señal), el reintento busca el proyecto en vez de duplicarlo. */
+  creatingProject?: boolean
   lastError?: string
 }
 

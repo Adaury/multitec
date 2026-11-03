@@ -7,13 +7,21 @@ import { Button, Card, Field, Input, Textarea } from './ui'
 
 /** Levantamiento sin señal: lo esencial (cliente, tipo, notas, fotos, GPS) queda guardado en el
  * teléfono y se envía solo cuando vuelve la conexión. La cotización con IA se pide después. */
-export function OfflineSurveyForm() {
+export function OfflineSurveyForm({
+  initial,
+  onRetry,
+}: {
+  /** Lo que ya se había escrito en la pantalla normal (se pasa aquí para no perderlo al cambiar de formulario). */
+  initial?: { clientName?: string; phone?: string; surveyType?: string; address?: string; locationUrl?: string }
+  /** Con señal pero sin servidor (Wi-Fi sin internet): permite volver a intentar sin esperar a que el teléfono lo note. */
+  onRetry?: () => void
+} = {}) {
   const photoInputRef = useRef<HTMLInputElement>(null)
-  const [clientName, setClientName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [surveyType, setSurveyType] = useState('')
-  const [address, setAddress] = useState('')
-  const [locationUrl, setLocationUrl] = useState('')
+  const [clientName, setClientName] = useState(initial?.clientName ?? '')
+  const [phone, setPhone] = useState(initial?.phone ?? '')
+  const [surveyType, setSurveyType] = useState(initial?.surveyType ?? '')
+  const [address, setAddress] = useState(initial?.address ?? '')
+  const [locationUrl, setLocationUrl] = useState(initial?.locationUrl ?? '')
   const [notes, setNotes] = useState('')
   const [photos, setPhotos] = useState<Blob[]>([])
   const [saving, setSaving] = useState(false)
@@ -63,6 +71,11 @@ export function OfflineSurveyForm() {
           Anota lo del levantamiento y toma las fotos. Se guarda en este teléfono y se envía solo cuando vuelva la
           señal. La cotización con IA la generas después, ya conectado.
         </p>
+        {onRetry && (
+          <Button variant="secondary" className="!w-auto !px-4 !py-2 text-sm" onClick={onRetry}>
+            Ya tengo conexión: volver a intentar
+          </Button>
+        )}
       </Card>
 
       {savedCount > 0 && (

@@ -7,6 +7,7 @@ import './index.css'
 import App from './App.tsx'
 import { queryClient } from './lib/queryClient'
 import { clearAppCache, ErrorBoundary } from './components/ErrorBoundary'
+import { ToastHost } from './components/ToastHost'
 
 // Una pantalla de la app que no se puede descargar (el servidor ya tiene una versión nueva y el teléfono guardó la
 // vieja): se limpia la copia guardada y se recarga UNA vez. Si vuelve a pasar, lo atrapa ErrorBoundary.
@@ -30,6 +31,7 @@ createRoot(document.getElementById('root')!).render(
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
           <App />
+          <ToastHost />
         </BrowserRouter>
       </QueryClientProvider>
     </ErrorBoundary>

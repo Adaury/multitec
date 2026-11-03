@@ -104,15 +104,26 @@ New-NetFirewallRule -DisplayName "Multitec HTTP" -Direction Inbound -LocalPort 8
 ## 7. Backups automáticos de PostgreSQL
 
 ```powershell
-.\deploy\register-backup-task.ps1 -PgPassword "el-password-real-de-produccion"
+.\deploy\register-backup-task.ps1 -EnvFile "C:\laragon\www\multitec\backend\.env" -BackupDir "D:\MultitecBackups" -CopyTo "E:\Respaldos"
 ```
 
-Registra una Tarea Programada diaria (2:00 AM) que corre `backup-postgres.ps1`,
-guardando dumps en `deploy\backups\` y borrando los de más de 14 días
-(`-RetentionDays`). Para restaurar un backup:
+Registra una Tarea Programada diaria (2:00 AM) que corre `backup-postgres.ps1` (la clave se lee de `backend\.env`; no queda
+escrita en la tarea). Cada ejecución guarda el dump, **lo verifica con `pg_restore --list`** (si no se puede leer lo descarta y
+falla), respalda un `.zip` con las fotos, audios y firmas de `backend\uploads` y borra lo de más de 14 días (`-RetentionDays`).
+`-CopyTo` hace una segunda copia fuera de este disco (disco externo, unidad de red...); si no está disponible, el respaldo local
+queda y la tarea termina con error para que se note. **Una copia en el mismo disco no protege de un disco dañado: usa `-CopyTo`.**
+
+Probar que el respaldo realmente se restaura (usa una base temporal que borra al terminar y compara filas con la real):
+
+```powershell
+.\deploy\restore-test.ps1 -EnvFile "C:\laragon\www\multitec\backend\.env" -AdminUser postgres -AdminPassword "..."
+```
+
+Para restaurar de verdad (base y archivos):
 
 ```powershell
 pg_restore -h 127.0.0.1 -U multitec -d multitec --clean deploy\backups\multitec_2026-01-01_020000.dump
+Expand-Archive deploy\backups\multitec_uploads_2026-01-01_020000.zip -DestinationPath backend\uploads -Force
 ```
 
 ## Actualizar a una versión nueva

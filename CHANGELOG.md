@@ -8,6 +8,12 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
 ### Añadido
 
+- **Respaldos más seguros**: cada respaldo se verifica con `pg_restore --list` (si no se puede leer se descarta y falla), se respaldan también las fotos, audios y firmas (`uploads`, en un `.zip`), `-CopyTo` copia ambos fuera del disco, `register-backup-task.ps1` acepta `-EnvFile` (la clave ya no queda en la tarea) y el nuevo `deploy/restore-test.ps1` prueba la restauración en una base temporal comparando filas.
+- **Móvil en la obra con señal mala**: todas las peticiones tienen tiempo límite (45 s; 5 min para IA y 3 min para fotos/audio), así
+  que una conexión a medias ya no deja la app colgada. Una acción que falla sin que su pantalla lo cuente ahora muestra un aviso
+  rojo. El levantamiento rápido pasa al formulario sin conexión (con lo escrito) si hay Wi-Fi pero el servidor no responde. El
+  envío de levantamientos pendientes ya no duplica el proyecto si se pierde la respuesta, y una sesión vencida no los marca como rechazados.
+- **Aviso del navegador ignorado en el detector de pantalla negra**: el ruido de extensiones (billeteras de Brave) ya no se reporta como fallo.
 - **Marcar equipos en fotos del teléfono**: las posiciones de los puntos se medían contra el recuadro y no contra la foto, así que
   en fotos verticales (las normales del teléfono) salían corridas en el anexo de la cotización. Ahora se miden sobre la foto, un
   toque en el margen no crea un punto, la hoja del teléfono ya no se mueve al añadir el primer punto y se avisa mientras la foto carga.

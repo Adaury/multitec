@@ -2,12 +2,24 @@ import axios from 'axios'
 import { LEGACY_REFRESH_STORAGE_KEY, useAuthStore } from './authStore'
 import { safeStorage } from './safeStorage'
 
-export const api = axios.create({ baseURL: '/api' })
+// Sin tiempo límite, una señal que se corta a medias dejaba la petición colgada para siempre (y «Enviando…» sin terminar).
+// Lo normal es rápido; la IA y la voz tardan más; las fotos pesan.
+const DEFAULT_TIMEOUT_MS = 45_000
+const AI_TIMEOUT_MS = 300_000
+const UPLOAD_TIMEOUT_MS = 180_000
+const SLOW_ROUTES = /(\/ai\/|\/assistant\/|ai-summarize|ai-draft|\/transcribe|budget-suggestions|generate-from-survey)/
+
+export const api = axios.create({ baseURL: '/api', timeout: DEFAULT_TIMEOUT_MS })
 
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+  }
+  // Solo si quien llama no puso su propio tiempo límite
+  if (config.timeout === DEFAULT_TIMEOUT_MS) {
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) config.timeout = UPLOAD_TIMEOUT_MS
+    else if (SLOW_ROUTES.test(config.url ?? '')) config.timeout = AI_TIMEOUT_MS
   }
   return config
 })

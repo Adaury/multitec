@@ -5,9 +5,24 @@ import type { Client, Project } from './types'
 
 let syncing = false
 
-function isNetworkError(err: unknown): boolean {
-  // axios: sin `response` = no hubo respuesta del servidor (sin señal, servidor caído, túnel cerrado).
+/** axios: sin `response` = no hubo respuesta del servidor (sin señal, servidor caído, túnel cerrado, tiempo agotado). */
+export function isNetworkError(err: unknown): boolean {
   return typeof err === 'object' && err !== null && !(err as { response?: unknown }).response
+}
+
+function statusOf(err: unknown): number | undefined {
+  return (err as { response?: { status?: number } }).response?.status
+}
+
+/** ¿Ya existe el proyecto que un intento anterior creó pero cuya respuesta se perdió? (cliente, tipo y fecha de creación
+ * posterior a haber guardado el levantamiento en el teléfono). Evita proyectos duplicados al reintentar. */
+async function findProjectFromLostAttempt(record: PendingSurvey, clientId: number): Promise<Project | undefined> {
+  const projects = (await api.get<Project[]>('/projects')).data
+  const since = record.createdAt - 60_000
+  const type = record.surveyType || null
+  return projects.find(
+    (p) => p.client_id === clientId && p.survey_type === type && new Date(p.created_at).getTime() >= since,
+  )
 }
 
 async function sendOne(item: PendingSurvey): Promise<void> {
@@ -32,16 +47,29 @@ async function sendOne(item: PendingSurvey): Promise<void> {
         })
       ).data
     }
-    const project = (
-      await api.post<Project>('/projects', {
-        client_id: client.id,
-        description: surveyDescription(record.surveyType || null),
-        survey_type: record.surveyType || null,
-        address: record.address.trim() || null,
-        location_url: record.locationUrl.trim() || null,
-      })
-    ).data
-    projectId = project.id
+    // Un intento anterior pudo crear el proyecto y perderse solo la respuesta: se busca antes de crear otro.
+    const lost = record.creatingProject ? await findProjectFromLostAttempt(record, client.id) : undefined
+    if (lost) {
+      projectId = lost.id
+    } else {
+      // Se marca ANTES de pedir el proyecto: si la señal se corta justo después, el reintento sabe que debe buscarlo.
+      record = { ...record, creatingProject: true }
+      await updatePendingSurvey(record)
+      const project = (
+        await api.post<Project>('/projects', {
+          client_id: client.id,
+          description: surveyDescription(record.surveyType || null),
+          survey_type: record.surveyType || null,
+          address: record.address.trim() || null,
+          location_url: record.locationUrl.trim() || null,
+        })
+      ).data
+      projectId = project.id
+    }
+    // Se anota ENSEGUIDA, antes de cualquier otra llamada: si la de las notas o una foto falla, el reintento no
+    // vuelve a crear el proyecto.
+    record = { ...record, projectId, creatingProject: false }
+    await updatePendingSurvey(record)
     if (record.notes.trim()) {
       await api.put(`/projects/${projectId}/survey`, {
         notes: record.notes.trim(),
@@ -49,9 +77,6 @@ async function sendOne(item: PendingSurvey): Promise<void> {
         observations: '',
       })
     }
-    // Se anota enseguida: si una foto falla, el reintento no vuelve a crear el proyecto.
-    record = { ...record, projectId }
-    await updatePendingSurvey(record)
   }
 
   while (record.photos.length > 0) {
@@ -67,7 +92,8 @@ async function sendOne(item: PendingSurvey): Promise<void> {
 }
 
 /** Envía al servidor los levantamientos guardados sin conexión. Se detiene en el primer fallo de
- * red (sigue sin señal); un error del servidor en un registro lo deja marcado y sigue con los demás. */
+ * red (sigue sin señal) o de sesión (hay que volver a entrar); un error del servidor en un registro lo deja
+ * marcado y sigue con los demás. */
 export async function syncPendingSurveys(): Promise<{ sent: number; failed: number; offline: boolean }> {
   if (syncing) return { sent: 0, failed: 0, offline: false }
   syncing = true
@@ -79,7 +105,9 @@ export async function syncPendingSurveys(): Promise<{ sent: number; failed: numb
         await sendOne(item)
         sent += 1
       } catch (err) {
-        if (isNetworkError(err)) return { sent, failed, offline: true }
+        // Sin señal (o tiempo agotado) o sesión vencida: no es culpa del levantamiento y no se marca como rechazado.
+        // Con un 401 la app ya cerró la sesión; al volver a entrar se reenvía lo pendiente.
+        if (isNetworkError(err) || statusOf(err) === 401) return { sent, failed, offline: true }
         failed += 1
         const detail = (err as { response?: { data?: { detail?: unknown } } }).response?.data?.detail
         // Se relee el registro: sendOne pudo haber avanzado (proyecto creado, fotos enviadas).

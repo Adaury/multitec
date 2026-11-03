@@ -6,16 +6,23 @@ reales de producción.
 #>
 
 param(
-    [Parameter(Mandatory = $true)][string]$PgPassword,
+    # Recomendado: -EnvFile (la clave se lee de backend\.env y no queda escrita en la tarea). -PgPassword es la alternativa.
+    [string]$EnvFile,
+    [string]$PgPassword,
     [string]$PgUser = "multitec",
     [string]$PgDatabase = "multitec",
+    [string]$CopyTo,
     [string]$BackupDir = (Join-Path $PSScriptRoot "backups"),
     [string]$TaskName = "MultitecPostgresBackup",
     [string]$Time = "02:00"
 )
 
 $scriptPath = Join-Path $PSScriptRoot "backup-postgres.ps1"
-$argumentList = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -PgUser `"$PgUser`" -PgDatabase `"$PgDatabase`" -BackupDir `"$BackupDir`" -PgPassword `"$PgPassword`""
+if (-not $EnvFile -and -not $PgPassword) { throw "Indica -EnvFile (recomendado) o -PgPassword" }
+$argumentList = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptPath`" -BackupDir `"$BackupDir`""
+if ($EnvFile) { $argumentList += " -EnvFile `"$EnvFile`"" }
+else { $argumentList += " -PgUser `"$PgUser`" -PgDatabase `"$PgDatabase`" -PgPassword `"$PgPassword`"" }
+if ($CopyTo) { $argumentList += " -CopyTo `"$CopyTo`"" }
 
 $action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument $argumentList
 $trigger = New-ScheduledTaskTrigger -Daily -At $Time

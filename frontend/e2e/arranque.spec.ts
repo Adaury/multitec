@@ -39,6 +39,23 @@ test('the notice goes away by itself when the app was only slow', async ({ page 
   await expect(page.getByRole('alert')).toHaveCount(0)
 })
 
+test('noise injected by the browser (Brave wallet, extensions) is not reported as a failure of the app', async ({ page }) => {
+  const reports: unknown[] = []
+  await page.route('**/api/client-errors', async (route) => {
+    reports.push(route.request().postDataJSON())
+    await route.fulfill({ status: 204 })
+  })
+  await page.goto('/login')
+  await expect(page.getByRole('button', { name: 'Ingresar' })).toBeVisible()
+  await page.evaluate(() => {
+    window.dispatchEvent(new ErrorEvent('error', { message: "TypeError: undefined is not an object (evaluating 'window.ethereum.selectedAddress = undefined')" }))
+    window.dispatchEvent(new ErrorEvent('error', { message: 'Script error.' }))
+    window.dispatchEvent(new ErrorEvent('error', { message: 'fallo real de la app', filename: 'https://x/app.js', lineno: 3 }))
+  })
+  await expect.poll(() => reports.length).toBe(1) // solo el de la app
+  expect(reports[0]).toMatchObject({ message: 'fallo real de la app' })
+})
+
 test('blocked browser storage (private mode, restrictions) does not leave a blank screen', async ({ page }) => {
   await page.addInitScript(() => {
     const blocked = () => {

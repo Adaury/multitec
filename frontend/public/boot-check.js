@@ -48,6 +48,11 @@
         send('recurso', lastError, target.tagName || '')
         return
       }
+      // Ruido que no es de la app: scripts que inyectan los navegadores y sus extensiones (la cartera de criptomonedas de
+      // Brave, p. ej., falla con «window.ethereum…» en cualquier página) y los «Script error.» sin archivo ni línea, que son
+      // de código de otro origen. No son un fallo de Multitec ni deben mostrar un aviso.
+      var text = String(event.message || '')
+      if (/ethereum|solana|phantom|keplr|metamask/i.test(text) || (text === 'Script error.' && !event.filename)) return
       var where = (event.filename || '') + ':' + (event.lineno || 0) + ':' + (event.colno || 0)
       lastError = (event.message || 'error') + ' (' + where + ')'
       send('error', event.message || 'error', where + ' ' + ((event.error && event.error.stack) || ''))

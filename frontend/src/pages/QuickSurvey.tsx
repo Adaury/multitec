@@ -17,6 +17,7 @@ import { LocationBar } from '../components/LocationBar'
 import { VoiceRecorderCard, VoiceReviewCard } from '../components/VoiceSurvey'
 import { OfflineSurveyForm } from '../components/OfflineSurveyForm'
 import { useOnline } from '../lib/useOnline'
+import { isNetworkError } from '../lib/syncPending'
 
 type Step = 'datos' | 'narrar' | 'listo'
 type Fields = Pick<VoiceSurveyResult, 'notes' | 'measurements' | 'observations'>
@@ -37,6 +38,9 @@ export function QuickSurvey() {
   const [step, setStep] = useState<Step>('datos')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Hay Wi-Fi pero el servidor no responde (sin internet, túnel caído): navigator.onLine no lo nota, así que se pasa al
+  // formulario sin conexión cuando una llamada falla por red, en vez de dejar al técnico con un error y sin dónde guardar.
+  const [sinServidor, setSinServidor] = useState(false)
 
   // --- Paso 1: cliente y ubicación ---
   const { data: clients } = useQuery({
@@ -177,7 +181,8 @@ export function QuickSurvey() {
       setClientName(client.name)
       setStep('narrar')
     } catch (err) {
-      setError(apiError(err, 'No se pudo crear el cliente o el proyecto'))
+      if (isNetworkError(err)) setSinServidor(true)
+      else setError(apiError(err, 'No se pudo crear el cliente o el proyecto'))
     } finally {
       setBusy(false)
     }
@@ -257,7 +262,20 @@ export function QuickSurvey() {
 
   // ---------------------------------------------------------------- render
   // Sin señal no hay servidor (ni IA): se captura lo esencial y se envía solo al volver la conexión.
-  if (!online && step === 'datos') return <OfflineSurveyForm />
+  if ((!online || sinServidor) && step === 'datos') {
+    return (
+      <OfflineSurveyForm
+        initial={{
+          clientName: creatingNew ? newClient.name : (selected?.name ?? ''),
+          phone: creatingNew ? newClient.phone : (selected?.phone ?? ''),
+          surveyType,
+          address,
+          locationUrl,
+        }}
+        onRetry={online ? () => setSinServidor(false) : undefined}
+      />
+    )
+  }
 
   if (step === 'listo' && result && project) {
     return (

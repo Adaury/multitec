@@ -29,6 +29,8 @@ param(
     # unidad de red...). Si no esta disponible en ese momento, el backup local igual se conserva y
     # el script termina con error para que se note.
     [string]$CopyTo,
+    # Carpeta de fotos, audios y firmas que sube la app. Vacia = no se respalda.
+    [string]$UploadsDir = (Join-Path $PSScriptRoot "..\backend\uploads"),
     [int]$RetentionDays = 14
 )
 
@@ -69,9 +71,28 @@ if ($exitCode -ne 0) {
 
 Write-Output "Backup creado: $outFile"
 
+# Un dump que no se puede leer no sirve el dia que se necesite: se comprueba que pg_restore lo abra y liste su contenido.
+$pgRestore = Join-Path $PgBinPath "pg_restore.exe"
+if (Test-Path $pgRestore) {
+    $entradas = & $pgRestore --list $outFile
+    if ($LASTEXITCODE -ne 0 -or -not ($entradas | Select-String -Pattern 'TABLE DATA' -Quiet)) {
+        Remove-Item $outFile -Force
+        throw "El backup no se pudo verificar con pg_restore --list; se descarto"
+    }
+    Write-Output "Backup verificado: $(@($entradas | Select-String -Pattern 'TABLE DATA').Count) tablas con datos"
+}
+
+# Las fotos, audios y firmas viven en archivos, no en la base: sin esta copia, restaurar la base dejaria los levantamientos sin fotos.
+$uploadsFile = $null
+if ($UploadsDir -and (Test-Path $UploadsDir)) {
+    $uploadsFile = Join-Path $BackupDir "multitec_uploads_$timestamp.zip"
+    Compress-Archive -Path (Join-Path $UploadsDir '*') -DestinationPath $uploadsFile -Force
+    Write-Output "Archivos subidos respaldados: $uploadsFile"
+}
+
 function Remove-OldBackups([string]$dir) {
     $cutoff = (Get-Date).AddDays(-$RetentionDays)
-    Get-ChildItem -Path $dir -Filter "multitec_*.dump" |
+    Get-ChildItem -Path $dir -Include "multitec_*.dump", "multitec_uploads_*.zip" -File |
         Where-Object { $_.LastWriteTime -lt $cutoff } |
         ForEach-Object {
             Remove-Item $_.FullName -Force
@@ -85,12 +106,14 @@ $copyFailed = $false
 if ($CopyTo) {
     try {
         New-Item -ItemType Directory -Path $CopyTo -Force -ErrorAction Stop | Out-Null
-        Copy-Item -Path $outFile -Destination $CopyTo -Force -ErrorAction Stop
-        $copied = Join-Path $CopyTo (Split-Path $outFile -Leaf)
-        if ((Get-Item $copied).Length -ne (Get-Item $outFile).Length) {
-            throw "La copia no coincide en tamano con el original"
+        foreach ($origen in @($outFile, $uploadsFile) | Where-Object { $_ }) {
+            Copy-Item -Path $origen -Destination $CopyTo -Force -ErrorAction Stop
+            $copied = Join-Path $CopyTo (Split-Path $origen -Leaf)
+            if ((Get-Item $copied).Length -ne (Get-Item $origen).Length) {
+                throw "La copia no coincide en tamano con el original"
+            }
+            Write-Output "Copia externa creada: $copied"
         }
-        Write-Output "Copia externa creada: $copied"
         Remove-OldBackups $CopyTo
     } catch {
         $copyFailed = $true
