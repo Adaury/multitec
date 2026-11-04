@@ -6,7 +6,7 @@ import { securityHeaders } from './security-headers.ts'
 
 // Los E2E locales levantan su propio backend en otro puerto (ver e2e/isolated.ts) y lo pasan
 // por esta variable; sin ella el proxy sigue apuntando al backend normal de desarrollo.
-const apiTarget = process.env.E2E_API_TARGET ?? 'http://127.0.0.1:8000'
+const apiTarget = process.env.E2E_API_TARGET ?? 'http://127.0.0.1:8010'
 
 // Lo mismo en desarrollo (`vite`) y sirviendo la versión compilada (`vite preview`).
 // xfwd añade X-Forwarded-For con la IP real: sin él, el backend ve a todos como 127.0.0.1 y el

@@ -14,7 +14,7 @@
 param(
     [ValidateSet('start', 'stop', 'restart', 'status', 'tunnel', 'tunnel-stop')]
     [string]$Action = 'status',
-    [int]$BackendPort = 8000,
+    [int]$BackendPort = 8010,   # el 8000 lo usa el servicio ControlAsistencia
     [int]$WebPort = 5173
 )
 
