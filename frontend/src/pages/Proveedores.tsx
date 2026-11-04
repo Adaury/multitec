@@ -94,7 +94,7 @@ export function Proveedores({ embedded = false }: { embedded?: boolean }) {
         {embedded ? (
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Proveedores</h2>
         ) : (
-          <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Proveedores</h1>
+          <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Proveedores</h1>
         )}
         <button
           onClick={() => setShowForm((v) => !v)}

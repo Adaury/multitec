@@ -1,18 +1,13 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { CalendarDays, ClipboardList, FileText, FolderOpen, FolderPlus, Users, type LucideIcon } from 'lucide-react'
+import { CalendarDays, FileText, FolderOpen, Users, Wallet, Wrench, type LucideIcon } from 'lucide-react'
 import { api, downloadFile } from '../lib/api'
 import { Card } from '../components/ui'
 import { TodayAssistant } from '../components/TodayAssistant'
+import { DesktopHome } from '../components/DesktopHome'
 import { useAuthStore } from '../lib/authStore'
 import { formatDOP } from '../lib/format'
 import { PROJECT_STATUS_LABELS, type DashboardSummary, type MarginSummary } from '../lib/types'
-
-const quickActions: { label: string; icon: LucideIcon; to: string; staffOnly: boolean }[] = [
-  { label: 'Nuevo Proyecto', icon: FolderPlus, to: '/proyectos?nuevo=1', staffOnly: false },
-  { label: 'Nuevo Levantamiento', icon: ClipboardList, to: '/nuevo', staffOnly: false },
-  { label: 'Cotizaciones', icon: FileText, to: '/cotizaciones', staffOnly: true },
-]
 
 // Accesos grandes del Inicio móvil: solo lo que se usa a diario. El resto está en "Más".
 const mobileTiles: { label: string; icon: LucideIcon; to: string; staffOnly?: boolean }[] = [
@@ -21,6 +16,50 @@ const mobileTiles: { label: string; icon: LucideIcon; to: string; staffOnly?: bo
   { label: 'Cotizaciones', icon: FileText, to: '/cotizaciones', staffOnly: true },
   { label: 'Calendario', icon: CalendarDays, to: '/calendario' },
 ]
+
+const KPI_TONES = {
+  amber: 'bg-amber-50 text-amber-600 dark:bg-amber-950 dark:text-amber-300',
+  red: 'bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-300',
+  blue: 'bg-blue-50 text-brand-blue dark:bg-blue-950 dark:text-blue-300',
+  green: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-300',
+}
+
+/** Tarjeta de un número del negocio: ícono de color, número grande y, si tiene a dónde ir, se puede tocar. */
+function Kpi({
+  icon: Icon,
+  tone,
+  label,
+  value,
+  to,
+  className = '',
+}: {
+  icon: LucideIcon
+  tone: keyof typeof KPI_TONES
+  label: string
+  value: string
+  to?: string
+  className?: string
+}) {
+  const body = (
+    <>
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${KPI_TONES[tone]}`}>
+        <Icon className="h-6 w-6" aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium text-gray-500 dark:text-gray-400">{label}</span>
+        <span className="block truncate text-2xl font-bold tabular-nums text-gray-900 md:text-3xl dark:text-gray-100">{value}</span>
+      </span>
+    </>
+  )
+  const cls = `flex items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10 ${className}`
+  return to ? (
+    <Link to={to} className={`${cls} transition hover:-translate-y-0.5 hover:shadow-md`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={cls}>{body}</div>
+  )
+}
 
 function MonthlyInvoicingChart({ data }: { data: DashboardSummary['monthly_invoicing'] }) {
   const max = Math.max(1, ...data.map((row) => row.total))
@@ -107,22 +146,10 @@ function DashboardKpis() {
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 md:mt-4 md:grid-cols-4 md:gap-4">
-        <Card>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Cotizaciones pendientes</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{data.quotes_pending}</p>
-        </Card>
-        <Card>
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Tickets abiertos</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{data.open_tickets_total}</p>
-        </Card>
-        <Card className="hidden md:block">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Proyectos activos</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{activeProjects}</p>
-        </Card>
-        <Card className="hidden md:block">
-          <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Facturación (mes actual)</p>
-          <p className="mt-1 text-2xl font-semibold text-gray-900 dark:text-gray-100">{formatDOP(currentMonthInvoicing)}</p>
-        </Card>
+        <Kpi icon={FileText} tone="amber" label="Cotizaciones pendientes" value={String(data.quotes_pending)} to="/cotizaciones" />
+        <Kpi icon={Wrench} tone="red" label="Tickets abiertos" value={String(data.open_tickets_total)} />
+        <Kpi icon={FolderOpen} tone="blue" label="Proyectos activos" value={String(activeProjects)} to="/proyectos" className="hidden md:flex" />
+        <Kpi icon={Wallet} tone="green" label="Facturación del mes" value={formatDOP(currentMonthInvoicing)} className="hidden md:flex" />
       </div>
 
       <div className="mt-3 grid gap-3 md:mt-4 md:grid-cols-2 md:gap-4">
@@ -192,7 +219,6 @@ function DashboardKpis() {
 }
 
 export function Dashboard() {
-  const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const role = user?.role
   const canSeeReports = role === 'admin' || role === 'oficina'
@@ -216,32 +242,16 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Escritorio: el asistente del día y las acciones rápidas (la barra lateral cubre el resto). */}
-      {/* En pantalla ancha (xl) el asistente va a la izquierda y las acciones rápidas a su lado, en vez de
-          apilarlas dejando media pantalla vacía; por debajo de xl se apilan como siempre. */}
-      <div className="hidden gap-8 md:grid xl:grid-cols-[minmax(0,48rem)_minmax(0,1fr)] xl:items-start">
-        <div className="max-w-3xl">
-          <TodayAssistant />
-        </div>
-
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Acciones rápidas</h1>
-          <div className="mt-3 grid max-w-xl grid-cols-[repeat(auto-fit,minmax(8rem,1fr))] gap-4 xl:max-w-2xl">
-            {quickActions.filter((action) => !action.staffOnly || canSeeReports).map((action) => (
-              <button
-                key={action.label}
-                onClick={() => navigate(action.to)}
-                className="flex flex-col items-center gap-2 rounded-2xl bg-white p-4 text-center shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10"
-              >
-                <action.icon className="h-7 w-7 text-brand-blue" strokeWidth={1.75} aria-hidden="true" />
-                <span className="text-xs font-medium text-gray-700 dark:text-gray-300">{action.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+      {/* Computadora: saludo centrado, acciones rápidas en fila y agenda en dos columnas. */}
+      <div className="hidden md:block">
+        <DesktopHome canSeeReports={canSeeReports} />
       </div>
 
-      {canSeeReports && <DashboardKpis />}
+      {canSeeReports && (
+        <div className="mx-auto w-full max-w-7xl">
+          <DashboardKpis />
+        </div>
+      )}
     </div>
   )
 }

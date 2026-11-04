@@ -12,19 +12,19 @@ import { PROJECT_STATUS_LABELS, type CurrentUser, type TodaySummary } from '../l
 import { AssistantTalk } from './AssistantTalk'
 import { Card } from './ui'
 
-function greeting(date = new Date()): string {
+export function greeting(date = new Date()): string {
   const hour = date.getHours()
   if (hour < 12) return 'Buenos días'
   if (hour < 19) return 'Buenas tardes'
   return 'Buenas noches'
 }
 
-function plural(count: number, one: string, many: string): string {
+export function plural(count: number, one: string, many: string): string {
   return `${count} ${count === 1 ? one : many}`
 }
 
 /** Frase que resume el día: solo lo que hay, sin rellenar con ceros. */
-function summarize(data: TodaySummary): string {
+export function summarize(data: TodaySummary): string {
   const parts: string[] = []
   if (data.visits.length) parts.push(plural(data.visits.length, 'visita', 'visitas'))
   if (data.ready_to_quote.length)
@@ -45,7 +45,7 @@ const ROW_TITLE = 'block truncate text-sm font-semibold text-gray-900 dark:text-
 const ROW_SUB = 'block truncate text-xs text-gray-500 dark:text-gray-400'
 
 /** Primera vez: el asistente pregunta cómo llamar al usuario, ahí mismo, sin mandarlo al perfil. */
-function AliasPrompt({ user }: { user: CurrentUser }) {
+export function AliasPrompt({ user }: { user: CurrentUser }) {
   const setUser = useAuthStore((s) => s.setUser)
   const [alias, setAlias] = useState('')
   const [dismissed, setDismissed] = useState(false)
@@ -194,7 +194,7 @@ export function TodayAssistant() {
           ))}
 
           {data.quotes_waiting.slice(0, 3).map((quote) => (
-            <Link key={`q-${quote.quote_id}`} to={`/proyectos/${quote.project_id}?tab=cotizacion`} className={ROW_CLASS}>
+            <Link key={`q-${quote.quote_id}`} to={`/proyectos/${quote.project_id}?tab=cotizacion&cotizacion=${quote.quote_id}`} className={ROW_CLASS}>
               <span className="text-2xl">⏳</span>
               <span className="min-w-0">
                 <span className={ROW_TITLE}>

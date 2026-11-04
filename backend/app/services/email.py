@@ -21,6 +21,20 @@ def send_email(to: str, subject: str, body: str, attachment: tuple[str, bytes, s
         logger.info("EMAIL (modo consola, SMTP_HOST no configurado) to=%s subject=%s\n%s", to, subject, body)
         return
 
+    try:
+        deliver_email(to, subject, body, attachment)
+    except Exception:
+        logger.exception("Error enviando correo a %s (asunto: %s)", to, subject)
+
+
+def is_configured() -> bool:
+    return bool(get_settings().smtp_host)
+
+
+def deliver_email(to: str, subject: str, body: str, attachment: tuple[str, bytes, str] | None = None) -> None:
+    """Como `send_email` pero SÍ lanza si falla: para cuando el usuario pidió el envío y debe saber si salió
+    (enviar una cotización al cliente). Quien la llame debe comprobar antes `is_configured()`."""
+    settings = get_settings()
     msg = EmailMessage()
     msg["Subject"] = subject
     msg["From"] = settings.smtp_from
@@ -32,12 +46,9 @@ def send_email(to: str, subject: str, body: str, attachment: tuple[str, bytes, s
         maintype, _, subtype = mime_type.partition("/")
         msg.add_attachment(content, maintype=maintype, subtype=subtype or "octet-stream", filename=filename)
 
-    try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
-            if settings.smtp_use_tls:
-                server.starttls()
-            if settings.smtp_user:
-                server.login(settings.smtp_user, settings.smtp_password)
-            server.send_message(msg)
-    except Exception:
-        logger.exception("Error enviando correo a %s (asunto: %s)", to, subject)
+    with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+        if settings.smtp_use_tls:
+            server.starttls()
+        if settings.smtp_user:
+            server.login(settings.smtp_user, settings.smtp_password)
+        server.send_message(msg)

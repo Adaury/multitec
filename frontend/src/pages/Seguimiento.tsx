@@ -121,7 +121,7 @@ export function Seguimiento() {
   return (
     <div className="space-y-5 md:space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Seguimiento</h1>
+        <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Seguimiento</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Lo que tienes por cobrar y las cotizaciones que siguen sin respuesta, con el mensaje ya escrito para
           el cliente. Tú decides si lo envías.

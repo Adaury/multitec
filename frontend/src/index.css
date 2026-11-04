@@ -47,6 +47,24 @@ textarea {
   }
 }
 
+/* Computadora (ratón, pantalla ancha): todo está en rem, así que subir la letra base agranda en proporción
+   textos, botones, íconos, menú y tarjetas. El celular (táctil) se queda en 16 px, que ya se ve bien. */
+@media (pointer: fine) and (min-width: 1280px) {
+  html {
+    font-size: 17px;
+  }
+}
+@media (pointer: fine) and (min-width: 1600px) {
+  html {
+    font-size: 18px;
+  }
+}
+@media (pointer: fine) and (min-width: 1920px) {
+  html {
+    font-size: 19px;
+  }
+}
+
 /* Evita el rebote de toda la página al arrastrar más allá del borde (se siente como "app", no web). */
 body {
   overscroll-behavior-y: none;

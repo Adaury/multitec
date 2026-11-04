@@ -114,7 +114,7 @@ function CompanyList() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Plataforma</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Plataforma</h1>
           <p className="text-sm text-gray-500">Las empresas que usan Multitec, cada una con sus datos separados.</p>
         </div>
         <div className="flex gap-2">
@@ -375,7 +375,7 @@ function CompanyDetail({ id }: { id: number }) {
       </Link>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">{company.name}</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">{company.name}</h1>
           {company.notes && <p className="text-sm text-gray-500">{company.notes}</p>}
           {trialText(company) && <p className="text-sm text-gray-500">{trialText(company)}</p>}
         </div>

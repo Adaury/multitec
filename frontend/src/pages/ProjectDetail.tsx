@@ -57,6 +57,21 @@ import { InvoicePaymentForm } from '../components/InvoicePaymentForm'
 import { InvoiceVoidForm } from '../components/InvoiceVoidForm'
 import { PhotoMarkerEditor } from '../components/PhotoMarkerEditor'
 import { QuotePricing } from '../components/QuotePricing'
+import { QuoteViewer } from '../components/QuoteViewer'
+import {
+  Archive,
+  CircleCheck,
+  CircleX,
+  Eye,
+  History,
+  ListOrdered,
+  Pencil,
+  RotateCcw,
+  Send,
+  ShoppingCart,
+  Tag,
+  type LucideIcon,
+} from 'lucide-react'
 import { QuoteComparisonPanel } from '../components/QuoteComparisonPanel'
 import { UploadAudio, UploadImage } from '../components/UploadMedia'
 import { VoiceRecorderCard, VoiceReviewCard, transcribeAsset } from '../components/VoiceSurvey'
@@ -1293,7 +1308,9 @@ function QuoteTab({ projectId, project }: { projectId: number; project: ProjectD
   const [showForm, setShowForm] = useState(false)
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState<LineItemInput[]>([])
-  const [expandedId, setExpandedId] = useState<number | null>(null)
+  // Desde el Inicio se llega con ?cotizacion=<id>: esa cotización se abre sola.
+  const [searchParams] = useSearchParams()
+  const [expandedId, setExpandedId] = useState<number | null>(() => Number(searchParams.get('cotizacion')) || null)
 
   const createQuote = useMutation({
     mutationFn: async () => (await api.post(`/projects/${projectId}/quotes`, { notes, items })).data,
@@ -1351,62 +1368,50 @@ function QuoteTab({ projectId, project }: { projectId: number; project: ProjectD
   )
 }
 
-/** Envía al cliente por WhatsApp el enlace de su portal (donde ve la cotización con fotos y puede
- * aprobarla o pedir cambios). Si el proyecto aún no tiene enlace, lo crea al momento. */
-function QuoteWhatsAppButton({ quote, project }: { quote: Quote; project: ProjectDetailType }) {
-  const queryClient = useQueryClient()
-  const [error, setError] = useState<string | null>(null)
-  const base = whatsappUrl(project.client.phone)
-  const isLocalOrigin = /localhost|127\.0\.0\.1|192\.168\.|\.test$/.test(window.location.hostname)
-
-  const send = useMutation({
-    mutationFn: async () => {
-      let token = project.public_token
-      if (!token) {
-        token = ((await api.post<{ token: string }>(`/projects/${project.id}/public-link`)).data as { token: string })
-          .token
-        queryClient.invalidateQueries({ queryKey: ['projects'] })
-      }
-      return token
-    },
-    onSuccess: (token) => {
-      const link = `${window.location.origin}/portal/${token}`
-      const text =
-        `Hola ${project.client.name}, le comparto la cotización ${quote.code} de Multitec por ` +
-        `${formatDOP(quote.total)}. Puede verla, descargarla y aprobarla aquí: ${link}`
-      window.open(`${base}?text=${encodeURIComponent(text)}`, '_blank')
-    },
-    onError: () => setError('No se pudo preparar el enlace del cliente.'),
-  })
-
-  if (!base) {
-    return (
-      <p className="text-xs text-gray-400 dark:text-gray-500">
-        Para enviarla por WhatsApp, el cliente necesita un teléfono de 10 dígitos.
-      </p>
-    )
-  }
-  return (
-    <div className="space-y-1.5">
-      <Button variant="secondary" className="!w-auto px-3 py-2 text-sm" onClick={() => send.mutate()} disabled={send.isPending}>
-        {send.isPending ? 'Preparando…' : 'Enviar al cliente por WhatsApp'}
-      </Button>
-      {isLocalOrigin && (
-        <p className="text-xs text-amber-600 dark:text-amber-400">
-          Estás en una dirección local: el cliente no podrá abrir el enlace. Entra a la app por tu dirección pública
-          (túnel o dominio) antes de enviarlo.
-        </p>
-      )}
-      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
-    </div>
-  )
-}
-
 const STATUS_TONE: Record<string, 'blue' | 'green' | 'red' | 'gray'> = {
   pendiente: 'blue',
   aprobada: 'green',
   no_aprobada: 'red',
   archivada: 'gray',
+}
+
+/** Botón de ícono de la barra de acciones de una cotización (ícono grande y nombre corto debajo). */
+function QuoteAction({
+  icon: Icon,
+  label,
+  onClick,
+  active = false,
+  disabled = false,
+  tone = 'blue',
+}: {
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+  active?: boolean
+  disabled?: boolean
+  tone?: 'blue' | 'green' | 'red'
+}) {
+  const color = {
+    blue: 'text-brand-blue dark:text-blue-300',
+    green: 'text-emerald-600 dark:text-emerald-400',
+    red: 'text-red-600 dark:text-red-400',
+  }[tone]
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className={`flex flex-col items-center gap-1 rounded-2xl px-1 py-2.5 text-xs font-medium transition active:scale-95 disabled:opacity-50 ${
+        active
+          ? 'bg-brand-blue text-white'
+          : 'bg-brand-gray text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
+      }`}
+    >
+      <Icon className={`h-6 w-6 ${active ? 'text-white' : color}`} aria-hidden="true" />
+      {label}
+    </button>
+  )
 }
 
 function QuoteCard({
@@ -1428,11 +1433,13 @@ function QuoteCard({
   const role = useAuthStore((s) => s.user?.role)
   const isAdmin = role === 'admin'
   const [reason, setReason] = useState('')
-  const [showRejectForm, setShowRejectForm] = useState(false)
-  const [showPurchaseList, setShowPurchaseList] = useState(false)
+  type Section = 'partidas' | 'rechazo' | 'precios' | 'compras' | 'historial'
+  const [section, setSection] = useState<Section | null>(null)
+  const toggleSection = (next: Section) => setSection((current) => (current === next ? null : next))
   const [isEditing, setIsEditing] = useState(false)
   const [editNotes, setEditNotes] = useState('')
   const [editItems, setEditItems] = useState<LineItemInput[]>([])
+  const [viewer, setViewer] = useState(false)
 
   const { data: history } = useQuery({
     queryKey: ['quote-history', quote.id],
@@ -1444,7 +1451,7 @@ function QuoteCard({
     queryKey: ['purchase-list-preview', quote.id],
     queryFn: async () =>
       (await api.get<PurchaseListPreviewOut>(`/quotes/${quote.id}/purchase-list-preview`)).data,
-    enabled: showPurchaseList,
+    enabled: section === 'compras',
   })
 
   function invalidate() {
@@ -1460,7 +1467,7 @@ function QuoteCard({
     mutationFn: async () => (await api.post(`/quotes/${quote.id}/reject`, { reason })).data,
     onSuccess: () => {
       invalidate()
-      setShowRejectForm(false)
+      setSection(null)
       setReason('')
     },
   })
@@ -1536,154 +1543,71 @@ function QuoteCard({
 
       {expanded && !isEditing && (
         <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
-          <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-            {quote.items.map((item) => (
-              <li key={item.id}>
-                <div className="flex justify-between">
-                  <span>
-                    {item.quantity} × {item.description}
-                  </span>
-                  <span>{formatDOP(item.subtotal)}</span>
-                </div>
-                {item.note && <p className="text-xs italic text-gray-400 dark:text-gray-500">{item.note}</p>}
-              </li>
-            ))}
-          </ul>
-          <div className="space-y-1 rounded-xl bg-brand-gray p-3 text-sm dark:bg-gray-800">
-            <div className="flex justify-between text-gray-500 dark:text-gray-400">
-              <span>Subtotal</span>
-              <span>{formatDOP(quote.subtotal)}</span>
-            </div>
-            <div className="flex justify-between text-gray-500 dark:text-gray-400">
-              <span>ITBIS (18%)</span>
-              <span>{formatDOP(quote.itbis)}</span>
-            </div>
-            <div className="flex justify-between font-semibold text-gray-900 dark:text-gray-100">
-              <span>Total</span>
-              <span>{formatDOP(quote.total)}</span>
-            </div>
-            {isAdmin && <MarginRow endpoint={`/quotes/${quote.id}/margin`} enabled={expanded} />}
+          <div className="flex items-center justify-between rounded-xl bg-brand-gray px-3 py-2 text-sm dark:bg-gray-800">
+            <span className="text-gray-500 dark:text-gray-400">
+              {quote.items.length} {quote.items.length === 1 ? 'partida' : 'partidas'} · ITBIS {formatDOP(quote.itbis)}
+            </span>
+            <span className="font-semibold text-gray-900 dark:text-gray-100">{formatDOP(quote.total)}</span>
           </div>
 
-          <div className="space-y-3">
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Cotización detallada</p>
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  className="!w-auto flex-1 px-3 py-2 text-sm"
-                  onClick={() => viewFile(`/quotes/${quote.id}/pdf`)}
-                >
-                  Ver
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="!w-auto flex-1 px-3 py-2 text-sm"
-                  onClick={() => downloadFile(`/quotes/${quote.id}/pdf`, `${quote.code}.pdf`)}
-                >
-                  Descargar
-                </Button>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                Con fotos del levantamiento (puntos numerados)
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  className="!w-auto flex-1 px-3 py-2 text-sm"
-                  onClick={() => viewFile(`/quotes/${quote.id}/pdf?photos=marked`)}
-                >
-                  Ver
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="!w-auto flex-1 px-3 py-2 text-sm"
-                  onClick={() => downloadFile(`/quotes/${quote.id}/pdf?photos=marked`, `${quote.code}-fotos.pdf`)}
-                >
-                  Descargar
-                </Button>
-              </div>
-            </div>
-            <QuoteWhatsAppButton quote={quote} project={project} />
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                Cotización ejecutiva (resumen por categoría)
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  className="!w-auto flex-1 px-3 py-2 text-sm"
-                  onClick={() => viewFile(`/quotes/${quote.id}/pdf?variant=ejecutiva`)}
-                >
-                  Ver
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="!w-auto flex-1 px-3 py-2 text-sm"
-                  onClick={() =>
-                    downloadFile(`/quotes/${quote.id}/pdf?variant=ejecutiva`, `${quote.code}-ejecutiva.pdf`)
-                  }
-                >
-                  Descargar
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <button
-              type="button"
-              onClick={() => setShowPurchaseList((v) => !v)}
-              className="text-xs font-medium text-brand-blue hover:underline"
-            >
-              {showPurchaseList ? 'Ocultar lista de compras' : 'Ver lista de compras'}
-            </button>
-            {showPurchaseList && (
-              <div className="space-y-1 rounded-xl bg-brand-gray p-3 text-sm dark:bg-gray-800">
-                {purchaseListLoading && <p className="text-xs text-gray-400">Cargando…</p>}
-                {purchaseListPreview?.already_generated && (
-                  <p className="text-xs text-amber-600 dark:text-amber-400">
-                    Ya se generó como lista de compras real al aprobar — esto es lo mismo.
-                  </p>
-                )}
-                {purchaseListPreview && purchaseListPreview.items.length === 0 && (
-                  <p className="text-xs text-gray-400">Sin materiales.</p>
-                )}
-                {purchaseListPreview && purchaseListPreview.items.length > 0 && (
-                  <ul className="space-y-1 text-gray-600 dark:text-gray-400">
-                    {purchaseListPreview.items.map((item, index) => (
-                      <li key={index}>
-                        {item.quantity} × {item.description}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+          {/* Todo lo que se hace con la cotización, en íconos: cada uno abre su parte aquí debajo, una a la vez,
+              en vez de una página larga que obliga a bajar buscando. */}
+          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8" role="toolbar" aria-label={`Acciones de ${quote.code}`}>
+            <QuoteAction icon={Eye} label="Ver" onClick={() => setViewer(true)} />
+            <QuoteAction icon={Send} label="Enviar" onClick={() => setViewer(true)} />
+            {quote.status === 'pendiente' && (
+              <>
+                <QuoteAction icon={Pencil} label="Editar" onClick={startEditing} />
+                <QuoteAction icon={CircleCheck} label="Aprobar" tone="green" onClick={() => approve.mutate()} disabled={approve.isPending} />
+                <QuoteAction icon={CircleX} label="Rechazar" tone="red" active={section === 'rechazo'} onClick={() => toggleSection('rechazo')} />
+              </>
+            )}
+            <QuoteAction icon={ListOrdered} label="Partidas" active={section === 'partidas'} onClick={() => toggleSection('partidas')} />
+            <QuoteAction icon={Tag} label="Precios" active={section === 'precios'} onClick={() => toggleSection('precios')} />
+            <QuoteAction icon={ShoppingCart} label="Compras" active={section === 'compras'} onClick={() => toggleSection('compras')} />
+            <QuoteAction icon={History} label="Historial" active={section === 'historial'} onClick={() => toggleSection('historial')} />
+            {quote.status !== 'archivada' && quote.status !== 'aprobada' && (
+              <QuoteAction icon={Archive} label="Archivar" onClick={() => archive.mutate()} disabled={archive.isPending} />
+            )}
+            {quote.status === 'archivada' && (
+              <QuoteAction icon={RotateCcw} label="Reactivar" onClick={() => reactivate.mutate()} disabled={reactivate.isPending} />
             )}
           </div>
 
-          <QuotePricing quote={quote} projectId={projectId} />
-
-          {quote.status === 'pendiente' && (
-            <div className="flex gap-2">
-              <Button className="!w-auto flex-1" onClick={() => approve.mutate()} disabled={approve.isPending}>
-                Aprobar
-              </Button>
-              <Button
-                className="!w-auto flex-1"
-                variant="secondary"
-                onClick={() => setShowRejectForm((v) => !v)}
-              >
-                Rechazar
-              </Button>
-              <Button className="!w-auto flex-1" variant="ghost" onClick={startEditing}>
-                Editar
-              </Button>
+          {section === 'partidas' && (
+            <div className="space-y-2">
+              <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                {quote.items.map((item) => (
+                  <li key={item.id}>
+                    <div className="flex justify-between gap-3">
+                      <span>
+                        {item.quantity} × {item.description}
+                      </span>
+                      <span className="shrink-0">{formatDOP(item.subtotal)}</span>
+                    </div>
+                    {item.note && <p className="text-xs italic text-gray-400 dark:text-gray-500">{item.note}</p>}
+                  </li>
+                ))}
+              </ul>
+              <div className="space-y-1 rounded-xl bg-brand-gray p-3 text-sm dark:bg-gray-800">
+                <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                  <span>Subtotal</span>
+                  <span>{formatDOP(quote.subtotal)}</span>
+                </div>
+                <div className="flex justify-between text-gray-500 dark:text-gray-400">
+                  <span>ITBIS (18%)</span>
+                  <span>{formatDOP(quote.itbis)}</span>
+                </div>
+                <div className="flex justify-between font-semibold text-gray-900 dark:text-gray-100">
+                  <span>Total</span>
+                  <span>{formatDOP(quote.total)}</span>
+                </div>
+                {isAdmin && <MarginRow endpoint={`/quotes/${quote.id}/margin`} enabled={expanded} />}
+              </div>
             </div>
           )}
-          {showRejectForm && (
+
+          {section === 'rechazo' && (
             <div className="space-y-2">
               <Field label="Motivo del rechazo">
                 <Textarea rows={2} value={reason} onChange={(e) => setReason(e.target.value)} />
@@ -1693,29 +1617,61 @@ function QuoteCard({
               </Button>
             </div>
           )}
-          {quote.status !== 'archivada' && quote.status !== 'aprobada' && (
-            <Button variant="ghost" onClick={() => archive.mutate()} disabled={archive.isPending}>
-              Archivar
-            </Button>
-          )}
-          {quote.status === 'archivada' && (
-            <Button variant="secondary" onClick={() => reactivate.mutate()} disabled={reactivate.isPending}>
-              Reactivar
-            </Button>
+
+          {section === 'precios' && <QuotePricing quote={quote} projectId={projectId} />}
+
+          {section === 'compras' && (
+            <div className="space-y-1 rounded-xl bg-brand-gray p-3 text-sm dark:bg-gray-800">
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Lista de compras</p>
+              {purchaseListLoading && <p className="text-xs text-gray-400">Cargando…</p>}
+              {purchaseListPreview?.already_generated && (
+                <p className="text-xs text-amber-600 dark:text-amber-400">
+                  Ya se generó como lista de compras real al aprobar — esto es lo mismo.
+                </p>
+              )}
+              {purchaseListPreview && purchaseListPreview.items.length === 0 && (
+                <p className="text-xs text-gray-400">Sin materiales.</p>
+              )}
+              {purchaseListPreview && purchaseListPreview.items.length > 0 && (
+                <ul className="space-y-1 text-gray-600 dark:text-gray-400">
+                  {purchaseListPreview.items.map((item, index) => (
+                    <li key={index}>
+                      {item.quantity} × {item.description}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
 
-          {history && history.length > 0 && (
-            <div>
-              <p className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">Historial</p>
-              <ul className="space-y-1 text-xs text-gray-500 dark:text-gray-400">
-                {history.map((h) => (
-                  <li key={h.id}>
-                    {new Date(h.created_at).toLocaleString('es-DO')} — {QUOTE_HISTORY_LABELS[h.action] ?? h.action}
-                    {h.note ? `: ${h.note}` : ''}
-                  </li>
-                ))}
-              </ul>
-            </div>
+          {section === 'historial' && (
+            <ul className="space-y-1 rounded-xl bg-brand-gray p-3 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+              {(history ?? []).map((h) => (
+                <li key={h.id}>
+                  {new Date(h.created_at).toLocaleString('es-DO')} — {QUOTE_HISTORY_LABELS[h.action] ?? h.action}
+                  {h.note ? `: ${h.note}` : ''}
+                </li>
+              ))}
+              {history?.length === 0 && <li>Sin movimientos.</li>}
+            </ul>
+          )}
+
+          {viewer && (
+            <QuoteViewer
+              quote={quote}
+              client={project.client}
+              projectId={projectId}
+              publicToken={project.public_token}
+              onClose={() => setViewer(false)}
+              onEdit={
+                quote.status === 'pendiente'
+                  ? () => {
+                      setViewer(false)
+                      startEditing()
+                    }
+                  : undefined
+              }
+            />
           )}
         </div>
       )}

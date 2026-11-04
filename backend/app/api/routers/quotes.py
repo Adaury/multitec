@@ -1,5 +1,6 @@
+import logging
 from datetime import datetime, timezone
-from typing import Literal
+
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
@@ -19,11 +20,18 @@ from app.schemas.quote import (
     QuoteCreate,
     QuoteHistoryOut,
     QuoteOut,
+    QuotePdfPhotos,
+    QuotePdfVariant,
+    QuoteSendEmailIn,
+    QuoteSendEmailOut,
     QuoteUpdate,
     RepriceOut,
     RepricePreviewOut,
     RejectIn,
 )
+from app.services import email as email_service
+from app.services.audit import audit
+from app.services.company import load_company
 from app.services.code_generator import next_code
 from app.services.margin import compute_margin
 from app.services.notifications import notify_quote_pending
@@ -35,6 +43,7 @@ from app.services.quote_archiver import archive_stale_quotes
 from app.services.totals import LineInput, compute_totals
 
 router = APIRouter(tags=["quotes"])
+logger = logging.getLogger("multitec.quotes")
 
 allowed_roles = require_role("admin", "oficina")
 admin_only = require_role("admin")
@@ -109,15 +118,11 @@ def get_quote(quote_id: int, db: Session = Depends(get_db), _=Depends(allowed_ro
     return _get_quote(db, quote_id)
 
 
-@router.get("/api/quotes/{quote_id}/pdf")
-def get_quote_pdf(
-    quote_id: int,
-    variant: Literal["detallada", "ejecutiva"] = "detallada",
-    photos: Literal["none", "marked", "all"] = "none",
-    db: Session = Depends(get_db),
-    _=Depends(allowed_roles),
-):
-    quote = _get_quote(db, quote_id)
+_PDF_SUFFIX = {"detallada": "", "ejecutiva": "-ejecutiva", "global": "-monto-general"}
+
+
+def _render_quote_pdf(db: Session, quote: Quote, variant: str, photos: str) -> tuple[bytes, str]:
+    """PDF de la cotización en el formato pedido y su nombre de archivo (mismo para ver, descargar y enviar)."""
     category_by_product_id = {}
     if variant == "ejecutiva":
         product_ids = [item.product_id for item in quote.items if item.product_id is not None]
@@ -129,12 +134,73 @@ def get_quote_pdf(
     pdf_bytes = build_quote_pdf(
         quote, variant=variant, category_by_product_id=category_by_product_id, photo_annex=annex
     )
-    suffix = "-ejecutiva" if variant == "ejecutiva" else ""
+    photo_suffix = "-fotos" if photos != "none" else ""
+    return pdf_bytes, f"{quote.code}{_PDF_SUFFIX.get(variant, '')}{photo_suffix}.pdf"
+
+
+@router.get("/api/quotes/{quote_id}/pdf")
+def get_quote_pdf(
+    quote_id: int,
+    variant: QuotePdfVariant = "detallada",
+    photos: QuotePdfPhotos = "none",
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
+    quote = _get_quote(db, quote_id)
+    pdf_bytes, filename = _render_quote_pdf(db, quote, variant, photos)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
-        headers={"Content-Disposition": f'attachment; filename="{quote.code}{suffix}.pdf"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+_VARIANT_LABELS = {"detallada": "detallada", "ejecutiva": "resumen por categoría", "global": "monto general"}
+
+
+@router.post("/api/quotes/{quote_id}/send-email", response_model=QuoteSendEmailOut)
+def send_quote_email(
+    quote_id: int,
+    payload: QuoteSendEmailIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(allowed_roles),
+):
+    """Envía al cliente la cotización por correo con el PDF adjunto, en el formato elegido. A diferencia de los
+    avisos automáticos, aquí el usuario pidió el envío: si el correo no está configurado o falla, se le dice."""
+    if not email_service.is_configured():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="El envío por correo no está configurado en el servidor (falta SMTP). Usa WhatsApp o descarga el PDF.",
+        )
+    quote = _get_quote(db, quote_id)
+    pdf_bytes, filename = _render_quote_pdf(db, quote, payload.variant, payload.photos)
+    client = quote.project.client
+    company_name = load_company(quote.company_id).name or "Multitec"
+    subject = f"Cotización {quote.code} — {company_name}"
+    greeting = f"Hola {client.name}," if client.name else "Hola,"
+    body = (payload.message or "").strip() or (
+        f"{greeting}\n\nLe compartimos la cotización {quote.code} por un total de "
+        f"RD$ {float(quote.total):,.2f}. Adjuntamos el PDF.\n\nQuedamos atentos a cualquier pregunta.\n\n{company_name}"
+    )
+    try:
+        email_service.deliver_email(str(payload.to), subject, body, attachment=(filename, pdf_bytes, "application/pdf"))
+    except Exception:
+        logger.exception("No se pudo enviar la cotización %s a %s", quote.code, payload.to)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="El servidor de correo no aceptó el envío. Intenta de nuevo o envíala por WhatsApp.",
+        )
+    db.add(
+        QuoteHistory(
+            quote_id=quote.id,
+            action="enviada",
+            note=f"Por correo a {payload.to} ({_VARIANT_LABELS[payload.variant]})",
+        )
+    )
+    audit(db, "cotizacion.enviada", user=user, entity="quote", entity_id=quote.id,
+          detail={"canal": "correo", "a": str(payload.to), "formato": payload.variant})
+    db.commit()
+    return QuoteSendEmailOut(sent_to=str(payload.to), filename=filename)
 
 
 @router.get("/api/quotes/{quote_id}/margin", response_model=MarginSummary)

@@ -200,7 +200,7 @@ export function Layout() {
     <div className="min-h-dvh bg-brand-bg md:flex dark:bg-gray-950">
       {/* Reserva el ancho en el flujo: abierto por el mouse la barra se superpone al contenido y no lo
           empuja (sin saltos); fijada, el contenido se acomoda a su ancho. */}
-      <div className={`hidden md:block md:shrink-0 ${menuPinned ? 'md:w-64' : 'md:w-[72px]'}`} />
+      <div className={`hidden md:block md:shrink-0 ${menuPinned ? 'md:w-64' : 'md:w-[4.5rem]'}`} />
       <aside
         onMouseEnter={() => setMenuHover(true)}
         onMouseLeave={() => setMenuHover(false)}
@@ -209,7 +209,7 @@ export function Layout() {
           if (!e.currentTarget.contains(e.relatedTarget)) setMenuHover(false)
         }}
         className={`hidden transition-[width] duration-200 md:fixed md:inset-y-0 md:left-0 md:z-20 md:flex md:flex-col md:overflow-hidden md:border-r md:border-gray-200 md:bg-white dark:md:border-gray-800 dark:md:bg-gray-900 ${
-          expanded ? 'md:w-64' : 'md:w-[72px]'
+          expanded ? 'md:w-64' : 'md:w-[4.5rem]'
         } ${expanded && !menuPinned ? 'md:shadow-2xl' : ''}`}
       >
         <div className="flex items-center gap-2.5 px-[18px] py-6">
@@ -297,11 +297,16 @@ export function Layout() {
       </aside>
 
       <div className="mx-auto flex min-h-dvh max-w-lg flex-1 flex-col pb-28 md:mx-0 md:max-w-none md:min-w-0 md:pb-0">
-        <header className="sticky top-0 z-10 flex items-center gap-4 bg-brand-bg/80 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur md:px-10 md:py-6 dark:bg-gray-950/80">
+        <header className="sticky top-0 z-10 bg-brand-bg/80 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur md:px-10 md:py-5 dark:bg-gray-950/80">
+          {/* Mismo ancho centrado que el contenido: en pantallas anchas nada queda pegado a las esquinas. */}
+          <div className="mx-auto flex w-full max-w-7xl items-center gap-4">
           <NavLink to="/perfil" className="md:hidden">
             <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{companyName}</p>
             <p className="text-xs text-gray-500">{user?.name}</p>
           </NavLink>
+          <p className="hidden truncate text-sm font-semibold uppercase tracking-wider text-gray-400 md:block dark:text-gray-500">
+            {companyName}
+          </p>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
             <ThemeToggle className="md:hidden" />
@@ -315,15 +320,18 @@ export function Layout() {
               Salir
             </button>
           </div>
+          </div>
         </header>
 
         <PendingSync />
         <GenerationBanner />
 
         <main className="flex-1 px-5 md:px-10 md:pb-10">
-          <Suspense fallback={<PageLoader />}>
-            <Outlet />
-          </Suspense>
+          <div className="mx-auto w-full max-w-7xl">
+            <Suspense fallback={<PageLoader />}>
+              <Outlet />
+            </Suspense>
+          </div>
         </main>
 
         {!hideTabBar && (

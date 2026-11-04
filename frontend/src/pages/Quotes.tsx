@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Eye } from 'lucide-react'
 import { api } from '../lib/api'
-import type { Project, Quote, QuoteStatus } from '../lib/types'
+import type { Project, ProjectDetail, Quote, QuoteStatus } from '../lib/types'
+import { QuoteViewer } from '../components/QuoteViewer'
 import { QUOTE_STATUS_LABELS } from '../lib/types'
 import { formatDOP } from '../lib/format'
 import { Badge, Card, SegmentedTabs } from '../components/ui'
@@ -26,6 +27,7 @@ const FILTERS: { key: QuoteStatus | 'todas'; label: string }[] = [
 
 function QuotesList() {
   const [filter, setFilter] = useState<QuoteStatus | 'todas'>('todas')
+  const [open, setOpen] = useState<Quote | null>(null)
 
   const { data: quotes, isLoading } = useQuery({
     queryKey: ['all-quotes', filter],
@@ -68,8 +70,8 @@ function QuotesList() {
 
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {quotes?.map((quote) => (
-          <Link key={quote.id} to={`/proyectos/${quote.project_id}`}>
-            <Card className="active:scale-[0.98]">
+          <Card key={quote.id}>
+            <Link to={`/proyectos/${quote.project_id}?tab=cotizacion`} className="block">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-medium text-gray-900 dark:text-gray-100">{quote.code}</p>
@@ -78,12 +80,53 @@ function QuotesList() {
                 <Badge tone={STATUS_TONE[quote.status]}>{QUOTE_STATUS_LABELS[quote.status]}</Badge>
               </div>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{formatDOP(quote.total)}</p>
-            </Card>
-          </Link>
+            </Link>
+            <button
+              type="button"
+              onClick={() => setOpen(quote)}
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-brand-gray py-2 text-sm font-medium text-brand-blue hover:bg-gray-200 dark:bg-gray-800 dark:text-blue-300 dark:hover:bg-gray-700"
+            >
+              <Eye size={16} /> Ver y enviar
+            </button>
+          </Card>
         ))}
         {quotes?.length === 0 && <p className="text-sm text-gray-500">No hay cotizaciones en este filtro.</p>}
       </div>
+      {open && <ViewerForQuote quote={open} onClose={() => setOpen(null)} />}
     </div>
+  )
+}
+
+/** El listado no trae al cliente: se pide el proyecto al abrir el visor. Editar lleva a la cotización en su proyecto. */
+function ViewerForQuote({ quote, onClose }: { quote: Quote; onClose: () => void }) {
+  const navigate = useNavigate()
+  const { data: project, isError } = useQuery({
+    queryKey: ['project', quote.project_id],
+    queryFn: async () => (await api.get<ProjectDetail>(`/projects/${quote.project_id}`)).data,
+  })
+  if (isError) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+        <p className="rounded-2xl bg-white p-4 text-sm text-red-600 dark:bg-gray-900">No se pudo abrir la cotización.</p>
+      </div>
+    )
+  }
+  if (!project) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/95">
+        <p className="text-sm text-gray-300">Abriendo…</p>
+      </div>
+    )
+  }
+  return (
+    <QuoteViewer
+      quote={quote}
+      client={project.client}
+      projectId={project.id}
+      publicToken={project.public_token}
+      onClose={onClose}
+      onEdit={quote.status === 'pendiente' ? () => navigate(`/proyectos/${quote.project_id}?tab=cotizacion`) : undefined}
+    />
   )
 }
 
@@ -97,7 +140,7 @@ export function Quotes() {
 
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Cotizaciones</h1>
+      <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Cotizaciones</h1>
       <SegmentedTabs<View>
         value={view}
         onChange={(next) => setParams(next === 'cotizaciones' ? {} : { vista: next }, { replace: true })}

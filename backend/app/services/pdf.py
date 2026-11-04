@@ -458,9 +458,13 @@ def build_quote_pdf(
     photo_annex: list[AnnexPhoto] | None = None,
     company: CompanyInfo | None = None,
 ) -> bytes:
+    """`variant`: "detallada" (línea por línea con precios), "ejecutiva" (subtotal por categoría) o "global"
+    (lo que se instala, con cantidades, y solo el total del servicio: sin precios por línea)."""
     is_executive = variant == "ejecutiva"
+    is_global = variant == "global"
+    titles = {"ejecutiva": "Cotización — Resumen ejecutivo", "global": "Cotización — Monto general"}
     return _build_pdf(
-        doc_title="Cotización — Resumen ejecutivo" if is_executive else "Cotización",
+        doc_title=titles.get(variant, "Cotización"),
         code=quote.code,
         created_at=quote.created_at,
         client=quote.project.client,
@@ -472,6 +476,7 @@ def build_quote_pdf(
         status_label=quote.status.replace("_", " ").capitalize(),
         notes=quote.notes,
         category_totals=_category_totals(quote.items, category_by_product_id or {}) if is_executive else None,
+        show_line_prices=not is_global,
         photo_annex=photo_annex,
         company=company,
     )

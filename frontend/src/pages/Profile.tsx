@@ -65,7 +65,7 @@ export function Profile() {
 
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Mi perfil</h1>
+      <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Mi perfil</h1>
 
       {user?.must_change_password && (
         <div

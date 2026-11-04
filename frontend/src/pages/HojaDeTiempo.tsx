@@ -54,7 +54,7 @@ export function HojaDeTiempo() {
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
       <div>
-        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Hoja de tiempo</h1>
+        <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Hoja de tiempo</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400">
           Las horas salen de «Llegué al sitio» y «Terminé la visita» que marca cada técnico en el Calendario. Una visita
           sin salida queda abierta y no suma horas.

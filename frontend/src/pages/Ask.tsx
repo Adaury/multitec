@@ -30,7 +30,7 @@ export function Ask() {
 
   return (
     <div className="space-y-4 py-4 md:max-w-2xl md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Preguntar a la IA</h1>
+      <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Preguntar a la IA</h1>
       <p className="text-sm text-gray-500">
         Elige un proyecto específico, o "Todos los proyectos" para una búsqueda semántica
         entre todo el historial, y pregunta en lenguaje natural.

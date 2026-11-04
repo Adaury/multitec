@@ -56,7 +56,11 @@ test('the client can reject a quote from their link and the office sees why', as
   await page.getByRole('button', { name: 'Comercial', exact: true }).click()
   await page.getByRole('button', { name: 'Cotización', exact: true }).click()
   await page.getByText(quote.code).click()
-  await expect(page.getByRole('button', { name: 'Enviar al cliente por WhatsApp' })).toBeVisible()
+  await page.getByRole('button', { name: 'Enviar', exact: true }).click()
+  await page.getByRole('tab', { name: 'Formato y envío' }).click()
+  await page.getByRole('button', { name: 'Enlace' }).click()
+  await expect(page.getByRole('button', { name: 'Enviar enlace por WhatsApp' })).toBeVisible()
+  await page.getByRole('button', { name: 'Cerrar visor' }).click()
 
   // Vista del cliente: sin sesión.
   const clientPage = await page.context().browser()!.newContext({ baseURL: page.url().split('/proyectos')[0] })

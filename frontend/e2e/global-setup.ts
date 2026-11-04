@@ -15,7 +15,8 @@ export default async function globalSetup(config: FullConfig) {
   await page.fill('input[type="email"]', ADMIN_EMAIL)
   await page.fill('input[type="password"]', ADMIN_PASSWORD)
   await page.click('button[type="submit"]')
-  await page.waitForSelector('h1:has-text("Acciones rápidas")', { timeout: 15000 })
+  // Entró: el Inicio saluda (en el teléfono y en la computadora).
+  await page.getByText(/Buen(os días|as tardes|as noches), /).filter({ visible: true }).first().waitFor({ timeout: 15000 })
 
   await page.context().storageState({ path: STORAGE_STATE_PATH })
   await browser.close()

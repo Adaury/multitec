@@ -525,6 +525,7 @@ export interface Quote {
   itbis: number
   total: number
   created_at: string
+  updated_at?: string | null
   decided_at: string | null
   items: QuoteItem[]
 }
@@ -573,6 +574,7 @@ export const QUOTE_HISTORY_LABELS: Record<string, string> = {
   editada: 'Editada',
   repreciada: 'Precios actualizados',
   nueva_version: 'Nueva versión creada',
+  enviada: 'Enviada al cliente',
 }
 
 export type MaterialStatus = 'disponible' | 'pendiente_compra' | 'comprado' | 'instalado'

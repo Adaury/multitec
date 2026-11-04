@@ -282,7 +282,7 @@ export function QuickSurvey() {
       <div className="space-y-4 py-4">
         <Card className="space-y-3 text-center">
           <p className="text-5xl">✅</p>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Cotización lista</h1>
+          <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Cotización lista</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             {clientName} · {project.code}
           </p>

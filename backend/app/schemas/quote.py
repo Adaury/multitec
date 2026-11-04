@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, EmailStr, Field
 
 
 class QuoteItemIn(BaseModel):
@@ -67,6 +68,24 @@ class QuoteHistoryOut(BaseModel):
 
 class RejectIn(BaseModel):
     reason: str = Field(max_length=2000)
+
+
+QuotePdfVariant = Literal["detallada", "ejecutiva", "global"]
+QuotePdfPhotos = Literal["none", "marked", "all"]
+
+
+class QuoteSendEmailIn(BaseModel):
+    """Enviar la cotización al cliente por correo, con el PDF en el formato que se elija."""
+
+    to: EmailStr
+    variant: QuotePdfVariant = "detallada"
+    photos: QuotePdfPhotos = "none"
+    message: str | None = Field(default=None, max_length=2000)
+
+
+class QuoteSendEmailOut(BaseModel):
+    sent_to: str
+    filename: str
 
 
 class PurchaseListPreviewItem(BaseModel):

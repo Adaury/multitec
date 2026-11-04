@@ -22,7 +22,7 @@ export function Budgets({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <div className={embedded ? 'space-y-4' : 'space-y-4 py-4 md:space-y-6 md:py-8'}>
-      {!embedded && <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Presupuestos</h1>}
+      {!embedded && <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Presupuestos</h1>}
 
       {isLoading && <p className="text-sm text-gray-500">Cargando…</p>}
 

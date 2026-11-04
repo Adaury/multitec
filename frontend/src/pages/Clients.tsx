@@ -45,7 +45,7 @@ export function Clients() {
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Clientes</h1>
+        <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Clientes</h1>
         <div className="flex gap-2">
           {canExport && (
             <button

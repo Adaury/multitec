@@ -408,7 +408,7 @@ export function AIFeedbackEvents() {
 
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Ajustes de IA</h1>
+      <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Ajustes de IA</h1>
       <SegmentedTabs<AIView>
         value={view}
         onChange={(next) => setParams(next === 'aprendizaje' ? {} : { vista: next }, { replace: true })}

@@ -21,6 +21,7 @@ test('update a quote to the current catalog prices, seeing the changes first', a
   await page.getByRole('button', { name: 'Cotización', exact: true }).click()
   await page.locator('button:has-text("RD$ 236.00")').first().click() // 2 × 100 + 18 %
 
+  await page.getByRole('button', { name: 'Precios', exact: true }).click()
   await page.getByRole('button', { name: 'Actualizar precios' }).click()
   const panel = page.getByTestId('quote-pricing')
   await expect(panel).toContainText(`2 × ${productName}`)

@@ -22,8 +22,8 @@ export function Ayuda() {
   const preguntas = PREGUNTAS_FRECUENTES.filter((q) => puedeVer(user, q.roles))
 
   return (
-    <div className="mx-auto max-w-5xl pb-6">
-      <h1 className="mb-1 text-xl font-semibold text-gray-900 dark:text-gray-100">Ayuda</h1>
+    <div className="mx-auto max-w-5xl pb-6 2xl:max-w-7xl">
+      <h1 className="mb-1 text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Ayuda</h1>
       <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
         Aprende a usar Multitec paso a paso, con videos cortos. Si prefieres leer, cada video trae sus pasos en texto.
       </p>
@@ -49,7 +49,7 @@ export function Ayuda() {
           <h2 id="titulo-guia" className={`mb-3 ${TITULO_SECCION}`}>
             Guía completa (4 minutos)
           </h2>
-          <div className="max-w-3xl">
+          <div className="max-w-4xl xl:max-w-5xl">
             <VideoTutorial tutorial={guia} nivelTitulo="h3" />
           </div>
         </section>

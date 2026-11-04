@@ -499,7 +499,7 @@ function ProductCard({
               </div>
             )}
           </div>
-          <div className="text-right">
+          <div className="shrink-0 space-y-1 text-right [&>span]:inline-block [&>span]:whitespace-nowrap">
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
               RD$ {product.price.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
             </p>
@@ -1235,7 +1235,7 @@ export function Catalog() {
 
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-2xl dark:text-gray-100">Catálogo</h1>
+      <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Catálogo</h1>
       {isAdmin && (
         <SegmentedTabs<CatalogView>
           value={view}
