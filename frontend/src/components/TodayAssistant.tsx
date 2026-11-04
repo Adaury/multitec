@@ -113,13 +113,17 @@ export function TodayAssistant() {
   const toContinue = (data?.continue_projects ?? []).filter((p) => !pendingIds.has(p.project_id))
 
   return (
-    <Card className="space-y-4 bg-blue-50 ring-blue-100 dark:bg-blue-950 dark:ring-blue-900">
-      <div>
-        <p className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-          <Bot className="mr-1.5 inline h-6 w-6 -translate-y-0.5 text-brand-blue" aria-hidden="true" />
+    <Card className="space-y-4 overflow-hidden">
+      {/* El mismo saludo que en la computadora: franja de color, centrado y grande. */}
+      <div className="-mx-5 -mt-5 bg-gradient-to-br from-brand-blue to-blue-800 px-5 py-6 text-center text-white">
+        <p className="text-xs font-medium uppercase tracking-widest text-blue-100">
+          <Bot className="mr-1 inline h-4 w-4 -translate-y-px" aria-hidden="true" />
+          {new Date().toLocaleDateString('es-DO', { weekday: 'long', day: 'numeric', month: 'long' })}
+        </p>
+        <p className="mt-2 text-2xl font-bold tracking-tight">
           {greeting()}, {assistantCallName(user)}.
         </p>
-        <p className="mt-1 text-sm text-gray-700 dark:text-gray-300">
+        <p className="mt-2 text-sm text-blue-50">
           {isLoading && 'Revisando tu agenda…'}
           {isError && 'No pude revisar tu agenda ahora, pero podemos trabajar igual.'}
           {data && summarize(data)}

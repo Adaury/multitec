@@ -51,7 +51,7 @@ export function FilterChips<T extends string>({
   label: string
 }) {
   return (
-    <div role="group" aria-label={label} className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
+    <div role="group" aria-label={label} className="flex flex-wrap gap-2">
       {options.map((option) => {
         const active = option.key === value
         return (

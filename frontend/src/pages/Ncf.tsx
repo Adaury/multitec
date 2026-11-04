@@ -79,8 +79,8 @@ export function Ncf() {
 
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <div className="flex items-center justify-between md:justify-end">
-        <h1 className="text-xl font-semibold text-gray-900 md:sr-only dark:text-gray-100">Secuencias NCF</h1>
+      <div className="flex items-center justify-end">
+        <h1 className="text-xl font-semibold text-gray-900 sr-only dark:text-gray-100">Secuencias NCF</h1>
         <button
           onClick={() => setShowForm((v) => !v)}
           className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"

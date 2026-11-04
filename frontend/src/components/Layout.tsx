@@ -196,8 +196,15 @@ export function Layout() {
       <div className={`hidden md:block md:shrink-0 ${menuPinned ? 'md:w-64' : 'md:w-[5.5rem]'}`} />
       <aside
         onMouseEnter={() => setMenuHover(true)}
-        onMouseLeave={() => setMenuHover(false)}
-        onFocus={() => setMenuHover(true)}
+        onMouseLeave={(e) => {
+          setMenuHover(false)
+          // El clic deja el foco en el enlace y eso lo mantenía abierto: al salir con el mouse se suelta.
+          const active = document.activeElement
+          if (active instanceof HTMLElement && e.currentTarget.contains(active)) active.blur()
+        }}
+        onFocus={(e) => {
+          if (e.target instanceof HTMLElement && e.target.matches(':focus-visible')) setMenuHover(true)
+        }}
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget)) setMenuHover(false)
         }}

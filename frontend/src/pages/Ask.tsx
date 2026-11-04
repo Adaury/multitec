@@ -51,7 +51,7 @@ export function Ask() {
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:sr-only dark:text-gray-100">Preguntar a la IA</h1>
+      <h1 className="text-xl font-semibold text-gray-900 sr-only dark:text-gray-100">Preguntar a la IA</h1>
       <p className="text-center text-sm text-gray-500 dark:text-gray-400">
         Pregunta como le hablarías a un compañero. Elige un proyecto para preguntar sobre él, o «Todos los proyectos» para
         buscar en todo el historial.

@@ -23,7 +23,7 @@ export function Ayuda() {
 
   return (
     <div className="mx-auto max-w-5xl pb-6 2xl:max-w-7xl">
-      <h1 className="mb-1 text-xl font-semibold text-gray-900 md:sr-only dark:text-gray-100">Ayuda</h1>
+      <h1 className="mb-1 text-xl font-semibold text-gray-900 sr-only dark:text-gray-100">Ayuda</h1>
       <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">
         Aprende a usar Multitec paso a paso, con videos cortos. Si prefieres leer, cada video trae sus pasos en texto.
       </p>

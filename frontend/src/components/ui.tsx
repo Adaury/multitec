@@ -84,7 +84,7 @@ export function SegmentedTabs<T extends string>({
   options: { key: T; label: string }[]
 }) {
   return (
-    <div className="flex gap-1 overflow-x-auto rounded-2xl bg-brand-gray p-1 md:max-w-fit dark:bg-gray-800" role="tablist">
+    <div className="flex gap-1 overflow-x-auto rounded-2xl bg-brand-gray p-1 [scrollbar-width:none] md:max-w-fit dark:bg-gray-800 [&::-webkit-scrollbar]:hidden" role="tablist">
       {options.map((option) => (
         <button
           key={option.key}

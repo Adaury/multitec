@@ -8,7 +8,7 @@ import { PAGE_INFO } from '../components/PageBanner'
 export function Administracion() {
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:sr-only dark:text-gray-100">Administración</h1>
+      <h1 className="text-xl font-semibold text-gray-900 sr-only dark:text-gray-100">Administración</h1>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:gap-4 xl:grid-cols-3">
         {ADMIN_ITEMS.map((item) => {
           const info = PAGE_INFO[item.to]

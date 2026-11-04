@@ -70,8 +70,8 @@ export function Clients() {
 
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <div className="flex items-center justify-between md:justify-end">
-        <h1 className="text-xl font-semibold text-gray-900 md:sr-only dark:text-gray-100">Clientes</h1>
+      <div className="flex items-center justify-end">
+        <h1 className="text-xl font-semibold text-gray-900 sr-only dark:text-gray-100">Clientes</h1>
         <div className="flex shrink-0 gap-2">
           {canExport && (
             <button

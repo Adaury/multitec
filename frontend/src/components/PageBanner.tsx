@@ -22,22 +22,22 @@ export const PAGE_INFO: Record<string, { description: string; gradient: string }
   '/ayuda': { description: 'Videos, paso a paso y preguntas frecuentes.', gradient: 'from-green-600 to-emerald-800' },
 }
 
-/** Encabezado grande y centrado de cada pantalla del menú en la computadora, con el mismo estilo que el
- * saludo del Inicio. El título visible es decorativo: cada página conserva su propio h1 para lectores
- * de pantalla. En el celular no sale (ahí el espacio vale más). */
+/** Encabezado grande y centrado de cada pantalla del menú, con el mismo estilo que el saludo del Inicio:
+ * compacto en el celular y grande en la computadora. El título visible es decorativo: cada página
+ * conserva su propio h1 (oculto a la vista) para lectores de pantalla. */
 export function PageBanner({ to, label, icon: Icon }: { to: string; label: string; icon: LucideIcon }) {
   const info = PAGE_INFO[to]
   if (!info) return null
   return (
     <section
       aria-hidden="true"
-      className={`mt-2 hidden rounded-[2rem] bg-gradient-to-br ${info.gradient} px-8 py-6 text-center text-white shadow-lg md:block`}
+      className={`mt-1 rounded-3xl bg-gradient-to-br ${info.gradient} px-5 py-5 text-center text-white shadow-lg md:mt-2 md:rounded-[2rem] md:px-8 md:py-6`}
     >
-      <span className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25">
-        <Icon className="h-8 w-8" />
+      <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/25 md:h-14 md:w-14">
+        <Icon className="h-6 w-6 md:h-8 md:w-8" />
       </span>
-      <p className="mt-3 text-4xl font-bold tracking-tight">{label}</p>
-      <p className="mx-auto mt-2 max-w-2xl text-base text-white/80">{info.description}</p>
+      <p className="mt-2 text-2xl font-bold tracking-tight md:mt-3 md:text-4xl">{label}</p>
+      <p className="mx-auto mt-1 max-w-2xl text-sm text-white/80 md:mt-2 md:text-base">{info.description}</p>
     </section>
   )
 }
