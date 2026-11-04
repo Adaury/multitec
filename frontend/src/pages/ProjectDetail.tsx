@@ -1311,6 +1311,10 @@ function QuoteTab({ projectId, project }: { projectId: number; project: ProjectD
   // Desde el Inicio se llega con ?cotizacion=<id>: esa cotización se abre sola.
   const [searchParams] = useSearchParams()
   const [expandedId, setExpandedId] = useState<number | null>(() => Number(searchParams.get('cotizacion')) || null)
+  // ...y con &editar=1 (el «Editar» del visor en Cotizaciones) se abre directo para editar.
+  const [autoEditId, setAutoEditId] = useState<number | null>(() =>
+    searchParams.get('editar') ? Number(searchParams.get('cotizacion')) || null : null,
+  )
 
   const createQuote = useMutation({
     mutationFn: async () => (await api.post(`/projects/${projectId}/quotes`, { notes, items })).data,
@@ -1356,6 +1360,12 @@ function QuoteTab({ projectId, project }: { projectId: number; project: ProjectD
             projectId={projectId}
             project={project}
             products={products ?? []}
+            autoEdit={autoEditId === quote.id}
+            onAutoEditDone={() => setAutoEditId(null)}
+            onOpenForEdit={(id) => {
+              setExpandedId(id)
+              setAutoEditId(id)
+            }}
           />
         ))}
         {quotes?.length === 0 && <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay cotizaciones.</p>}
@@ -1421,6 +1431,9 @@ function QuoteCard({
   projectId,
   project,
   products,
+  autoEdit = false,
+  onAutoEditDone,
+  onOpenForEdit,
 }: {
   quote: Quote
   expanded: boolean
@@ -1428,12 +1441,17 @@ function QuoteCard({
   projectId: number
   project: ProjectDetailType
   products: Product[]
+  /** Abrirla directamente para editar (al llegar con &editar=1 o al crear una copia para editar). */
+  autoEdit?: boolean
+  onAutoEditDone?: () => void
+  /** Abre otra cotización de la lista ya en modo edición (la copia nueva de una aprobada o rechazada). */
+  onOpenForEdit?: (quoteId: number) => void
 }) {
   const queryClient = useQueryClient()
   const role = useAuthStore((s) => s.user?.role)
   const isAdmin = role === 'admin'
   const [reason, setReason] = useState('')
-  type Section = 'partidas' | 'rechazo' | 'precios' | 'compras' | 'historial'
+  type Section = 'partidas' | 'rechazo' | 'precios' | 'compras' | 'historial' | 'editar'
   const [section, setSection] = useState<Section | null>(null)
   const toggleSection = (next: Section) => setSection((current) => (current === next ? null : next))
   const [isEditing, setIsEditing] = useState(false)
@@ -1502,6 +1520,31 @@ function QuoteCard({
     setIsEditing(true)
   }
 
+  // Una aprobada o rechazada no se modifica (el cliente ya la vio y la aprobada generó compras): se edita una
+  // copia nueva pendiente. Una archivada se reactiva y se edita ella misma.
+  const newVersion = useMutation({
+    mutationFn: async () => (await api.post<Quote>(`/quotes/${quote.id}/new-version`)).data,
+    onSuccess: (copy) => {
+      setSection(null)
+      queryClient.invalidateQueries({ queryKey: ['quotes', projectId] })
+      onOpenForEdit?.(copy.id)
+    },
+  })
+
+  function handleEdit() {
+    if (quote.status === 'pendiente') startEditing()
+    else if (quote.status === 'archivada') reactivate.mutate(undefined, { onSuccess: () => startEditing() })
+    else setSection('editar')
+  }
+
+  useEffect(() => {
+    if (autoEdit && expanded) {
+      handleEdit()
+      onAutoEditDone?.()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoEdit, expanded])
+
   return (
     <Card>
       <button className="w-full text-left" onClick={onToggle}>
@@ -1555,9 +1598,15 @@ function QuoteCard({
           <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8" role="toolbar" aria-label={`Acciones de ${quote.code}`}>
             <QuoteAction icon={Eye} label="Ver" onClick={() => setViewer(true)} />
             <QuoteAction icon={Send} label="Enviar" onClick={() => setViewer(true)} />
+            <QuoteAction
+              icon={Pencil}
+              label="Editar"
+              active={section === 'editar'}
+              onClick={handleEdit}
+              disabled={reactivate.isPending || newVersion.isPending}
+            />
             {quote.status === 'pendiente' && (
               <>
-                <QuoteAction icon={Pencil} label="Editar" onClick={startEditing} />
                 <QuoteAction icon={CircleCheck} label="Aprobar" tone="green" onClick={() => approve.mutate()} disabled={approve.isPending} />
                 <QuoteAction icon={CircleX} label="Rechazar" tone="red" active={section === 'rechazo'} onClick={() => toggleSection('rechazo')} />
               </>
@@ -1618,6 +1667,19 @@ function QuoteCard({
             </div>
           )}
 
+          {section === 'editar' && (
+            <div className="space-y-2 rounded-xl bg-amber-50 p-3 text-sm dark:bg-amber-900/20">
+              <p className="text-amber-800 dark:text-amber-300">
+                Esta cotización ya está {quote.status === 'aprobada' ? 'aprobada' : 'rechazada'}, así que no se cambia: se
+                crea una copia nueva pendiente con las mismas partidas para que la edites. La original queda igual.
+              </p>
+              {newVersion.isError && <p className="text-red-600 dark:text-red-400">No se pudo crear la copia.</p>}
+              <Button onClick={() => newVersion.mutate()} disabled={newVersion.isPending}>
+                {newVersion.isPending ? 'Creando…' : 'Crear copia y editar'}
+              </Button>
+            </div>
+          )}
+
           {section === 'precios' && <QuotePricing quote={quote} projectId={projectId} />}
 
           {section === 'compras' && (
@@ -1663,14 +1725,10 @@ function QuoteCard({
               projectId={projectId}
               publicToken={project.public_token}
               onClose={() => setViewer(false)}
-              onEdit={
-                quote.status === 'pendiente'
-                  ? () => {
-                      setViewer(false)
-                      startEditing()
-                    }
-                  : undefined
-              }
+              onEdit={() => {
+                setViewer(false)
+                handleEdit()
+              }}
             />
           )}
         </div>
@@ -2638,7 +2696,9 @@ function TicketsTab({ projectId }: { projectId: number }) {
   const [showForm, setShowForm] = useState(false)
   const [problem, setProblem] = useState('')
   const [technicianId, setTechnicianId] = useState<number | ''>('')
-  const [expandedId, setExpandedId] = useState<number | null>(null)
+  // Desde la lista de Tickets se llega con ?ticket=<id>: ese ticket se abre solo.
+  const [searchParams] = useSearchParams()
+  const [expandedId, setExpandedId] = useState<number | null>(() => Number(searchParams.get('ticket')) || null)
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: ['tickets', projectId] })

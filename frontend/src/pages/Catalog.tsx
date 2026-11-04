@@ -1,4 +1,19 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import {
+  BatteryCharging,
+  Cable,
+  Cctv,
+  HardDrive,
+  KeyRound,
+  Monitor,
+  Network,
+  Package,
+  Router,
+  Siren,
+  Wrench,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '../lib/api'
@@ -14,7 +29,8 @@ import type {
   TechnicalRule,
   TechnicalRuleActionType,
 } from '../lib/types'
-import { Badge, Button, Card, Field, Input, SegmentedTabs, Textarea } from '../components/ui'
+import { Badge, Button, Card, Field, Input, Modal, SegmentedTabs, Textarea } from '../components/ui'
+import { EmptyState, FilterChips, SearchBox, normalize } from '../components/ListTools'
 import { Categorias } from './Categorias'
 import { CatalogImport } from '../components/CatalogImport'
 import { BulkPriceEditor } from '../components/BulkPriceEditor'
@@ -294,6 +310,32 @@ function ProductFormFields({
   )
 }
 
+const ALL = '__todo__'
+
+function familyOf(product: Product): string {
+  return (product.category_path ?? product.category_name ?? 'Sin categoría').split('›')[0].trim()
+}
+
+// Ícono y color de la ficha según de qué es el producto (por nombre, categoría y etiquetas).
+const VISUALS: { match: RegExp; icon: LucideIcon; tone: string }[] = [
+  { match: /c[aá]mara|cctv|bullet|domo|ptz/, icon: Cctv, tone: 'from-blue-500 to-indigo-600' },
+  { match: /nvr|dvr|grabador|disco|hdd/, icon: HardDrive, tone: 'from-slate-500 to-slate-700' },
+  { match: /switch|poe|router|red(es)?\b/, icon: Network, tone: 'from-cyan-500 to-teal-600' },
+  { match: /wifi|antena|access point|inal[aá]mbric/, icon: Router, tone: 'from-sky-500 to-blue-600' },
+  { match: /cable|utp|coaxial|fibra|conector/, icon: Cable, tone: 'from-amber-500 to-orange-600' },
+  { match: /alarma|sirena|sensor|panel/, icon: Siren, tone: 'from-rose-500 to-red-600' },
+  { match: /acceso|cerradura|lector|biom[eé]tric|huella/, icon: KeyRound, tone: 'from-violet-500 to-purple-600' },
+  { match: /monitor|pantalla|tv/, icon: Monitor, tone: 'from-gray-500 to-gray-700' },
+  { match: /ups|bater[ií]a|inversor/, icon: BatteryCharging, tone: 'from-lime-500 to-green-600' },
+  { match: /fuente|transformador|el[eé]ctric|breaker/, icon: Zap, tone: 'from-yellow-500 to-amber-600' },
+  { match: /instalaci[oó]n|servicio|mano de obra|configuraci[oó]n|mantenimiento/, icon: Wrench, tone: 'from-emerald-500 to-teal-600' },
+]
+
+function productVisual(product: Product): { icon: LucideIcon; tone: string } {
+  const text = normalize([product.name, product.category_path, product.category_name, ...product.tags].join(' '))
+  return VISUALS.find((v) => v.match.test(text)) ?? { icon: Package, tone: 'from-brand-blue to-blue-700' }
+}
+
 function CatalogProducts() {
   const queryClient = useQueryClient()
   const [showForm, setShowForm] = useState(false)
@@ -314,6 +356,27 @@ function CatalogProducts() {
   })
   const categoryOptions = categories ? flattenCategories(categories) : []
 
+  const [search, setSearch] = useState('')
+  const [family, setFamily] = useState<string>(ALL)
+  // Familias = primer nivel de la categoría («CCTV › Cámaras IP» → «CCTV»), con cuántos productos tiene cada una.
+  const families = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const product of products ?? []) {
+      const name = familyOf(product)
+      counts.set(name, (counts.get(name) ?? 0) + 1)
+    }
+    return [...counts.entries()].sort((a, b) => a[0].localeCompare(b[0])).map(([key, count]) => ({ key, label: key, count }))
+  }, [products])
+  const query = normalize(search.trim())
+  const visible = (products ?? []).filter(
+    (product) =>
+      (family === ALL || familyOf(product) === family) &&
+      (!query ||
+        [product.name, product.code, product.brand, product.model, product.category_path, ...product.tags].some((field) =>
+          normalize(field).includes(query),
+        )),
+  )
+
   const createProduct = useMutation({
     mutationFn: async (payload: ProductForm) => (await api.post('/catalog', productFormPayload(payload))).data,
     onSuccess: () => {
@@ -325,9 +388,9 @@ function CatalogProducts() {
 
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Productos</h2>
-        <div className="flex gap-2">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <SearchBox value={search} onChange={setSearch} placeholder="Buscar producto, marca, código…" label="Buscar en el catálogo" />
+        <div className="flex shrink-0 flex-wrap gap-2">
           {isAdmin && (
             <button
               onClick={() => setShowPrices(true)}
@@ -356,7 +419,7 @@ function CatalogProducts() {
       <BulkPriceEditor open={showPrices} onClose={() => setShowPrices(false)} products={products ?? []} />
 
       {showForm && (
-        <Card className="md:max-w-2xl">
+        <Card className="md:mx-auto md:max-w-2xl">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -372,10 +435,20 @@ function CatalogProducts() {
         </Card>
       )}
 
+      {families.length > 1 && (
+        <FilterChips<string>
+          value={family}
+          onChange={setFamily}
+          label="Filtrar por categoría"
+          options={[{ key: ALL, label: 'Todo', count: products?.length ?? 0 }, ...families]}
+        />
+      )}
+
       {isLoading && <p className="text-sm text-gray-500">Cargando…</p>}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {products?.map((product) => (
+      {/* Vitrina: una ficha por producto con su ícono, precio y existencia; al tocarla se abre su ficha completa. */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4 xl:grid-cols-4">
+        {visible.map((product) => (
           <ProductCard
             key={product.id}
             product={product}
@@ -384,7 +457,10 @@ function CatalogProducts() {
             categoryOptions={categoryOptions}
           />
         ))}
-        {products?.length === 0 && <p className="text-sm text-gray-500">Aún no hay productos en el catálogo.</p>}
+        {products?.length === 0 && <EmptyState icon={Package}>Aún no hay productos en el catálogo.</EmptyState>}
+        {products && products.length > 0 && visible.length === 0 && (
+          <EmptyState icon={Package}>Ningún producto coincide con la búsqueda.</EmptyState>
+        )}
       </div>
     </div>
   )
@@ -475,44 +551,62 @@ function ProductCard({
     setIsEditing(true)
   }
 
+  const visual = productVisual(product)
+  const Icon = visual.icon
+  const inStock = product.stock_quantity > 0
+
   return (
-    <Card>
-      <button className="w-full text-left" onClick={onToggle}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium text-gray-900 dark:text-gray-100">{product.name}</p>
-            <p className="text-xs text-gray-400">
-              {product.code} · {product.category_path ?? product.category_name ?? 'Sin categoría'}
-              {product.brand && ` · ${product.brand}`}
-              {product.model && ` ${product.model}`}
-            </p>
-            {product.tags.length > 0 && (
-              <div className="mt-1 flex flex-wrap gap-1">
-                {product.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded-full bg-brand-gray px-2 py-0.5 text-[10px] text-gray-500 dark:bg-gray-800 dark:text-gray-400"
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="shrink-0 space-y-1 text-right [&>span]:inline-block [&>span]:whitespace-nowrap">
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+    <>
+      <button
+        type="button"
+        onClick={onToggle}
+        className="group flex flex-col overflow-hidden rounded-3xl bg-white text-left shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] dark:bg-gray-900 dark:ring-white/10"
+      >
+        <div className={`relative flex h-24 items-center justify-center bg-gradient-to-br md:h-32 ${visual.tone}`}>
+          <Icon className="h-12 w-12 text-white/90 transition group-hover:scale-110 md:h-16 md:w-16" strokeWidth={1.5} aria-hidden="true" />
+          <span
+            className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold md:text-xs ${
+              inStock ? 'bg-white text-emerald-700' : 'bg-black/25 text-white'
+            }`}
+          >
+            {inStock ? `${product.stock_quantity.toLocaleString('es-DO')} ${product.unit} en bodega` : 'Sin existencia'}
+          </span>
+        </div>
+        <div className="flex flex-1 flex-col gap-1 p-3 md:p-4">
+          <p className="text-[0.65rem] font-medium uppercase tracking-wide text-gray-400 md:text-xs">
+            {product.category_name ?? 'Sin categoría'}
+          </p>
+          <p className="line-clamp-2 text-sm font-semibold leading-snug text-gray-900 md:text-base dark:text-gray-100">{product.name}</p>
+          <p className="truncate text-xs text-gray-400">
+            {product.code}
+            {product.brand && ` · ${product.brand}`}
+            {product.model && ` ${product.model}`}
+          </p>
+          <div className="mt-auto flex flex-wrap items-center gap-1 pt-2">
+            <p className="text-base font-bold text-gray-900 md:text-lg dark:text-gray-100">
               RD$ {product.price.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
             </p>
-            {product.price_estimated && <Badge tone="amber">Precio estimado</Badge>}
-            <Badge tone={product.stock_quantity > 0 ? 'green' : 'gray'}>
-              {product.stock_quantity.toLocaleString('es-DO')} {product.unit} en bodega
-            </Badge>
+            {product.price_estimated && <Badge tone="amber">Estimado</Badge>}
           </div>
         </div>
       </button>
 
-      {expanded && isEditing && (
-        <div className="mt-3 space-y-3 border-t border-gray-100 pt-3 dark:border-gray-800">
+      <Modal open={expanded} onClose={onToggle} title={product.name} wide>
+      <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+        <span>{product.code}</span>
+        <span>· {product.category_path ?? product.category_name ?? 'Sin categoría'}</span>
+        <Badge tone={inStock ? 'green' : 'gray'}>
+          {product.stock_quantity.toLocaleString('es-DO')} {product.unit} en bodega
+        </Badge>
+        {product.tags.map((tag) => (
+          <span key={tag} className="rounded-full bg-brand-gray px-2 py-0.5 text-[10px] dark:bg-gray-800">
+            {tag}
+          </span>
+        ))}
+      </div>
+
+      {isEditing && (
+        <div className="space-y-3">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -542,8 +636,8 @@ function ProductCard({
         </div>
       )}
 
-      {expanded && !isEditing && (
-        <div className="mt-3 space-y-4 border-t border-gray-100 pt-3 dark:border-gray-800">
+      {!isEditing && (
+        <div className="space-y-4">
           <Button variant="secondary" className="!w-auto px-4" type="button" onClick={startEditing}>
             Editar producto
           </Button>
@@ -631,7 +725,8 @@ function ProductCard({
           <RelationsEditor productId={product.id} />
         </div>
       )}
-    </Card>
+      </Modal>
+    </>
   )
 }
 
@@ -1235,7 +1330,7 @@ export function Catalog() {
 
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Catálogo</h1>
+      <h1 className="text-xl font-semibold text-gray-900 md:sr-only dark:text-gray-100">Catálogo</h1>
       {isAdmin && (
         <SegmentedTabs<CatalogView>
           value={view}

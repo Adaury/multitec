@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CalendarDays, ChevronLeft, ChevronRight, MapPinned } from 'lucide-react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { api, apiErrorMessage } from '../lib/api'
@@ -11,9 +12,17 @@ import { VISIT_STATUS_LABELS } from '../lib/types'
 import { localISODate } from '../lib/format'
 import { NavigateMenu } from '../components/NavigateMenu'
 import { Badge, Button, Card, Field, Input, Textarea } from '../components/ui'
+import { EmptyState } from '../components/ListTools'
 
 function todayISO() {
   return localISODate()
+}
+
+/** Lunes a domingo de la semana del día dado. */
+function weekOf(iso: string): string[] {
+  const d = new Date(iso + 'T00:00:00')
+  const monday = addDays(iso, -((d.getDay() + 6) % 7))
+  return Array.from({ length: 7 }, (_, i) => addDays(monday, i))
 }
 
 function addDays(iso: string, days: number) {
@@ -50,6 +59,18 @@ export function Calendario() {
   })
 
   const visits = onlyMine ? allVisits?.filter((v) => v.technician_id === user?.id) : allVisits
+
+  // La semana a la vista, con un punto en los días que tienen visitas.
+  const week = weekOf(selectedDate)
+  const { data: weekVisits } = useQuery({
+    queryKey: ['visits', 'semana', week[0]],
+    queryFn: async () => (await api.get<Visit[]>('/visits', { params: { start: week[0], end: week[6] } })).data,
+  })
+  const weekCounts = new Map<string, number>()
+  for (const v of weekVisits ?? []) {
+    if (onlyMine && v.technician_id !== user?.id) continue
+    weekCounts.set(v.scheduled_date, (weekCounts.get(v.scheduled_date) ?? 0) + 1)
+  }
 
   const { data: projects } = useQuery({
     queryKey: ['projects'],
@@ -109,8 +130,8 @@ export function Calendario() {
 
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Calendario de visitas</h1>
+      <div className="flex items-center justify-between md:justify-end">
+        <h1 className="text-xl font-semibold text-gray-900 md:sr-only dark:text-gray-100">Calendario de visitas</h1>
         <button
           onClick={() => {
             setForm(emptyForm(selectedDate))
@@ -122,40 +143,102 @@ export function Calendario() {
         </button>
       </div>
 
-      <div className="flex items-center gap-2 md:max-w-sm">
-        <button
-          onClick={() => setSelectedDate(addDays(selectedDate, -1))}
-          className="rounded-full bg-brand-gray px-3 py-2 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-        >
-          ←
-        </button>
-        <input
-          type="date"
-          value={selectedDate}
-          onChange={(e) => setSelectedDate(e.target.value)}
-          className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-2 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
-        />
-        <button
-          onClick={() => setSelectedDate(addDays(selectedDate, 1))}
-          className="rounded-full bg-brand-gray px-3 py-2 text-sm text-gray-600 dark:bg-gray-800 dark:text-gray-300"
-        >
-          →
-        </button>
-      </div>
+      {/* Selector del día: grande y centrado, con la semana a la vista y cuántas visitas tiene cada día. */}
+      <Card className="mx-auto w-full max-w-4xl space-y-4 md:p-6">
+        <div className="flex items-center gap-2 md:gap-4">
+          <button
+            onClick={() => setSelectedDate(addDays(selectedDate, -1))}
+            aria-label="Día anterior"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-gray text-gray-700 hover:bg-gray-200 md:h-12 md:w-12 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            <ChevronLeft className="h-6 w-6" aria-hidden="true" />
+          </button>
+          <div className="min-w-0 flex-1 text-center">
+            <p className="text-base font-bold leading-tight text-gray-900 first-letter:uppercase sm:text-lg md:text-2xl dark:text-gray-100">{longDate(selectedDate)}</p>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {[
+                selectedDate === todayISO() ? 'Hoy' : null,
+                selectedDate.slice(0, 4) !== todayISO().slice(0, 4) ? selectedDate.slice(0, 4) : null,
+                visits ? `${visits.length} ${visits.length === 1 ? 'visita' : 'visitas'}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </p>
+          </div>
+          <button
+            onClick={() => setSelectedDate(addDays(selectedDate, 1))}
+            aria-label="Día siguiente"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-gray text-gray-700 hover:bg-gray-200 md:h-12 md:w-12 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+          >
+            <ChevronRight className="h-6 w-6" aria-hidden="true" />
+          </button>
+        </div>
 
-      <button
-        onClick={() => setOnlyMine((v) => !v)}
-        className={`rounded-full px-4 py-2 text-sm font-medium ${
-          onlyMine
-            ? 'bg-brand-blue text-white'
-            : 'bg-brand-gray text-gray-700 dark:bg-gray-800 dark:text-gray-300'
-        }`}
-      >
-        {onlyMine ? '✓ Solo mis visitas' : 'Solo mis visitas'}
-      </button>
+        <div className="grid grid-cols-7 gap-1 md:gap-2">
+          {week.map((day) => {
+            const d = new Date(`${day}T12:00:00`)
+            const selected = day === selectedDate
+            const count = weekCounts.get(day) ?? 0
+            return (
+              <button
+                key={day}
+                onClick={() => setSelectedDate(day)}
+                aria-pressed={selected}
+                aria-label={`${longDate(day)}${count ? `, ${count} visitas` : ''}`}
+                className={`flex flex-col items-center gap-0.5 rounded-2xl py-2 transition md:py-3 ${
+                  selected
+                    ? 'bg-brand-blue text-white shadow-sm'
+                    : day === todayISO()
+                      ? 'bg-blue-50 text-brand-blue dark:bg-blue-950 dark:text-blue-300'
+                      : 'text-gray-600 hover:bg-brand-gray dark:text-gray-300 dark:hover:bg-gray-800'
+                }`}
+              >
+                <span className="text-[0.7rem] font-medium uppercase md:text-xs">
+                  {d.toLocaleDateString('es-DO', { weekday: 'short' }).replace('.', '')}
+                </span>
+                <span className="text-lg font-bold md:text-2xl">{d.getDate()}</span>
+                <span
+                  className={`h-1.5 w-1.5 rounded-full ${count ? (selected ? 'bg-white' : 'bg-brand-blue') : 'bg-transparent'}`}
+                  aria-hidden="true"
+                />
+              </button>
+            )
+          })}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-center gap-2">
+          <button
+            onClick={() => setSelectedDate(todayISO())}
+            disabled={selectedDate === todayISO()}
+            className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700 disabled:opacity-50 dark:bg-gray-800 dark:text-gray-300"
+          >
+            Hoy
+          </button>
+          <label className="flex items-center gap-2 rounded-full bg-brand-gray px-4 py-1.5 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+            <CalendarDays className="h-4 w-4" aria-hidden="true" />
+            <span className="sr-only">Ir a la fecha</span>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => e.target.value && setSelectedDate(e.target.value)}
+              className="bg-transparent text-sm outline-none"
+            />
+          </label>
+          <button
+            onClick={() => setOnlyMine((v) => !v)}
+            className={`rounded-full px-4 py-2 text-sm font-medium ${
+              onlyMine
+                ? 'bg-brand-blue text-white'
+                : 'bg-brand-gray text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+            }`}
+          >
+            {onlyMine ? '✓ Solo mis visitas' : 'Solo mis visitas'}
+          </button>
+        </div>
+      </Card>
 
       {showForm && (
-        <Card className="md:max-w-2xl">
+        <Card className="mx-auto w-full max-w-4xl">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -164,7 +247,7 @@ export function Calendario() {
               createVisit.mutate()
             }}
           >
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <Field label="Proyecto">
                 <select
                   required
@@ -243,9 +326,10 @@ export function Calendario() {
 
       {isLoading && <p className="text-sm text-gray-500">Cargando…</p>}
 
+      <div className="mx-auto w-full max-w-4xl space-y-4">
       {visits && <RouteCard visits={visits} />}
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
         {visits?.map((visit) => (
           <VisitCard
             key={visit.id}
@@ -255,7 +339,8 @@ export function Calendario() {
             onSaved={invalidate}
           />
         ))}
-        {visits?.length === 0 && <p className="text-sm text-gray-500">No hay visitas agendadas este día.</p>}
+        {visits?.length === 0 && <EmptyState icon={MapPinned}>No hay visitas agendadas este día.</EmptyState>}
+      </div>
       </div>
     </div>
   )

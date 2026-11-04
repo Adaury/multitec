@@ -21,6 +21,18 @@ window.addEventListener('vite:preloadError', () => {
   void clearAppCache().then(() => window.location.reload())
 })
 
+// Versión nueva publicada: el service worker nuevo toma el control de las pestañas abiertas y la página se recarga
+// sola para mostrarla, en vez de seguir con la copia vieja hasta que alguien recargue a mano. La primera instalación
+// (sin service worker previo) no recarga.
+if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+  let reloading = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return
+    reloading = true
+    window.location.reload()
+  })
+}
+
 // iPhone: pide que el navegador no borre el almacenamiento de la app (la cola de levantamientos sin
 // enviar y las fotos) cuando hace falta espacio. Si no lo concede, no pasa nada: es solo un seguro.
 void navigator.storage?.persist?.().catch(() => {})

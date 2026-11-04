@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { CalendarDays, FileSpreadsheet, Receipt, Trash2, Wallet } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
@@ -8,6 +9,7 @@ import type { PurchaseInvoice, Supplier } from '../lib/types'
 import { formatDOP, localISODate } from '../lib/format'
 import { Button, Card, Field, Input, SegmentedTabs, Textarea } from '../components/ui'
 import { Proveedores } from './Proveedores'
+import { EmptyState, SearchBox, StatTile, normalize } from '../components/ListTools'
 
 const SELECT_CLASS =
   'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100'
@@ -144,48 +146,40 @@ function PurchaseInvoicesList() {
   const set = (patch: Partial<PurchaseForm>) => setForm({ ...form, ...patch })
   const total = (i: PurchaseInvoice) => Number(i.services_amount) + Number(i.goods_amount)
 
+  const [search, setSearch] = useState('')
+  const query = normalize(search.trim())
+  const visible = (invoices ?? []).filter(
+    (i) => !query || [i.supplier_name, i.ncf, i.notes].some((field) => normalize(field).includes(query)),
+  )
+  // Resumen del mes en curso (por fecha del comprobante).
+  const monthKey = localISODate().slice(0, 7)
+  const thisMonth = (invoices ?? []).filter((i) => i.invoice_date.startsWith(monthKey))
+  const monthTotal = thisMonth.reduce((sum, i) => sum + total(i), 0)
+  const monthItbis = thisMonth.reduce((sum, i) => sum + Number(i.itbis_invoiced), 0)
+
   return (
     <div className="space-y-4 md:space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Facturas de compra</h2>
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <SearchBox value={search} onChange={setSearch} placeholder="Buscar por proveedor o NCF…" label="Buscar factura de compra" />
         <button
           onClick={() => setShowForm((v) => !v)}
-          className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
+          className="shrink-0 self-end rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white md:self-auto"
         >
           {showForm ? 'Cancelar' : '+ Factura de compra'}
         </button>
       </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        Facturas de proveedores con su NCF e ITBIS — son la base del reporte 606 (Compras) de la DGII.
-      </p>
 
-      <Card className="space-y-3 md:max-w-xl">
-        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Reporte 606 (Compras) para la DGII</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Exporta las facturas del mes seleccionado (por fecha del comprobante). Proporcionalidad, ITBIS al costo,
-          percepciones, ISC, otros impuestos y propina salen vacíos, y el ITBIS facturado se reporta como "por
-          adelantar". <strong>Verifica el archivo contra la plantilla oficial vigente en dgii.gov.do antes de
-          remitirlo.</strong>
-        </p>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Mes">
-            <select className={SELECT_CLASS} value={reportMonth} onChange={(e) => setReportMonth(Number(e.target.value))}>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={m}>
-                  {new Date(2000, m - 1, 1).toLocaleDateString('es-DO', { month: 'long' })}
-                </option>
-              ))}
-            </select>
-          </Field>
-          <Field label="Año">
-            <Input type="number" value={reportYear} onChange={(e) => setReportYear(Number(e.target.value))} />
-          </Field>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
+        <StatTile icon={Receipt} label="Facturas este mes" value={thisMonth.length} tone="bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300" />
+        <StatTile icon={Wallet} label="Comprado este mes" value={formatDOP(monthTotal)} tone="bg-blue-50 text-brand-blue dark:bg-blue-950 dark:text-blue-300" />
+        <div className="col-span-2 md:col-span-1">
+          <StatTile icon={FileSpreadsheet} label="ITBIS facturado este mes" value={formatDOP(monthItbis)} tone="bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300" />
         </div>
-        <DgiiDownloads form="606" year={reportYear} month={reportMonth} />
-      </Card>
+      </div>
+
 
       {showForm && (
-        <Card className="md:max-w-2xl">
+        <Card className="md:mx-auto md:max-w-3xl">
           <form
             className="space-y-3"
             onSubmit={(e) => {
@@ -193,7 +187,7 @@ function PurchaseInvoicesList() {
               createInvoice.mutate()
             }}
           >
-            <div className="grid gap-3 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               <Field label="Proveedor">
                 <select
                   required
@@ -285,37 +279,76 @@ function PurchaseInvoicesList() {
 
       {isLoading && <p className="text-sm text-gray-500 dark:text-gray-400">Cargando…</p>}
 
-      <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {invoices?.map((invoice) => (
-          <Card key={invoice.id} className="space-y-1">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="font-medium text-gray-900 dark:text-gray-100">{invoice.supplier_name}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
-                  {invoice.ncf} · {invoice.invoice_date}
-                </p>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 md:gap-4 lg:col-span-2">
+          {visible.map((invoice) => (
+            <div
+              key={invoice.id}
+              className="flex flex-col gap-3 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10"
+            >
+              <div className="flex items-start gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal-50 text-teal-700 dark:bg-teal-950 dark:text-teal-300">
+                  <Receipt className="h-6 w-6" aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-gray-900 dark:text-gray-100">{invoice.supplier_name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{invoice.ncf}</p>
+                </div>
+                {isAdmin && (
+                  <button
+                    aria-label="Eliminar"
+                    title="Eliminar"
+                    className="rounded-full p-2 text-gray-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950"
+                    onClick={() => {
+                      if (window.confirm(`¿Eliminar la factura ${invoice.ncf}?`)) deleteInvoice.mutate(invoice.id)
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                )}
               </div>
-              {isAdmin && (
-                <button
-                  className="text-xs text-red-600 dark:text-red-400"
-                  onClick={() => {
-                    if (window.confirm(`¿Eliminar la factura ${invoice.ncf}?`)) deleteInvoice.mutate(invoice.id)
-                  }}
-                >
-                  Eliminar
-                </button>
-              )}
+              <p className="text-xl font-bold text-gray-900 dark:text-gray-100">Total {formatDOP(total(invoice))}</p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                <span className="flex items-center gap-1">
+                  <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                  {new Date(`${invoice.invoice_date}T12:00:00`).toLocaleDateString('es-DO', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </span>
+                <span>ITBIS {formatDOP(Number(invoice.itbis_invoiced))}</span>
+                <span className="rounded-full bg-brand-gray px-2 py-0.5 dark:bg-gray-800">{PAYMENT_TYPES[invoice.payment_type]}</span>
+              </div>
             </div>
-            <p className="text-sm text-gray-700 dark:text-gray-300">
-              Total {formatDOP(total(invoice))} · ITBIS {formatDOP(Number(invoice.itbis_invoiced))}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{PAYMENT_TYPES[invoice.payment_type]}</p>
-          </Card>
-        ))}
+          ))}
+          {invoices?.length === 0 && <EmptyState icon={Receipt}>Aún no hay facturas de compra registradas.</EmptyState>}
+          {invoices && invoices.length > 0 && visible.length === 0 && (
+            <EmptyState icon={Receipt}>Ninguna factura coincide con «{search}».</EmptyState>
+          )}
+        </div>
+
+        <Card className="space-y-3 lg:sticky lg:top-24">
+        <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Reporte 606 (Compras) para la DGII</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">
+          Exporta las facturas del mes seleccionado (por fecha del comprobante). Proporcionalidad, ITBIS al costo,
+          percepciones, ISC, otros impuestos y propina salen vacíos, y el ITBIS facturado se reporta como "por
+          adelantar". <strong>Verifica el archivo contra la plantilla oficial vigente en dgii.gov.do antes de
+          remitirlo.</strong>
+        </p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Mes">
+            <select className={SELECT_CLASS} value={reportMonth} onChange={(e) => setReportMonth(Number(e.target.value))}>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <option key={m} value={m}>
+                  {new Date(2000, m - 1, 1).toLocaleDateString('es-DO', { month: 'long' })}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Año">
+            <Input type="number" value={reportYear} onChange={(e) => setReportYear(Number(e.target.value))} />
+          </Field>
+        </div>
+        <DgiiDownloads form="606" year={reportYear} month={reportMonth} />
+        </Card>
       </div>
-      {invoices?.length === 0 && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">Aún no hay facturas de compra registradas.</p>
-      )}
     </div>
   )
 }
@@ -329,7 +362,7 @@ export function Compras() {
 
   return (
     <div className="space-y-4 py-4 md:space-y-6 md:py-8">
-      <h1 className="text-xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Compras</h1>
+      <h1 className="text-xl font-semibold text-gray-900 md:sr-only dark:text-gray-100">Compras</h1>
       <SegmentedTabs<View>
         value={view}
         onChange={(next) => setParams(next === 'facturas' ? {} : { vista: next }, { replace: true })}

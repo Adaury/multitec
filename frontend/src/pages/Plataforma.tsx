@@ -114,7 +114,7 @@ function CompanyList() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-gray-900 md:text-3xl md:font-bold md:tracking-tight dark:text-gray-100">Plataforma</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 md:sr-only dark:text-gray-100">Plataforma</h1>
           <p className="text-sm text-gray-500">Las empresas que usan Multitec, cada una con sus datos separados.</p>
         </div>
         <div className="flex gap-2">

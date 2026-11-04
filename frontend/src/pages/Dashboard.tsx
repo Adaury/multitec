@@ -147,7 +147,7 @@ function DashboardKpis() {
       </div>
       <div className="mt-3 grid grid-cols-2 gap-3 md:mt-4 md:grid-cols-4 md:gap-4">
         <Kpi icon={FileText} tone="amber" label="Cotizaciones pendientes" value={String(data.quotes_pending)} to="/cotizaciones" />
-        <Kpi icon={Wrench} tone="red" label="Tickets abiertos" value={String(data.open_tickets_total)} />
+        <Kpi icon={Wrench} tone="red" label="Tickets abiertos" value={String(data.open_tickets_total)} to="/tickets" />
         <Kpi icon={FolderOpen} tone="blue" label="Proyectos activos" value={String(activeProjects)} to="/proyectos" className="hidden md:flex" />
         <Kpi icon={Wallet} tone="green" label="Facturación del mes" value={formatDOP(currentMonthInvoicing)} className="hidden md:flex" />
       </div>

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.security import require_role
@@ -10,7 +11,15 @@ from app.db.session import get_db
 from app.models.project import Project
 from app.models.ticket import TICKET_STATUSES, Ticket, TicketAsset, TicketHistory
 from app.models.user import User
-from app.schemas.ticket import TicketAssetOut, TicketCreate, TicketHistoryOut, TicketOut, TicketUpdate
+from app.schemas.ticket import (
+    TicketAssetOut,
+    TicketCreate,
+    TicketHistoryOut,
+    TicketListItemOut,
+    TicketOut,
+    TicketUpdate,
+)
+from app.services.access import project_scope
 from app.services.code_generator import next_code
 from app.services.notifications import notify_ticket_assigned
 from app.services.uploads import company_dir, enforce_matches_declared_type, read_upload, stored_extension
@@ -32,6 +41,39 @@ def _get_ticket(db: Session, ticket_id: int) -> Ticket:
 def _check_technician_exists(db: Session, technician_id: int | None) -> None:
     if technician_id is not None and db.get(User, technician_id) is None:
         raise HTTPException(status_code=404, detail="Técnico no encontrado")
+
+
+OPEN_STATUSES = ("abierto", "en_proceso")
+
+
+@router.get("/api/tickets", response_model=list[TicketListItemOut])
+def list_all_tickets(
+    open_only: bool = True, db: Session = Depends(get_db), current_user: User = Depends(allowed_roles)
+):
+    """Todos los tickets de la empresa (por defecto solo los abiertos o en proceso), los más recientes primero."""
+    query = db.query(Ticket).options(
+        joinedload(Ticket.assets),
+        joinedload(Ticket.project).joinedload(Project.client),
+        joinedload(Ticket.technician),
+    )
+    if open_only:
+        query = query.filter(Ticket.status.in_(OPEN_STATUSES))
+    # Un técnico ve solo los tickets de sus proyectos o los que tiene asignados.
+    scope = project_scope(current_user)
+    if scope is not None:
+        query = query.filter(
+            or_(Ticket.technician_id == current_user.id, Ticket.project_id.in_(select(Project.id).where(scope)))
+        )
+    tickets = query.order_by(Ticket.created_at.desc()).limit(500).all()
+    return [
+        TicketListItemOut(
+            **TicketOut.model_validate(ticket).model_dump(),
+            project_code=ticket.project.code,
+            client_name=ticket.project.client.name,
+            technician_name=ticket.technician.name if ticket.technician else None,
+        )
+        for ticket in tickets
+    ]
 
 
 @router.get("/api/projects/{project_id}/tickets", response_model=list[TicketOut])

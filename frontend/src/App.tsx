@@ -27,6 +27,8 @@ const loaders = {
   Empresa: () => import('./pages/Empresa'),
   AIFeedbackEvents: () => import('./pages/AIFeedbackEvents'),
   Calendario: () => import('./pages/Calendario'),
+  Tickets: () => import('./pages/Tickets'),
+  Administracion: () => import('./pages/Administracion'),
   PortalCliente: () => import('./pages/PortalCliente'),
   Compras: () => import('./pages/Compras'),
   Seguimiento: () => import('./pages/Seguimiento'),
@@ -52,6 +54,8 @@ const Users = lazyPage(loaders.Users, 'Users')
 const Ncf = lazyPage(loaders.Ncf, 'Ncf')
 const AIFeedbackEvents = lazyPage(loaders.AIFeedbackEvents, 'AIFeedbackEvents')
 const Calendario = lazyPage(loaders.Calendario, 'Calendario')
+const Tickets = lazyPage(loaders.Tickets, 'Tickets')
+const Administracion = lazyPage(loaders.Administracion, 'Administracion')
 const PortalCliente = lazyPage(loaders.PortalCliente, 'PortalCliente')
 const Compras = lazyPage(loaders.Compras, 'Compras')
 const Auditoria = lazyPage(loaders.Auditoria, 'Auditoria')
@@ -106,6 +110,7 @@ function App() {
           <Route path="/ayuda" element={<Ayuda />} />
           <Route path="/nuevo" element={<QuickSurvey />} />
           <Route path="/calendario" element={<Calendario />} />
+          <Route path="/tickets" element={<Tickets />} />
           {/* Dinero y compras: el técnico no tiene acceso (ver README → Roles y permisos). */}
           <Route element={<RoleRoute roles={['admin', 'oficina']} />}>
             <Route path="/catalogo" element={<Catalog />} />
@@ -118,6 +123,7 @@ function App() {
             <Route path="/proveedores" element={<Navigate to="/compras?vista=proveedores" replace />} />
           </Route>
           <Route element={<RoleRoute roles={['admin']} />}>
+            <Route path="/administracion" element={<Administracion />} />
             <Route path="/usuarios" element={<Users />} />
             <Route path="/ncf" element={<Ncf />} />
             <Route path="/empresa" element={<Empresa />} />

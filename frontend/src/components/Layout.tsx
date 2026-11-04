@@ -2,7 +2,6 @@ import { Suspense, useEffect, useState } from 'react'
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   Bot,
-  Building2,
   CalendarDays,
   CircleHelp,
   CircleUser,
@@ -10,7 +9,6 @@ import {
   FileText,
   FolderOpen,
   Globe,
-  Hash,
   House,
   LogOut,
   Menu,
@@ -18,11 +16,9 @@ import {
   PhoneCall,
   Plus,
   Settings,
-  ShieldCheck,
   ShoppingCart,
-  SlidersHorizontal,
   Users,
-  type LucideIcon,
+  Wrench,
 } from 'lucide-react'
 import { api, logout } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
@@ -34,14 +30,10 @@ import { GenerationBanner } from './GenerationBanner'
 import { SystemStatus } from './SystemStatus'
 import { PageLoader } from './PageLoader'
 import { ThemeToggle } from './ThemeToggle'
+import { PageBanner } from './PageBanner'
+import { ADMIN_ITEMS, ADMIN_PATHS, type NavItem } from './navItems'
 import { safeStorage } from '../lib/safeStorage'
 
-interface NavItem {
-  to: string
-  label: string
-  icon: LucideIcon
-  end?: boolean
-}
 
 // El técnico no tiene acceso a dinero ni compras (README → Roles y permisos): no se le ofrecen
 // secciones que el servidor le rechazaría con 403.
@@ -50,6 +42,7 @@ const sidebarBaseItems: NavItem[] = [
   { to: '/clientes', label: 'Clientes', icon: Users },
   { to: '/proyectos', label: 'Proyectos', icon: FolderOpen },
   { to: '/calendario', label: 'Calendario', icon: CalendarDays },
+  { to: '/tickets', label: 'Tickets', icon: Wrench },
   { to: '/preguntar', label: 'Preguntar IA', icon: Bot },
 ]
 
@@ -61,13 +54,8 @@ const staffSidebarItems: NavItem[] = [
   { to: '/hoja-de-tiempo', label: 'Hoja de tiempo', icon: Clock },
 ]
 
-const adminSidebarItems: NavItem[] = [
-  { to: '/usuarios', label: 'Usuarios', icon: Settings },
-  { to: '/ncf', label: 'NCF', icon: Hash },
-  { to: '/empresa', label: 'Mi empresa', icon: Building2 },
-  { to: '/auditoria', label: 'Auditoría', icon: ShieldCheck },
-  { to: '/aprendizaje-ia', label: 'Ajustes de IA', icon: SlidersHorizontal },
-]
+// Las secciones de configuración van juntas en una sola entrada: así el menú cabe completo en la pantalla.
+const adminSidebarItems: NavItem[] = [{ to: '/administracion', label: 'Administración', icon: Settings }]
 
 const platformSidebarItems: NavItem[] = [{ to: '/plataforma', label: 'Plataforma', icon: Globe }]
 
@@ -195,12 +183,17 @@ export function Layout() {
   ]
 
   const expanded = menuPinned || menuHover
+  // Pantalla del menú en la que se está (solo la principal, no el detalle de un cliente o proyecto).
+  const path = location.pathname.replace(/\/$/, '')
+  const currentItem = [...sidebarItems, ...(isAdmin ? ADMIN_ITEMS : [])].find((item) => item.to !== '/' && item.to === path)
+  // «Administración» queda marcada también dentro de cada una de sus secciones.
+  const inAdmin = ADMIN_PATHS.has(path)
 
   return (
     <div className="min-h-dvh bg-brand-bg md:flex dark:bg-gray-950">
       {/* Reserva el ancho en el flujo: abierto por el mouse la barra se superpone al contenido y no lo
           empuja (sin saltos); fijada, el contenido se acomoda a su ancho. */}
-      <div className={`hidden md:block md:shrink-0 ${menuPinned ? 'md:w-64' : 'md:w-[4.5rem]'}`} />
+      <div className={`hidden md:block md:shrink-0 ${menuPinned ? 'md:w-64' : 'md:w-[5.5rem]'}`} />
       <aside
         onMouseEnter={() => setMenuHover(true)}
         onMouseLeave={() => setMenuHover(false)}
@@ -209,10 +202,10 @@ export function Layout() {
           if (!e.currentTarget.contains(e.relatedTarget)) setMenuHover(false)
         }}
         className={`hidden transition-[width] duration-200 md:fixed md:inset-y-0 md:left-0 md:z-20 md:flex md:flex-col md:overflow-hidden md:border-r md:border-gray-200 md:bg-white dark:md:border-gray-800 dark:md:bg-gray-900 ${
-          expanded ? 'md:w-64' : 'md:w-[4.5rem]'
+          expanded ? 'md:w-64' : 'md:w-[5.5rem]'
         } ${expanded && !menuPinned ? 'md:shadow-2xl' : ''}`}
       >
-        <div className="flex items-center gap-2.5 px-[18px] py-6">
+        <div className={`flex shrink-0 items-center gap-2.5 py-4 ${expanded ? 'px-[18px]' : 'justify-center'}`}>
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-blue text-lg font-bold text-white">
             {companyName.charAt(0).toUpperCase()}
           </span>
@@ -233,30 +226,33 @@ export function Layout() {
             </>
           )}
         </div>
-        <nav className="flex-1 space-y-1 px-3">
+        <nav className={`min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin] ${expanded ? 'px-3' : 'px-2'}`}>
           {sidebarItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
-              title={expanded ? undefined : item.label}
               className={({ isActive }) =>
-                `flex items-center gap-3 whitespace-nowrap rounded-xl px-3 py-2.5 text-sm font-medium transition ${
-                  isActive
+                // Cerrado: cada ícono es un botón con su nombre debajo (como la barra del celular); abierto: fila.
+                `${
+                  expanded
+                    ? 'flex items-center gap-3 whitespace-nowrap px-3 py-2 text-[0.95rem]'
+                    : 'flex flex-col items-center gap-0.5 px-1 py-1.5 text-center text-[0.68rem] leading-tight [@media(max-height:820px)]:py-1 [@media(max-height:820px)]:text-[0.62rem]'
+                } rounded-xl font-medium transition ${
+                  isActive || (item.to === '/administracion' && inAdmin)
                     ? 'bg-blue-50 text-brand-blue dark:bg-blue-950 dark:text-blue-300'
                     : 'text-gray-600 hover:bg-brand-gray dark:text-gray-400 dark:hover:bg-gray-800'
                 }`
               }
             >
               <span className="flex w-6 shrink-0 justify-center" aria-hidden="true">
-                <item.icon className="h-5 w-5" />
+                <item.icon className="h-6 w-6 [@media(max-height:820px)]:h-5 [@media(max-height:820px)]:w-5" />
               </span>
-              {/* Cerrado, el nombre sigue ahí para lectores de pantalla (sr-only) y solo se ve al abrir. */}
-              <span className={expanded ? '' : 'sr-only'}>{item.label}</span>
+              <span>{item.label}</span>
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-gray-100 px-3 py-4 dark:border-gray-800">
+        <div className={expanded ? 'shrink-0 border-t border-gray-100 px-3 py-3 dark:border-gray-800' : 'hidden'}>
           {expanded ? (
             <div className="px-3">
               <div className="mb-3 flex items-center justify-between">
@@ -273,26 +269,7 @@ export function Layout() {
                 Salir
               </button>
             </div>
-          ) : (
-            <div className="flex flex-col items-center gap-2">
-              <NavLink
-                to="/perfil"
-                title={user?.name ?? 'Mi perfil'}
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-gray text-sm font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-200"
-              >
-                <span aria-hidden="true">{(user?.name ?? '?').charAt(0).toUpperCase()}</span>
-                <span className="sr-only">Mi perfil</span>
-              </NavLink>
-              <button
-                onClick={() => logout()}
-                title="Salir"
-                className="flex h-9 w-9 items-center justify-center rounded-full text-lg hover:bg-brand-gray dark:hover:bg-gray-800"
-              >
-                <LogOut className="h-5 w-5" aria-hidden="true" />
-                <span className="sr-only">Salir</span>
-              </button>
-            </div>
-          )}
+          ) : null}
         </div>
       </aside>
 
@@ -319,6 +296,27 @@ export function Layout() {
             >
               Salir
             </button>
+            <NavLink
+              to="/perfil"
+              title={user?.name ?? 'Mi perfil'}
+              className="hidden h-10 items-center gap-2 rounded-full bg-white py-1 pl-1 pr-3 text-sm font-medium text-gray-700 shadow-sm ring-1 ring-black/5 hover:bg-brand-gray md:flex dark:bg-gray-900 dark:text-gray-200 dark:ring-white/10"
+            >
+              <span
+                aria-hidden="true"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-blue text-sm font-semibold text-white"
+              >
+                {(user?.name ?? '?').charAt(0).toUpperCase()}
+              </span>
+              <span className="max-w-[10rem] truncate">{user?.name ?? 'Mi perfil'}</span>
+            </NavLink>
+            <button
+              onClick={() => logout()}
+              title="Salir"
+              aria-label="Salir"
+              className="hidden h-10 w-10 items-center justify-center rounded-full text-gray-500 hover:bg-brand-gray hover:text-gray-700 md:flex dark:hover:bg-gray-800"
+            >
+              <LogOut className="h-5 w-5" aria-hidden="true" />
+            </button>
           </div>
           </div>
         </header>
@@ -328,6 +326,7 @@ export function Layout() {
 
         <main className="flex-1 px-5 md:px-10 md:pb-10">
           <div className="mx-auto w-full max-w-7xl">
+            {currentItem && <PageBanner to={currentItem.to} label={currentItem.label} icon={currentItem.icon} />}
             <Suspense fallback={<PageLoader />}>
               <Outlet />
             </Suspense>

@@ -42,6 +42,14 @@ class TicketOut(BaseModel):
         from_attributes = True
 
 
+class TicketListItemOut(TicketOut):
+    """Ticket en la lista general: lleva el proyecto, el cliente y el técnico para no pedirlos aparte."""
+
+    project_code: str
+    client_name: str
+    technician_name: str | None = None
+
+
 class TicketHistoryOut(BaseModel):
     id: int
     action: str

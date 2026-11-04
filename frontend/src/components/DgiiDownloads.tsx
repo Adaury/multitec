@@ -40,10 +40,10 @@ export function DgiiDownloads({ form, year, month }: { form: Form; year: number;
     <div className="space-y-2">
       <p className="text-xs font-medium text-gray-500 dark:text-gray-400">Reporte {form}</p>
       <div className="grid grid-cols-2 gap-3">
-        <Button variant="secondary" onClick={() => run('csv')}>
+        <Button variant="secondary" className="!px-3 !py-3 !text-sm" onClick={() => run('csv')}>
           Revisar (CSV)
         </Button>
-        <Button variant="secondary" onClick={() => run('txt')}>
+        <Button variant="secondary" className="!px-3 !py-3 !text-sm" onClick={() => run('txt')}>
           Archivo DGII (.txt)
         </Button>
       </div>

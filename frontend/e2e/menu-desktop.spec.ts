@@ -7,7 +7,7 @@ test.use({ viewport: { width: 1440, height: 900 } })
 // El menú mide en rem: en pantallas anchas la letra base crece (index.css) y el menú con ella.
 async function widths(page: import('@playwright/test').Page) {
   const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize))
-  return { closed: `${4.5 * rem}px`, open: `${16 * rem}px` }
+  return { closed: `${5.5 * rem}px`, open: `${16 * rem}px` }
 }
 
 test('the desktop menu shrinks to icons, opens on hover and can be pinned open', async ({ page }) => {
@@ -16,9 +16,10 @@ test('the desktop menu shrinks to icons, opens on hover and can be pinned open',
   const clientes = nav.getByRole('link', { name: 'Clientes' })
   const w = await widths(page)
 
-  // Cerrado: solo iconos (el nombre sigue accesible, pero no se ve escrito).
+  // Cerrado: columna de íconos, cada uno con su nombre corto debajo.
   await page.mouse.move(900, 500)
   await expect(nav).toHaveCSS('width', w.closed)
+  await expect(clientes).toHaveText('Clientes')
   await expect(nav.getByText('admin@multitec.com')).toHaveCount(0) // el pie con el correo solo aparece abierto
 
   // Al pasar el mouse se abre y muestra los nombres.

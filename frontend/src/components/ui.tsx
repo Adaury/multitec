@@ -35,17 +35,25 @@ export function Modal({
   onClose,
   title,
   children,
+  wide = false,
 }: {
   open: boolean
   onClose: () => void
   title: string
   children: ReactNode
+  /** Más ancho en la computadora (fichas con mucho contenido, como un producto del catálogo). */
+  wide?: boolean
 }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 md:items-center md:p-4">
       <div
-        className="max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-xl ring-1 ring-black/5 md:max-w-lg md:rounded-3xl dark:bg-gray-900 dark:ring-white/10"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className={`max-h-[90vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-xl ring-1 ring-black/5 md:rounded-3xl dark:bg-gray-900 dark:ring-white/10 ${
+          wide ? 'md:max-w-3xl md:p-6' : 'md:max-w-lg'
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
