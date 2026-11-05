@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { api, downloadFile, viewFile, apiErrorMessage } from '../lib/api'
@@ -465,6 +465,19 @@ function InfoTab({ project }: { project: ProjectDetailType }) {
     ? `${window.location.origin}/portal/${project.public_token}`
     : null
 
+  // El ojito del portal abre en grande el PDF que el cliente tiene a la vista: la cotización pendiente
+  // si hay, si no la más reciente que no esté archivada.
+  const { data: portalQuotes } = useQuery({
+    queryKey: ['quotes', project.id],
+    queryFn: async () => (await api.get<Quote[]>(`/projects/${project.id}/quotes`)).data,
+    enabled: canManagePortal,
+  })
+  const portalQuote = useMemo(() => {
+    const newestFirst = [...(portalQuotes ?? [])].sort((a, b) => b.created_at.localeCompare(a.created_at))
+    return newestFirst.find((q) => q.status === 'pendiente') ?? newestFirst.find((q) => q.status !== 'archivada') ?? null
+  }, [portalQuotes])
+  const [portalViewer, setPortalViewer] = useState(false)
+
   return (
     <div className="space-y-4">
       <Card className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
@@ -561,7 +574,29 @@ function InfoTab({ project }: { project: ProjectDetailType }) {
 
       {canManagePortal && (
         <Card className="space-y-2">
-          <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Portal de cliente</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">Portal de cliente</p>
+            <button
+              type="button"
+              onClick={() => setPortalViewer(true)}
+              disabled={!portalQuote}
+              aria-label={portalQuote ? `Ver el PDF de ${portalQuote.code}` : 'Aún no hay cotización para ver'}
+              title={portalQuote ? `Ver el PDF de ${portalQuote.code}` : 'Aún no hay cotización para ver'}
+              className="flex items-center gap-1.5 rounded-full bg-blue-50 px-3 py-1.5 text-xs font-medium text-brand-blue hover:bg-brand-blue hover:text-white disabled:cursor-not-allowed disabled:opacity-40 dark:bg-blue-950 dark:text-blue-300"
+            >
+              <Eye className="h-4 w-4" aria-hidden="true" />
+              {portalQuote ? `Ver PDF ${portalQuote.code}` : 'Sin PDF'}
+            </button>
+          </div>
+          {portalViewer && portalQuote && (
+            <QuoteViewer
+              quote={portalQuote}
+              client={project.client}
+              projectId={project.id}
+              publicToken={project.public_token}
+              onClose={() => setPortalViewer(false)}
+            />
+          )}
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Enlace de solo lectura, sin necesidad de iniciar sesión, para que el cliente vea el estado de su
             proyecto, sus cotizaciones y sus facturas (con PDF descargable).
@@ -570,7 +605,17 @@ function InfoTab({ project }: { project: ProjectDetailType }) {
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {project.portal_first_viewed_at ? (
                 <>
-                  👁️ Visto por el cliente — primera vez{' '}
+                  <button
+                    type="button"
+                    onClick={() => portalQuote && setPortalViewer(true)}
+                    disabled={!portalQuote}
+                    aria-label={portalQuote ? `Ver el PDF de ${portalQuote.code}` : 'Aún no hay cotización para ver'}
+                    title={portalQuote ? 'Ver el PDF que ve el cliente' : undefined}
+                    className="-my-1 mr-0.5 rounded-full p-1 text-brand-blue hover:bg-blue-50 disabled:opacity-40 dark:text-blue-300 dark:hover:bg-blue-950"
+                  >
+                    <Eye className="inline h-4 w-4" aria-hidden="true" />
+                  </button>
+                  Visto por el cliente — primera vez{' '}
                   {new Date(project.portal_first_viewed_at).toLocaleString('es-DO', {
                     dateStyle: 'medium',
                     timeStyle: 'short',
@@ -990,9 +1035,14 @@ function IngenieriaTab({ projectId }: { projectId: number }) {
     initialized.current = true
   }
 
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const save = useMutation({
     mutationFn: async () => (await api.put(`/projects/${projectId}/engineering`, form)).data,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['engineering', projectId] }),
+    onMutate: () => setSaveMessage(null),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['engineering', projectId] })
+      setSaveMessage('Ingeniería guardada.')
+    },
   })
 
   const [aiError, setAiError] = useState<string | null>(null)
@@ -1047,6 +1097,17 @@ function IngenieriaTab({ projectId }: { projectId: number }) {
       <Button onClick={() => save.mutate()} disabled={save.isPending}>
         {save.isPending ? 'Guardando…' : 'Guardar ingeniería'}
       </Button>
+      {/* Siempre se dice qué pasó: antes un error (o el 404 de un proyecto sin ingeniería) no mostraba nada. */}
+      {saveMessage && !save.isError && (
+        <p role="status" className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+          ✓ {saveMessage}
+        </p>
+      )}
+      {save.isError && (
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          {apiErrorMessage(save.error, 'No se pudo guardar la ingeniería. Intenta de nuevo.')}
+        </p>
+      )}
     </Card>
   )
 }
@@ -1412,14 +1473,14 @@ function QuoteAction({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className={`flex flex-col items-center gap-1 rounded-2xl px-1 py-2.5 text-xs font-medium transition active:scale-95 disabled:opacity-50 ${
+      className={`flex min-w-0 flex-col items-center gap-1 rounded-2xl px-1 py-2.5 text-xs font-medium transition active:scale-95 disabled:opacity-50 ${
         active
           ? 'bg-brand-blue text-white'
           : 'bg-brand-gray text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700'
       }`}
     >
       <Icon className={`h-6 w-6 ${active ? 'text-white' : color}`} aria-hidden="true" />
-      {label}
+      <span className="w-full truncate">{label}</span>
     </button>
   )
 }
@@ -1546,7 +1607,8 @@ function QuoteCard({
   }, [autoEdit, expanded])
 
   return (
-    <Card>
+    // Abierta ocupa dos columnas: dentro de una tarjeta de un tercio de pantalla, los íconos y la edición no caben.
+    <Card className={expanded ? 'md:col-span-2' : ''}>
       <button className="w-full text-left" onClick={onToggle}>
         <div className="flex items-center justify-between">
           <p className="font-medium text-gray-900 dark:text-gray-100">{quote.code}</p>
@@ -1595,7 +1657,7 @@ function QuoteCard({
 
           {/* Todo lo que se hace con la cotización, en íconos: cada uno abre su parte aquí debajo, una a la vez,
               en vez de una página larga que obliga a bajar buscando. */}
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8" role="toolbar" aria-label={`Acciones de ${quote.code}`}>
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(4.75rem,1fr))] gap-2" role="toolbar" aria-label={`Acciones de ${quote.code}`}>
             <QuoteAction icon={Eye} label="Ver" onClick={() => setViewer(true)} />
             <QuoteAction icon={Send} label="Enviar" onClick={() => setViewer(true)} />
             <QuoteAction
