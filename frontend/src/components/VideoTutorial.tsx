@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
+import { Download, Mail, MessageCircle, Share2 } from 'lucide-react'
 import { posterUrl, videoUrl, type Tutorial } from '../lib/tutoriales'
 
 type VideoTutorialProps = {
@@ -143,6 +144,8 @@ export function VideoTutorial({ tutorial, mostrarDescripcion = true, nivelTitulo
         </Titulo>
         {mostrarDescripcion && <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{tutorial.descripcion}</p>}
 
+        {!fallo && <AccionesVideo tutorial={tutorial} />}
+
         <details className="mt-3 text-sm">
           <summary aria-controls={idTranscripcion} className="cursor-pointer font-medium text-brand-blue hover:underline">
             Ver los pasos en texto
@@ -155,5 +158,97 @@ export function VideoTutorial({ tutorial, mostrarDescripcion = true, nivelTitulo
         </details>
       </figcaption>
     </figure>
+  )
+}
+
+function nombreArchivo(tutorial: Tutorial): string {
+  return `Multitec - ${tutorial.titulo.replace(/[\\/:*?"<>|«»]/g, '')}.mp4`
+}
+
+/** Descargar el video y mandarlo a otra persona. En el teléfono se comparte el archivo con la hoja de compartir
+ * (WhatsApp, correo, AirDrop…). En la computadora se descarga y se abre WhatsApp o el correo para adjuntarlo:
+ * un enlace no le serviría a quien está fuera de la red de la oficina. */
+function AccionesVideo({ tutorial }: { tutorial: Tutorial }) {
+  const [estado, setEstado] = useState<'listo' | 'preparando' | 'descargado'>('listo')
+  const mensaje = `Te comparto este video de Multitec: «${tutorial.titulo}». ${tutorial.descripcion}`
+
+  async function descargar(): Promise<Blob> {
+    const res = await fetch(videoUrl(tutorial.id))
+    if (!res.ok) throw new Error('No se pudo bajar el video')
+    return res.blob()
+  }
+
+  function guardar(blob: Blob) {
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = nombreArchivo(tutorial)
+    document.body.append(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 30_000)
+  }
+
+  async function enviar() {
+    setEstado('preparando')
+    try {
+      const blob = await descargar()
+      const archivo = new File([blob], nombreArchivo(tutorial), { type: 'video/mp4' })
+      if (navigator.canShare?.({ files: [archivo] })) {
+        await navigator.share({ files: [archivo], title: tutorial.titulo, text: mensaje }).catch(() => {})
+        setEstado('listo')
+        return
+      }
+      guardar(blob)
+      setEstado('descargado')
+    } catch {
+      setEstado('listo')
+    }
+  }
+
+  const boton =
+    'inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition disabled:opacity-50'
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="flex flex-wrap gap-2">
+        <a
+          href={videoUrl(tutorial.id)}
+          download={nombreArchivo(tutorial)}
+          className={`${boton} bg-brand-gray text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700`}
+        >
+          <Download className="h-4 w-4" aria-hidden="true" /> Descargar
+        </a>
+        <button
+          type="button"
+          onClick={enviar}
+          disabled={estado === 'preparando'}
+          className={`${boton} bg-brand-blue text-white hover:bg-brand-blue-dark`}
+        >
+          <Share2 className="h-4 w-4" aria-hidden="true" />
+          {estado === 'preparando' ? 'Preparando…' : 'Enviar a otra persona'}
+        </button>
+      </div>
+      {estado === 'descargado' && (
+        <div role="status" className="rounded-xl bg-blue-50 p-3 text-xs text-gray-700 dark:bg-blue-950 dark:text-gray-200">
+          <p>Se descargó el video. Ábrelo en WhatsApp o en el correo y adjúntalo:</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(mensaje)}`}
+              target="_blank"
+              rel="noreferrer"
+              className={`${boton} bg-emerald-600 text-white hover:bg-emerald-700`}
+            >
+              <MessageCircle className="h-4 w-4" aria-hidden="true" /> WhatsApp
+            </a>
+            <a
+              href={`mailto:?subject=${encodeURIComponent(`Video de Multitec: ${tutorial.titulo}`)}&body=${encodeURIComponent(`${mensaje}\n\n(El video va adjunto.)`)}`}
+              className={`${boton} bg-white text-gray-700 ring-1 ring-black/10 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-200`}
+            >
+              <Mail className="h-4 w-4" aria-hidden="true" /> Correo
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
   )
 }

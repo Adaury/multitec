@@ -61,6 +61,10 @@ def send_test(user: str, password: str, sender: str, to: str, port: int = 587) -
     )
     with smtplib.SMTP(GMAIL_HOST, port, timeout=20) as server:
         server.starttls()
+        server.ehlo()
+        # Solo AUTH PLAIN: si Gmail rechaza la clave, smtplib reintenta con AUTH LOGIN y Gmail corta la
+        # conexión, de modo que el rechazo (535) llegaba como un confuso SMTPServerDisconnected.
+        server.esmtp_features["auth"] = "PLAIN"
         server.login(user, password)
         server.send_message(msg)
 

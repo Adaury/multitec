@@ -193,8 +193,13 @@ await rec.scene('inicio', async () => {
   await page.waitForTimeout(1500)
   await page.mouse.move(700, 300, { steps: 30 })
   await page.mouse.wheel(0, 250)
-  await page.waitForTimeout(1500)
+  await page.waitForTimeout(1200)
   await page.mouse.wheel(0, -250)
+  // El menú está oculto: se abre con el botón de arriba y se va al alejar el mouse.
+  await tap(page, page.getByRole('button', { name: 'Abrir menú' }))
+  await page.waitForTimeout(1800)
+  await page.mouse.move(900, 420, { steps: 25 })
+  await page.waitForTimeout(800)
 })
 
 await rec.scene('cliente', async () => {
@@ -284,10 +289,15 @@ if (process.env.STOP_AFTER === 'ia') {
 
 await rec.scene('cotizacion', async () => {
   await page.waitForURL(/tab=cotizacion/, { timeout: 15000 }).catch(() => {})
-  const card = page.locator('button:has-text("COT-")').first()
-  await tap(page, card)
-  await page.waitForTimeout(1500)
-  await page.mouse.wheel(0, 380)
+  const toolbar = page.getByRole('toolbar').first()
+  // Llega cerrada: se abre tocando su tarjeta.
+  if (!(await toolbar.isVisible().catch(() => false))) await tap(page, page.locator('button:has-text("COT-")').first())
+  await toolbar.waitFor({ timeout: 15000 })
+  for (const name of ['Ver', 'Enviar', 'Editar', 'Partidas', 'Precios', 'Historial']) {
+    await glide(page, toolbar.getByRole('button', { name, exact: true }))
+    await page.waitForTimeout(350)
+  }
+  await tap(page, toolbar.getByRole('button', { name: 'Partidas', exact: true }))
   await page.waitForTimeout(1500)
 })
 
@@ -297,7 +307,7 @@ await rec.scene('precios', async () => {
   const quotes = await api(token, 'GET', `/api/projects/${project}/quotes`)
   const line = (quotes[0]?.items ?? []).find((i) => i.product_id)
   if (line) await api(token, 'PUT', `/api/catalog/${line.product_id}`, { price: Number(line.unit_price) + 350 })
-  await page.mouse.wheel(0, -200)
+  await tap(page, page.getByRole('toolbar').first().getByRole('button', { name: 'Precios', exact: true }))
   await tap(page, page.getByRole('button', { name: 'Actualizar precios' }).first())
   await page.getByTestId('quote-pricing').first().getByText(/→/).first().waitFor({ timeout: 15000 })
   await page.waitForTimeout(2500)
@@ -324,6 +334,23 @@ await rec.scene('comparar', async () => {
   await page.waitForTimeout(2500)
 })
 
+await rec.scene('enviar', async () => {
+  await tap(page, page.getByRole('toolbar').first().getByRole('button', { name: 'Ver', exact: true }))
+  const viewer = page.getByRole('dialog', { name: /^Cotización / })
+  await viewer.getByLabel('Página 1').waitFor({ timeout: 30000 })
+  await page.waitForTimeout(1800)
+  await tap(page, viewer.getByRole('radio', { name: 'Monto general' }))
+  await viewer.getByLabel('Página 1').waitFor({ timeout: 30000 })
+  await page.waitForTimeout(1500)
+  await tap(page, viewer.getByRole('radio', { name: 'Con detalles' }))
+  await page.waitForTimeout(800)
+  for (const name of ['WhatsApp', 'Correo', 'Enlace']) {
+    await tap(page, viewer.getByRole('button', { name, exact: true }))
+    await page.waitForTimeout(900)
+  }
+  await tap(page, viewer.getByRole('button', { name: 'Cerrar visor' }))
+})
+
 await rec.scene('mapa', async () => {
   const token = await loginToken()
   await api(token, 'PUT', `/api/projects/${project}`, { address: 'Calle Duarte 45, Santiago de los Caballeros' })
@@ -335,6 +362,103 @@ await rec.scene('mapa', async () => {
   await page.waitForTimeout(2500)
   await tap(page, page.getByRole('button', { name: /Cómo llegar/ }).first())
   await page.waitForTimeout(3000)
+})
+
+await rec.scene('calendario', async () => {
+  await page.goto(BASE + '/calendario')
+  await page.waitForTimeout(1200)
+  await tap(page, page.getByRole('button', { name: '+ Nueva' }))
+  const projectSelect = page.locator('label:has-text("Proyecto") select').first()
+  await glide(page, projectSelect)
+  await projectSelect.selectOption({ index: 1 })
+  await page.waitForTimeout(500)
+  const time = page.locator('label:has-text("Hora") input').first()
+  await glide(page, time)
+  await time.fill('10:30')
+  await tap(page, page.getByRole('button', { name: 'Agendar visita' }))
+  await page.getByRole('button', { name: /Llegué al sitio/ }).first().waitFor({ timeout: 15000 })
+  await glide(page, page.getByRole('button', { name: 'Día siguiente' }))
+  await page.waitForTimeout(600)
+  await glide(page, page.getByRole('button', { name: /Llegué al sitio/ }).first())
+  await page.waitForTimeout(1500)
+})
+
+await rec.scene('tickets', async () => {
+  const token = await loginToken()
+  await api(token, 'POST', `/api/projects/${project}/tickets`, { problem: 'La cámara de la caja no da imagen desde anoche' })
+  await page.goto(BASE + '/tickets')
+  await page.waitForTimeout(1500)
+  await tap(page, page.getByRole('link', { name: /La cámara de la caja/ }).first())
+  await page.waitForURL(/tab=tickets/, { timeout: 15000 })
+  await page.waitForTimeout(2200)
+})
+
+await rec.scene('catalogo', async () => {
+  await page.goto(BASE + '/catalogo')
+  await page.waitForTimeout(1500)
+  await typeInto(page, page.getByLabel('Buscar en el catálogo'), 'cámara', 70)
+  await page.waitForTimeout(1500)
+  await typeInto(page, page.getByLabel('Buscar en el catálogo'), '', 0)
+  const chips = page.getByRole('group', { name: 'Filtrar por categoría' }).getByRole('button')
+  if ((await chips.count()) > 1) {
+    await tap(page, chips.nth(1))
+    await page.waitForTimeout(1000)
+    await tap(page, chips.first())
+  }
+  await tap(page, page.locator('main .grid > button').first())
+  await page.getByRole('dialog').waitFor({ timeout: 10000 })
+  await page.waitForTimeout(2500)
+  await tap(page, page.getByRole('dialog').getByRole('button', { name: 'Cerrar' }))
+})
+
+await rec.scene('compras', async () => {
+  const token = await loginToken()
+  const supplier = await api(token, 'POST', '/api/suppliers', { name: 'Distribuidora Tecnológica', rnc: '101000009' })
+  await api(token, 'POST', '/api/purchase-invoices', {
+    supplier_id: supplier.id, ncf: 'B0100000123', invoice_date: new Date().toLocaleDateString('en-CA'),
+    expense_type: '09', payment_type: '04', services_amount: 0, goods_amount: 18500, itbis_invoiced: 3330,
+    itbis_withheld: 0, isr_withheld: 0,
+  })
+  await page.goto(BASE + '/compras')
+  await page.waitForTimeout(1800)
+  await glide(page, page.getByText('Comprado este mes'))
+  await page.waitForTimeout(1200)
+  await glide(page, page.getByText('Reporte 606 (Compras) para la DGII'))
+  await page.waitForTimeout(1200)
+  await glide(page, page.getByRole('button', { name: 'Archivo DGII (.txt)' }))
+  await page.waitForTimeout(1200)
+})
+
+await rec.scene('ncf', async () => {
+  await page.goto(BASE + '/ncf')
+  await page.waitForTimeout(1200)
+  await tap(page, page.getByRole('button', { name: '+ Nueva' }))
+  await typeInto(page, page.locator('label:has-text("Descripción") input, label:has-text("Descripción") textarea').first(), 'Facturas con crédito fiscal')
+  await typeInto(page, page.locator('label:has-text("Desde") input').first(), '1', 80)
+  await typeInto(page, page.locator('label:has-text("Hasta") input').first(), '500', 80)
+  const expires = page.locator('label:has-text("Vence") input').first()
+  await glide(page, expires)
+  const year = new Date().getFullYear() + 1
+  await expires.fill(`${year}-12-31`)
+  await tap(page, page.getByRole('button', { name: 'Crear secuencia' }))
+  await page.waitForTimeout(1800)
+  await glide(page, page.getByText('Reportes 607 (Ventas) y 608 (Anulados)'))
+  await page.waitForTimeout(1500)
+})
+
+await rec.scene('administracion', async () => {
+  await page.goto(BASE + '/administracion')
+  await page.waitForTimeout(1500)
+  for (const name of [/Usuarios/, /Mi empresa/, /Auditoría/]) {
+    await glide(page, page.getByRole('link', { name }).last())
+    await page.waitForTimeout(500)
+  }
+  await tap(page, page.getByRole('link', { name: /Usuarios/ }).last())
+  await page.waitForTimeout(1800)
+  await page.goto(BASE + '/empresa')
+  await page.waitForTimeout(1800)
+  await page.goto(BASE + '/auditoria')
+  await page.waitForTimeout(1800)
 })
 
 await rec.scene('plataforma', async () => {

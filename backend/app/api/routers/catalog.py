@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy import or_
@@ -29,7 +31,8 @@ from app.schemas.technical_rule import (
     TechnicalRuleUpdate,
 )
 from app.services.audit import audit
-from app.services.catalog_import import import_catalog, template_csv
+from app.services.catalog_import import export_catalog, import_catalog_files, template_file
+from app.services.spreadsheets import XLSX_MIME
 from app.services.code_generator import next_code
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
@@ -66,28 +69,57 @@ def create_product(payload: ProductCreate, db: Session = Depends(get_db), curren
     return product
 
 
+def _file_response(content: bytes, filename: str) -> Response:
+    media = XLSX_MIME if filename.endswith(".xlsx") else "text/csv; charset=utf-8"
+    return Response(content=content, media_type=media, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
 @router.get("/import-template")
-def download_import_template(_=Depends(allowed_roles)):
-    """Plantilla CSV (abre bien en Excel) para cargar productos de golpe."""
-    return Response(
-        content=template_csv(),
-        media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="plantilla_catalogo.csv"'},
-    )
+def download_import_template(
+    kind: Literal["general", "alarma", "ferreteria"] = "general",
+    format: Literal["csv", "xlsx"] = "csv",
+    _=Depends(allowed_roles),
+):
+    """Plantilla para cargar productos de golpe: la general (con filas EJEMPLO) o una lista lista para llenar
+    de materiales de alarma o de ferretería, en CSV o Excel."""
+    content, filename = template_file(kind, format)
+    return _file_response(content, filename)
+
+
+@router.get("/export")
+def export_products(
+    format: Literal["csv", "xlsx"] = "xlsx",
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
+    """Todo el catálogo con las columnas de la plantilla, para editarlo en Excel y volver a subirlo."""
+    content, filename = export_catalog(db, format)
+    return _file_response(content, filename)
+
+
+MAX_IMPORT_FILES = 10
 
 
 @router.post("/import")
 def import_products(
-    file: UploadFile = File(...),
+    file: UploadFile | None = File(None),
+    files: list[UploadFile] | None = File(None),
     dry_run: bool = True,
+    create_categories: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(admin_only),
 ):
-    """Importa productos desde un CSV. Por defecto es una VISTA PREVIA (dry_run=true): devuelve qué
-    se crearía, actualizaría u omitiría sin tocar nada; con dry_run=false aplica los cambios."""
-    data = file.file.read(2 * 1024 * 1024 + 1)
+    """Importa productos desde uno o varios archivos CSV o Excel. Por defecto es una VISTA PREVIA
+    (dry_run=true): devuelve qué se crearía, actualizaría u omitiría sin tocar nada; con dry_run=false
+    aplica los cambios. Con create_categories=true crea las categorías que no existan."""
+    uploads = [f for f in [file, *(files or [])] if f is not None]
+    if not uploads:
+        raise HTTPException(status_code=400, detail="No llegó ningún archivo")
+    if len(uploads) > MAX_IMPORT_FILES:
+        raise HTTPException(status_code=400, detail=f"Sube como máximo {MAX_IMPORT_FILES} archivos a la vez")
+    sources = [(u.filename or f"archivo {i + 1}", u.file.read(2 * 1024 * 1024 + 1)) for i, u in enumerate(uploads)]
     try:
-        return import_catalog(db, data, current_user.id, dry_run)
+        return import_catalog_files(db, sources, current_user.id, dry_run, create_categories)
     except ValueError as exc:
         db.rollback()
         raise HTTPException(status_code=400, detail=str(exc))

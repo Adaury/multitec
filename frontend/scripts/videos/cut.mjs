@@ -21,6 +21,13 @@ const TEMAS = [
   { id: '06-mapa-y-como-llegar', desde: 'mapa', hasta: 'mapa' },
   { id: '07-plataforma-y-demos', desde: 'plataforma', hasta: 'demo' },
   { id: '08-el-tecnico-en-el-iphone', desde: 'tecnico', hasta: 'tecnico2' },
+  { id: '09-ver-y-enviar-cotizacion', desde: 'enviar', hasta: 'enviar' },
+  { id: '10-calendario-y-visitas', desde: 'calendario', hasta: 'calendario' },
+  { id: '11-tickets', desde: 'tickets', hasta: 'tickets' },
+  { id: '12-catalogo', desde: 'catalogo', hasta: 'catalogo' },
+  { id: '13-compras-y-606', desde: 'compras', hasta: 'compras' },
+  { id: '14-comprobantes-fiscales-ncf', desde: 'ncf', hasta: 'ncf' },
+  { id: '15-administracion', desde: 'administracion', hasta: 'administracion' },
 ]
 
 function ffmpeg(args) {

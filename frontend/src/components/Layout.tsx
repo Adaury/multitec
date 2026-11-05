@@ -108,6 +108,11 @@ function MoreSheet({ items, onClose }: { items: NavItem[]; onClose: () => void }
         style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
       >
         <div className="mx-auto mb-4 h-1.5 w-10 rounded-full bg-gray-300 dark:bg-gray-700" />
+        {/* El modo claro/oscuro vive aquí en el celular: en la barra de arriba no dejaba ver el nombre de la empresa. */}
+        <div className="mb-4 flex items-center justify-between rounded-2xl bg-brand-gray px-4 py-3 dark:bg-gray-800">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-200">Modo claro / oscuro</span>
+          <ThemeToggle />
+        </div>
         <div className="grid grid-cols-3 gap-3">
           {items.map((item) => (
             <NavLink
@@ -191,9 +196,18 @@ export function Layout() {
 
   return (
     <div className="min-h-dvh bg-brand-bg md:flex dark:bg-gray-950">
-      {/* Reserva el ancho en el flujo: abierto por el mouse la barra se superpone al contenido y no lo
-          empuja (sin saltos); fijada, el contenido se acomoda a su ancho. */}
-      <div className={`hidden md:block md:shrink-0 ${menuPinned ? 'md:w-64' : 'md:w-[5.5rem]'}`} />
+      {/* Computadora: el menú está oculto del todo y la pantalla usa todo el ancho. Se asoma al acercar el
+          mouse al borde izquierdo (esta franja invisible) o con el botón ☰ de arriba, y se va al alejarse.
+          Fijado con 📌, queda abierto y el contenido se corre a su lado. */}
+      <div className={`hidden md:block md:shrink-0 ${menuPinned ? 'md:w-64' : 'md:w-0'}`} />
+      {!expanded && (
+        <div
+          aria-hidden="true"
+          data-testid="menu-hot-edge"
+          onMouseEnter={() => setMenuHover(true)}
+          className="fixed inset-y-0 left-0 z-20 hidden w-3 md:block"
+        />
+      )}
       <aside
         onMouseEnter={() => setMenuHover(true)}
         onMouseLeave={(e) => {
@@ -208,17 +222,17 @@ export function Layout() {
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget)) setMenuHover(false)
         }}
-        className={`hidden transition-[width] duration-200 md:fixed md:inset-y-0 md:left-0 md:z-20 md:flex md:flex-col md:overflow-hidden md:border-r md:border-gray-200 md:bg-white dark:md:border-gray-800 dark:md:bg-gray-900 ${
-          expanded ? 'md:w-64' : 'md:w-[5.5rem]'
+        className={`hidden transition-transform duration-200 md:fixed md:inset-y-0 md:left-0 md:z-30 md:flex md:w-64 md:flex-col md:overflow-hidden md:border-r md:border-gray-200 md:bg-white dark:md:border-gray-800 dark:md:bg-gray-900 ${
+          expanded ? 'md:translate-x-0' : 'md:-translate-x-full'
         } ${expanded && !menuPinned ? 'md:shadow-2xl' : ''}`}
       >
-        <div className={`flex shrink-0 items-center gap-2.5 py-4 ${expanded ? 'px-[18px]' : 'justify-center'}`}>
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-blue text-lg font-bold text-white">
+        <div className="flex shrink-0 items-center gap-2.5 px-[18px] py-4">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-blue to-blue-800 text-xl font-extrabold text-white shadow-md">
             {companyName.charAt(0).toUpperCase()}
           </span>
-          {expanded && (
+          {(
             <>
-              <p className="flex-1 truncate text-lg font-semibold text-gray-900 dark:text-gray-100">{companyName}</p>
+              <p className="flex-1 truncate text-xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">{companyName}</p>
               <button
                 onClick={toggleMenuPinned}
                 aria-pressed={menuPinned}
@@ -233,19 +247,14 @@ export function Layout() {
             </>
           )}
         </div>
-        <nav className={`min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain pb-2 [scrollbar-width:thin] ${expanded ? 'px-3' : 'px-2'}`}>
+        <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain px-3 pb-2 [scrollbar-width:thin]">
           {sidebarItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
               className={({ isActive }) =>
-                // Cerrado: cada ícono es un botón con su nombre debajo (como la barra del celular); abierto: fila.
-                `${
-                  expanded
-                    ? 'flex items-center gap-3 whitespace-nowrap px-3 py-2 text-[0.95rem]'
-                    : 'flex flex-col items-center gap-0.5 px-1 py-1.5 text-center text-[0.68rem] leading-tight [@media(max-height:820px)]:py-1 [@media(max-height:820px)]:text-[0.62rem]'
-                } rounded-xl font-medium transition ${
+                `flex items-center gap-3 whitespace-nowrap rounded-xl px-3 py-2 text-[0.95rem] font-medium transition [@media(max-height:820px)]:py-1.5 ${
                   isActive || (item.to === '/administracion' && inAdmin)
                     ? 'bg-blue-50 text-brand-blue dark:bg-blue-950 dark:text-blue-300'
                     : 'text-gray-600 hover:bg-brand-gray dark:text-gray-400 dark:hover:bg-gray-800'
@@ -253,7 +262,7 @@ export function Layout() {
               }
             >
               <span className="flex w-6 shrink-0 justify-center" aria-hidden="true">
-                <item.icon className="h-6 w-6 [@media(max-height:820px)]:h-5 [@media(max-height:820px)]:w-5" />
+                <item.icon className="h-5 w-5" />
               </span>
               <span>{item.label}</span>
             </NavLink>
@@ -284,24 +293,50 @@ export function Layout() {
         <header className="sticky top-0 z-10 bg-brand-bg/80 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur md:px-10 md:py-5 dark:bg-gray-950/80">
           {/* Mismo ancho centrado que el contenido: en pantallas anchas nada queda pegado a las esquinas. */}
           <div className="mx-auto flex w-full max-w-7xl items-center gap-4">
-          <NavLink to="/perfil" className="md:hidden">
-            <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{companyName}</p>
-            <p className="text-xs text-gray-500">{user?.name}</p>
+          <NavLink to="/perfil" className="flex min-w-0 items-center gap-2.5 md:hidden">
+            <span
+              aria-hidden="true"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue to-blue-800 text-xl font-extrabold text-white shadow-md"
+            >
+              {companyName.charAt(0).toUpperCase()}
+            </span>
+            <span className="min-w-0">
+              <span className="block truncate text-xl font-extrabold leading-tight text-gray-900 dark:text-gray-100">{companyName}</span>
+              <span className="block truncate text-xs text-gray-500">{user?.name}</span>
+            </span>
           </NavLink>
-          <p className="hidden truncate text-sm font-semibold uppercase tracking-wider text-gray-400 md:block dark:text-gray-500">
-            {companyName}
-          </p>
+          {!menuPinned && (
+            <button
+              type="button"
+              onClick={() => setMenuHover(true)}
+              aria-label="Abrir menú"
+              title="Abrir menú"
+              className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm ring-1 ring-black/5 hover:bg-brand-gray md:flex dark:bg-gray-900 dark:text-gray-300 dark:ring-white/10"
+            >
+              <Menu className="h-5 w-5" aria-hidden="true" />
+            </button>
+          )}
+          <NavLink to="/" aria-label={`${companyName} — Inicio`} className="hidden min-w-0 items-center gap-3 md:flex">
+            <span
+              aria-hidden="true"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-blue to-blue-800 text-2xl font-extrabold text-white shadow-md"
+            >
+              {companyName.charAt(0).toUpperCase()}
+            </span>
+            <span className="truncate text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">{companyName}</span>
+          </NavLink>
           <div className="flex-1" />
-          <div className="flex items-center gap-2">
-            <ThemeToggle className="md:hidden" />
+          <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
             <SystemStatus />
             <NotificationBell />
             <GlobalSearch />
             <button
               onClick={() => logout()}
-              className="rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-sm ring-1 ring-black/5 md:hidden dark:bg-gray-900 dark:text-gray-300 dark:ring-white/10"
+              aria-label="Salir"
+              title="Salir"
+              className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-gray-600 shadow-sm ring-1 ring-black/5 md:hidden dark:bg-gray-900 dark:text-gray-300 dark:ring-white/10"
             >
-              Salir
+              <LogOut className="h-5 w-5" aria-hidden="true" />
             </button>
             <NavLink
               to="/perfil"

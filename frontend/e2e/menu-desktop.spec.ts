@@ -4,52 +4,51 @@ import { test, expect } from './fixtures'
 // y se recuerda. En el teléfono no existe esta barra (hay barra inferior), por eso se fuerza un viewport ancho.
 test.use({ viewport: { width: 1440, height: 900 } })
 
-// El menú mide en rem: en pantallas anchas la letra base crece (index.css) y el menú con ella.
-async function widths(page: import('@playwright/test').Page) {
-  const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize))
-  return { closed: `${5.5 * rem}px`, open: `${16 * rem}px` }
-}
-
-test('the desktop menu shrinks to icons, opens on hover and can be pinned open', async ({ page }) => {
+test('the desktop menu hides completely, shows near the left edge or with the menu button, and can be pinned', async ({
+  page,
+}) => {
   await page.goto('/')
   const nav = page.locator('aside')
-  const clientes = nav.getByRole('link', { name: 'Clientes' })
-  const w = await widths(page)
+  const hidden = async () => (await nav.evaluate((el) => el.getBoundingClientRect().right)) <= 1
 
-  // Cerrado: columna de íconos, cada uno con su nombre corto debajo.
+  // Con el mouse lejos, el menú no se ve en absoluto.
   await page.mouse.move(900, 500)
-  await expect(nav).toHaveCSS('width', w.closed)
-  await expect(clientes).toHaveText('Clientes')
-  await expect(nav.getByText('admin@multitec.com')).toHaveCount(0) // el pie con el correo solo aparece abierto
+  await expect.poll(hidden).toBe(true)
+  await expect(nav.getByText('admin@multitec.com')).toHaveCount(0)
 
-  // Al pasar el mouse se abre y muestra los nombres.
-  await clientes.hover()
-  await expect(nav).toHaveCSS('width', w.open)
+  // Al acercar el mouse al borde izquierdo aparece entero, con los nombres.
+  await page.mouse.move(2, 400)
+  await expect.poll(hidden).toBe(false)
+  await expect(nav.getByRole('link', { name: 'Clientes' })).toBeVisible()
   await expect(nav.getByText('admin@multitec.com')).toBeVisible()
 
-  // Al irse el mouse se cierra solo.
+  // Al alejarse se oculta otra vez, aunque se haya hecho clic en una opción.
+  await nav.getByRole('link', { name: 'Clientes' }).click()
   await page.mouse.move(900, 500)
-  await expect(nav).toHaveCSS('width', w.closed)
+  await expect.poll(hidden).toBe(true)
 
-  // Fijado: queda abierto, el contenido se acomoda y se recuerda tras recargar.
-  await clientes.hover()
+  // También se abre con el botón ☰ de arriba.
+  await page.getByRole('button', { name: 'Abrir menú' }).click()
+  await expect.poll(hidden).toBe(false)
+
+  // Fijado: queda abierto con el mouse lejos y se recuerda tras recargar.
   await page.getByRole('button', { name: 'Mantener el menú abierto' }).click()
   await page.mouse.move(900, 500)
-  await expect(nav).toHaveCSS('width', w.open)
+  await expect.poll(hidden).toBe(false)
   await page.reload()
   await page.mouse.move(900, 500)
-  await expect(nav).toHaveCSS('width', w.open)
+  await expect.poll(hidden).toBe(false)
 
-  // Se puede volver a dejar que se cierre solo.
+  // Se puede volver a dejar que se oculte solo.
   await page.getByRole('button', { name: 'Dejar que el menú se cierre solo' }).click()
   await page.mouse.move(900, 500)
-  await expect(nav).toHaveCSS('width', w.closed)
+  await expect.poll(hidden).toBe(true)
 })
 
 test('the menu opens with the keyboard too', async ({ page }) => {
   await page.goto('/')
   const nav = page.locator('aside')
-  const w = await widths(page)
+  await page.mouse.move(900, 500)
   await nav.getByRole('link', { name: 'Inicio' }).focus()
-  await expect(nav).toHaveCSS('width', w.open)
+  await expect.poll(async () => nav.evaluate((el) => el.getBoundingClientRect().right)).toBeGreaterThan(100)
 })

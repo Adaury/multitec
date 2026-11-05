@@ -2,7 +2,9 @@ import logging
 from datetime import datetime, timezone
 
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Literal
+
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import Response
 from sqlalchemy.orm import Session, joinedload
 
@@ -39,6 +41,8 @@ from app.services.pdf import build_quote_pdf
 from app.services.photo_annex import collect_photos
 from app.services.quote_approval import build_material_rows_from_quote, mark_quote_approved
 from app.services.document_items import resolve_item_fields
+from app.services.line_items_io import export_items, parse_items, template_items
+from app.services.spreadsheets import XLSX_MIME
 from app.services.quote_archiver import archive_stale_quotes
 from app.services.totals import LineInput, compute_totals
 
@@ -136,6 +140,47 @@ def _render_quote_pdf(db: Session, quote: Quote, variant: str, photos: str) -> t
     )
     photo_suffix = "-fotos" if photos != "none" else ""
     return pdf_bytes, f"{quote.code}{_PDF_SUFFIX.get(variant, '')}{photo_suffix}.pdf"
+
+
+def _download(content: bytes, filename: str) -> Response:
+    media = XLSX_MIME if filename.endswith(".xlsx") else "text/csv; charset=utf-8"
+    return Response(content=content, media_type=media, headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
+
+@router.get("/api/line-items/template")
+def line_items_template(format: Literal["csv", "xlsx"] = "xlsx", _=Depends(allowed_roles)):
+    """Plantilla para cargar partidas (cotización o presupuesto) desde Excel o CSV."""
+    return _download(*template_items(format))
+
+
+@router.post("/api/line-items/parse")
+def parse_line_items(
+    files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
+    """Lee partidas de uno o varios archivos (CSV o Excel) y las devuelve enlazadas al catálogo. No guarda
+    nada: la pantalla las agrega a la cotización o al presupuesto que se está editando."""
+    if not files:
+        raise HTTPException(status_code=400, detail="No llegó ningún archivo")
+    if len(files) > 10:
+        raise HTTPException(status_code=400, detail="Sube como máximo 10 archivos a la vez")
+    sources = [(f.filename or f"archivo {i + 1}", f.file.read(2 * 1024 * 1024 + 1)) for i, f in enumerate(files)]
+    try:
+        return parse_items(db, sources)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/api/quotes/{quote_id}/items-file")
+def download_quote_items(
+    quote_id: int,
+    format: Literal["csv", "xlsx"] = "xlsx",
+    db: Session = Depends(get_db),
+    _=Depends(allowed_roles),
+):
+    """Las partidas de la cotización en Excel o CSV, con las columnas que se aceptan al volver a cargarlas."""
+    return _download(*export_items(db, _get_quote(db, quote_id), format))
 
 
 @router.get("/api/quotes/{quote_id}/pdf")

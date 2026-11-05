@@ -50,10 +50,10 @@ export function Login() {
     <div className="flex min-h-dvh items-center justify-center bg-brand-bg px-5 dark:bg-gray-950">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-brand-blue text-2xl font-bold text-white">
+          <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-brand-blue to-blue-800 text-5xl font-extrabold text-white shadow-lg">
             M
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Multitec ERP</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">Multitec ERP</h1>
           <p className="text-sm text-gray-500">Seguridad electrónica</p>
         </div>
         <Card>

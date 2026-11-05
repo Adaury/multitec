@@ -1,3 +1,7 @@
+import { useRef, useState } from 'react'
+import { FileSpreadsheet } from 'lucide-react'
+import { api, apiErrorMessage, downloadFile } from '../lib/api'
+import { useAuthStore } from '../lib/authStore'
 import type { LineItemInput, Product } from '../lib/types'
 import { ITBIS_RATE, formatDOP } from '../lib/format'
 import { Button, IconButton, Input } from './ui'
@@ -97,6 +101,8 @@ export function LineItemsEditor({ items, onChange, products, mode }: Props) {
         + Agregar línea
       </Button>
 
+      <LoadFromFiles items={items} onChange={onChange} />
+
       <div className="space-y-1 rounded-2xl bg-white p-4 ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
         {mode === 'quote' ? (
           <>
@@ -108,6 +114,100 @@ export function LineItemsEditor({ items, onChange, products, mode }: Props) {
           <Row label="Total del presupuesto" value={total} strong />
         )}
       </div>
+    </div>
+  )
+}
+
+interface ParsedItems {
+  items: LineItemInput[]
+  warnings: string[]
+  matched: number
+}
+
+/** Cargar partidas desde uno o varios archivos (Excel o CSV): la lista de materiales que mandó un proveedor,
+ * una cotización descargada para corregirla, o la lista de alarma y ferretería. Se agregan a las líneas que ya
+ * hay; las que se encuentran en el catálogo quedan enlazadas a su producto. */
+function LoadFromFiles({ items, onChange }: { items: LineItemInput[]; onChange: (items: LineItemInput[]) => void }) {
+  const role = useAuthStore((s) => s.user?.role)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [warnings, setWarnings] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
+  if (role !== 'admin' && role !== 'oficina') return null
+
+  async function load(files: File[]) {
+    if (files.length === 0) return
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    setWarnings([])
+    try {
+      const form = new FormData()
+      for (const f of files) form.append('files', f)
+      const { data } = await api.post<ParsedItems>('/line-items/parse', form, { timeout: 60_000 })
+      // Las líneas vacías que se dejaron abiertas no se conservan al cargar el archivo.
+      const kept = items.filter((i) => i.description.trim() || i.product_id)
+      onChange([...kept, ...data.items.map((i) => ({ ...i, note: i.note ?? '' }))])
+      setMessage(
+        `Se agregaron ${data.items.length} partida(s)` +
+          (data.items.length ? ` · ${data.matched} encontrada(s) en el catálogo` : ''),
+      )
+      setWarnings(data.warnings)
+    } catch (err) {
+      setError(apiErrorMessage(err, 'No se pudo leer el archivo'))
+    } finally {
+      setBusy(false)
+      if (inputRef.current) inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="space-y-2 rounded-2xl border-2 border-dashed border-gray-200 p-3 dark:border-gray-700">
+      <div className="flex flex-wrap items-center gap-2">
+        <FileSpreadsheet className="h-5 w-5 text-brand-blue" aria-hidden="true" />
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={busy}
+          className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        >
+          {busy ? 'Leyendo…' : 'Cargar partidas desde archivo'}
+        </button>
+        <button
+          type="button"
+          onClick={() => downloadFile('/line-items/template?format=xlsx', 'plantilla_partidas.xlsx')}
+          className="text-sm font-medium text-brand-blue hover:underline"
+        >
+          ⬇ Plantilla
+        </button>
+        <input
+          ref={inputRef}
+          type="file"
+          multiple
+          accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+          aria-label="Archivos de partidas (Excel o CSV)"
+          className="hidden"
+          onChange={(e) => void load(Array.from(e.target.files ?? []))}
+        />
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        Excel o CSV, uno o varios a la vez, con las columnas Código, Descripción, Cantidad, Precio y Nota.
+      </p>
+      {message && (
+        <p role="status" className="text-sm font-medium text-emerald-700 dark:text-emerald-400">
+          ✓ {message}
+        </p>
+      )}
+      {warnings.length > 0 && (
+        <ul className="space-y-0.5 text-xs text-amber-700 dark:text-amber-400">
+          {warnings.slice(0, 8).map((w) => (
+            <li key={w}>• {w}</li>
+          ))}
+          {warnings.length > 8 && <li>… y {warnings.length - 8} aviso(s) más</li>}
+        </ul>
+      )}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   )
 }

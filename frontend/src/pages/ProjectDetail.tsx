@@ -1715,6 +1715,24 @@ function QuoteCard({
                 </div>
                 {isAdmin && <MarginRow endpoint={`/quotes/${quote.id}/margin`} enabled={expanded} />}
               </div>
+              {/* Las partidas en Excel: para revisarlas, mandarlas a un suplidor o corregirlas y volver a cargarlas
+                  (Editar → Cargar partidas desde archivo). */}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => downloadFile(`/quotes/${quote.id}/items-file?format=xlsx`, `${quote.code}-partidas.xlsx`)}
+                  className="rounded-full bg-brand-gray px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200"
+                >
+                  ⬇ Descargar partidas (Excel)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => downloadFile(`/quotes/${quote.id}/items-file?format=csv`, `${quote.code}-partidas.csv`)}
+                  className="rounded-full bg-brand-gray px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200"
+                >
+                  CSV
+                </button>
+              </div>
             </div>
           )}
 

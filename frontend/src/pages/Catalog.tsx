@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, apiErrorMessage } from '../lib/api'
+import { api, apiErrorMessage, downloadFile } from '../lib/api'
 import type {
   CalculationParameter,
   CatalogRule,
@@ -407,6 +407,12 @@ function CatalogProducts() {
               ⬆ Importar
             </button>
           )}
+          <button
+            onClick={() => downloadFile('/catalog/export?format=xlsx', 'catalogo.xlsx')}
+            className="rounded-full bg-brand-gray px-4 py-2 text-sm font-medium text-gray-700 dark:bg-gray-800 dark:text-gray-300"
+          >
+            ⬇ Exportar
+          </button>
           <button
             onClick={() => setShowForm((v) => !v)}
             className="rounded-full bg-brand-blue px-4 py-2 text-sm font-medium text-white"
