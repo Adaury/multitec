@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     upload_dir: str = "./uploads"
     max_upload_mb: int = 25
 
+    # Carpeta donde se guarda la copia de seguridad automática que se saca antes de borrar datos de prueba
+    # (Administración → Borrar datos de prueba). Vacío = carpeta MultitecBackups del usuario de Windows.
+    backup_dir: str = ""
+    pg_bin_path: str = r"C:\Program Files\PostgreSQL\17\bin"
+
     itbis_rate: float = 0.18
     quote_stale_days: int = 7
 

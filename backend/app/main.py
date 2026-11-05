@@ -45,6 +45,7 @@ from app.api.routers import (
     suppliers,
     surveys,
     system,
+    test_data,
     tickets,
     users,
     visits,
@@ -192,6 +193,7 @@ app.include_router(system.router)
 app.include_router(public.router)
 app.include_router(suppliers.router)
 app.include_router(purchase_invoices.router)
+app.include_router(test_data.router)
 
 
 @app.get("/api/health")

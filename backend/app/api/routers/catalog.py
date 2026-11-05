@@ -31,8 +31,9 @@ from app.schemas.technical_rule import (
     TechnicalRuleUpdate,
 )
 from app.services.audit import audit
-from app.services.catalog_import import export_catalog, import_catalog_files, template_file
-from app.services.spreadsheets import XLSX_MIME
+from app.services import catalog_base
+from app.services.catalog_import import TEMPLATE_HEADERS, export_catalog, import_catalog_files, template_file
+from app.services.spreadsheets import XLSX_MIME, build_csv_semicolon
 from app.services.code_generator import next_code
 
 router = APIRouter(prefix="/api/catalog", tags=["catalog"])
@@ -76,14 +77,55 @@ def _file_response(content: bytes, filename: str) -> Response:
 
 @router.get("/import-template")
 def download_import_template(
-    kind: Literal["general", "alarma", "ferreteria"] = "general",
+    kind: str = "general",
     format: Literal["csv", "xlsx"] = "csv",
     _=Depends(allowed_roles),
 ):
     """Plantilla para cargar productos de golpe: la general (con filas EJEMPLO) o una lista lista para llenar
     de materiales de alarma o de ferretería, en CSV o Excel."""
+    if kind != "general" and kind not in catalog_base.KITS:
+        raise HTTPException(status_code=400, detail="Tipo de plantilla desconocido")
     content, filename = template_file(kind, format)
     return _file_response(content, filename)
+
+
+@router.get("/base-kits")
+def list_base_kits(_=Depends(allowed_roles)):
+    """Las listas de artículos (sin precio) que se pueden descargar o cargar de una vez."""
+    return catalog_base.kit_summary()
+
+
+@router.post("/base-catalog")
+def load_base_catalog(
+    request: Request,
+    dry_run: bool = True,
+    kinds: str = "",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(admin_only),
+):
+    """Crea los artículos del catálogo base que todavía no existan (sin precio). Lo que ya está en el catálogo con
+    ese nombre no se toca. `kinds`: tipos separados por coma (vacío = todos). Por defecto es vista previa."""
+    chosen = [k for k in (kinds.split(",") if kinds else catalog_base.KIT_ORDER) if k]
+    unknown = [k for k in chosen if k not in catalog_base.KITS]
+    if unknown or not chosen:
+        raise HTTPException(status_code=400, detail="Tipo de lista desconocido")
+    rows = [row for kind in chosen for row in catalog_base.kit_rows(kind)]
+    data = build_csv_semicolon(TEMPLATE_HEADERS, rows)
+    try:
+        new_roots = [] if dry_run else catalog_base.ensure_roots(db)
+        result = import_catalog_files(
+            db, [("catalogo_base.csv", data)], current_user.id, dry_run, create_categories=True, only_create=True
+        )
+    except ValueError as exc:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=str(exc))
+    if not dry_run:
+        audit(
+            db, "catalog.base_load", user=current_user, entity="catalog",
+            detail={"listas": chosen, "creados": result["created"], "categorias": new_roots + result["new_categories"]},
+            request=request, commit=True,
+        )
+    return result
 
 
 @router.get("/export")

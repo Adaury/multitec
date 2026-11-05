@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 from app.models.category import Category
 from app.models.product import Product, resolve_code_prefix
 from app.schemas.product import ProductCreate, ProductUpdate
+from app.services.catalog_base import KITS, kit_rows
 from app.services.code_generator import next_code
 from app.services.spreadsheets import build_csv_semicolon, build_xlsx, read_rows
 
@@ -47,53 +48,10 @@ TEMPLATE_HEADERS = [
 ]
 # Plantillas listas para llenar: nombres reales y la categoría ya puesta; el precio y el costo se dejan vacíos
 # para que cada empresa ponga los suyos (un producto sin precio entra con precio 0 marcado «estimado»).
+# Las plantillas por tipo (cámaras, alarma, cerco, domótica, ferretería…) salen del catálogo base:
+# ver app/services/catalog_base.py.
 TEMPLATE_KITS: dict[str, tuple[str, list[list[str]]]] = {
-    "alarma": (
-        "plantilla_materiales_alarma",
-        [
-            ["Panel de alarma 8 zonas", "Alarmas > Paneles", "unidad", "", "", "", "", "Panel de alarma cableado 8 zonas expandible", "alarma;panel", "central de alarma"],
-            ["Teclado LCD para panel de alarma", "Alarmas > Teclados", "unidad", "", "", "", "", "", "alarma;teclado", ""],
-            ["Sensor de movimiento PIR", "Alarmas > Sensores", "unidad", "", "", "", "", "Detector infrarrojo de movimiento para interior", "alarma;sensor;pir", "detector de movimiento"],
-            ["Sensor de movimiento PIR inmune a mascotas", "Alarmas > Sensores", "unidad", "", "", "", "", "", "alarma;sensor;pir;mascotas", ""],
-            ["Contacto magnético para puerta", "Alarmas > Sensores", "unidad", "", "", "", "", "", "alarma;contacto magnetico", "magnetico de puerta"],
-            ["Contacto magnético de alto tráfico (portón)", "Alarmas > Sensores", "unidad", "", "", "", "", "", "alarma;contacto magnetico;porton", ""],
-            ["Detector de humo", "Alarmas > Sensores", "unidad", "", "", "", "", "", "alarma;humo;incendio", ""],
-            ["Detector de rotura de vidrio", "Alarmas > Sensores", "unidad", "", "", "", "", "", "alarma;vidrio", ""],
-            ["Sirena exterior con estrobo", "Alarmas > Sirenas", "unidad", "", "", "", "", "", "alarma;sirena;exterior", ""],
-            ["Sirena interior 30 W", "Alarmas > Sirenas", "unidad", "", "", "", "", "", "alarma;sirena;interior", ""],
-            ["Botón de pánico", "Alarmas > Accesorios", "unidad", "", "", "", "", "", "alarma;panico", ""],
-            ["Control remoto (llavero) para alarma", "Alarmas > Accesorios", "unidad", "", "", "", "", "", "alarma;control remoto", ""],
-            ["Comunicador GSM / 4G para alarma", "Alarmas > Comunicadores", "unidad", "", "", "", "", "", "alarma;comunicador;gsm", ""],
-            ["Módulo de comunicación IP para alarma", "Alarmas > Comunicadores", "unidad", "", "", "", "", "", "alarma;comunicador;ip", ""],
-            ["Batería 12 V 7 Ah", "Alarmas > Baterías", "unidad", "", "", "", "", "", "alarma;bateria;12v", "bateria de respaldo"],
-            ["Transformador 16.5 V para panel", "Alarmas > Accesorios", "unidad", "", "", "", "", "", "alarma;transformador", ""],
-            ["Cable de alarma 4 hilos 22 AWG (rollo 305 m)", "Alarmas > Cableado", "rollo", "", "", "", "", "", "alarma;cable;4 hilos", "cable de alarma"],
-            ["Gabinete metálico para panel", "Alarmas > Accesorios", "unidad", "", "", "", "", "", "alarma;gabinete", ""],
-        ],
-    ),
-    "ferreteria": (
-        "plantilla_materiales_ferreteria",
-        [
-            ["Tornillo autorroscante 8 x 1\" (caja 100)", "Ferretería > Tornillería", "caja", "", "", "", "", "", "tornillo;ferreteria", ""],
-            ["Tornillo para concreto 1/4 x 1-1/4\"", "Ferretería > Tornillería", "unidad", "", "", "", "", "", "tornillo;concreto;ferreteria", "tapcon"],
-            ["Taco plástico (fisher) 1/4\" (bolsa 100)", "Ferretería > Anclajes", "bolsa", "", "", "", "", "", "taco;anclaje;ferreteria", "tarugo;fisher"],
-            ["Ancla de expansión 3/8\"", "Ferretería > Anclajes", "unidad", "", "", "", "", "", "ancla;anclaje;ferreteria", ""],
-            ["Abrazadera EMT 3/4\"", "Ferretería > Abrazaderas y grapas", "unidad", "", "", "", "", "", "abrazadera;emt;ferreteria", "grapa"],
-            ["Grapa para cable con clavo (bolsa 100)", "Ferretería > Abrazaderas y grapas", "bolsa", "", "", "", "", "", "grapa;cable;ferreteria", ""],
-            ["Amarre plástico 8\" (bolsa 100)", "Ferretería > Amarres y cintas", "bolsa", "", "", "", "", "", "amarre;tie wrap;ferreteria", "tie wrap;cincho"],
-            ["Cinta aislante negra", "Ferretería > Amarres y cintas", "unidad", "", "", "", "", "", "cinta;aislante;ferreteria", "tape"],
-            ["Cinta doble cara", "Ferretería > Amarres y cintas", "unidad", "", "", "", "", "", "cinta;doble cara;ferreteria", ""],
-            ["Silicón transparente (tubo)", "Ferretería > Selladores", "unidad", "", "", "", "", "", "silicon;sellador;ferreteria", "silicona"],
-            ["Broca para concreto 1/4\"", "Ferretería > Brocas", "unidad", "", "", "", "", "", "broca;concreto;ferreteria", "mecha"],
-            ["Broca para metal 1/8\"", "Ferretería > Brocas", "unidad", "", "", "", "", "", "broca;metal;ferreteria", "mecha"],
-            ["Caja eléctrica rectangular 2 x 4", "Ferretería > Cajas y tapas", "unidad", "", "", "", "", "", "caja;electrica;ferreteria", "caja 2x4"],
-            ["Caja de registro exterior IP65", "Ferretería > Cajas y tapas", "unidad", "", "", "", "", "", "caja;registro;exterior;ferreteria", ""],
-            ["Tapa ciega 2 x 4", "Ferretería > Cajas y tapas", "unidad", "", "", "", "", "", "tapa;ferreteria", ""],
-            ["Conector EMT 3/4\"", "Ferretería > Conectores y uniones", "unidad", "", "", "", "", "", "conector;emt;ferreteria", ""],
-            ["Unión EMT 3/4\"", "Ferretería > Conectores y uniones", "unidad", "", "", "", "", "", "union;emt;ferreteria", ""],
-            ["Disco de corte para metal 4-1/2\"", "Ferretería > Herramientas y consumibles", "unidad", "", "", "", "", "", "disco;corte;ferreteria", ""],
-        ],
-    ),
+    kind: (file, kit_rows(kind)) for kind, (_label, file, _groups) in KITS.items()
 }
 
 TEMPLATE_EXAMPLES = [
@@ -205,7 +163,6 @@ def template_file(kind: str, fmt: str) -> tuple[bytes, str]:
             return template_csv(), f"{name}.csv"
     elif kind in TEMPLATE_KITS:
         name, rows = TEMPLATE_KITS[kind]
-        rows = [r + [""] * (len(TEMPLATE_HEADERS) - len(r)) for r in rows]
     else:
         raise ValueError("Tipo de plantilla desconocido")
     if fmt == "xlsx":
@@ -316,7 +273,9 @@ def import_catalog_files(
     user_id: int | None,
     dry_run: bool,
     create_categories: bool = False,
+    only_create: bool = False,
 ) -> dict[str, Any]:
+    """`only_create`: un producto que ya existe (mismo nombre o código) se deja como está (catálogo base)."""
     if not files:
         raise ValueError("No llegó ningún archivo")
     sheets: list[tuple[str, list[list[str]]]] = []
@@ -427,6 +386,10 @@ def import_catalog_files(
                 continue
         if existing is None:
             existing = by_name.get(_fold(name))
+
+        if existing is not None and only_create:
+            add("skip", row_number, name, f"Ya está en tu catálogo ({existing.code})")
+            continue
 
         try:
             if existing is not None:

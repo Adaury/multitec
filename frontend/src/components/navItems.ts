@@ -1,4 +1,4 @@
-import { Building2, Hash, Settings, ShieldCheck, SlidersHorizontal, type LucideIcon } from 'lucide-react'
+import { Building2, Eraser, Hash, Settings, ShieldCheck, SlidersHorizontal, type LucideIcon } from 'lucide-react'
 
 export interface NavItem {
   to: string
@@ -14,6 +14,7 @@ export const ADMIN_ITEMS: NavItem[] = [
   { to: '/empresa', label: 'Mi empresa', icon: Building2 },
   { to: '/auditoria', label: 'Auditoría', icon: ShieldCheck },
   { to: '/aprendizaje-ia', label: 'Ajustes de IA', icon: SlidersHorizontal },
+  { to: '/borrar-pruebas', label: 'Borrar datos de prueba', icon: Eraser },
 ]
 
 export const ADMIN_PATHS = new Set(ADMIN_ITEMS.map((item) => item.to))

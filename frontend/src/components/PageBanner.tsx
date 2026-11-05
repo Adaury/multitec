@@ -18,6 +18,7 @@ export const PAGE_INFO: Record<string, { description: string; gradient: string }
   '/empresa': { description: 'Los datos de tu empresa que salen en cotizaciones y facturas.', gradient: 'from-blue-700 to-slate-800' },
   '/auditoria': { description: 'Quién hizo qué y cuándo dentro del sistema.', gradient: 'from-gray-600 to-gray-800' },
   '/aprendizaje-ia': { description: 'Lo que la IA aprende de tus correcciones y sus parámetros.', gradient: 'from-purple-600 to-indigo-800' },
+  '/borrar-pruebas': { description: 'Quita los clientes y productos que usaste para probar, con copia de seguridad antes.', gradient: 'from-rose-600 to-red-800' },
   '/plataforma': { description: 'Las empresas que usan el sistema.', gradient: 'from-cyan-600 to-blue-800' },
   '/ayuda': { description: 'Videos, paso a paso y preguntas frecuentes.', gradient: 'from-green-600 to-emerald-800' },
 }

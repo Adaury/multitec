@@ -35,6 +35,7 @@ const loaders = {
   Auditoria: () => import('./pages/Auditoria'),
   HojaDeTiempo: () => import('./pages/HojaDeTiempo'),
   Plataforma: () => import('./pages/Plataforma'),
+  BorrarPruebas: () => import('./pages/BorrarPruebas'),
   Ayuda: () => import('./pages/Ayuda'),
 }
 
@@ -62,6 +63,7 @@ const Auditoria = lazyPage(loaders.Auditoria, 'Auditoria')
 const HojaDeTiempo = lazyPage(loaders.HojaDeTiempo, 'HojaDeTiempo')
 const Plataforma = lazyPage(loaders.Plataforma, 'Plataforma')
 const Ayuda = lazyPage(loaders.Ayuda, 'Ayuda')
+const BorrarPruebas = lazyPage(loaders.BorrarPruebas, 'BorrarPruebas')
 
 // Las pantallas de uso diario se descargan en segundo plano cuando el navegador está libre, para
 // que al tocarlas abran al instante en vez de esperar la descarga.
@@ -129,6 +131,7 @@ function App() {
             <Route path="/empresa" element={<Empresa />} />
             <Route path="/auditoria" element={<Auditoria />} />
             <Route path="/aprendizaje-ia" element={<AIFeedbackEvents />} />
+            <Route path="/borrar-pruebas" element={<BorrarPruebas />} />
             {/* Entradas antiguas: ahora viven dentro de Ajustes de IA y de Catálogo. */}
             <Route path="/parametros-calculo" element={<Navigate to="/aprendizaje-ia?vista=parametros" replace />} />
             <Route path="/clasificaciones" element={<Navigate to="/catalogo?vista=clasificaciones" replace />} />

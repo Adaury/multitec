@@ -1,6 +1,21 @@
 import { useRef, useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { Download, FileSpreadsheet, Siren, Wrench } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  Camera,
+  DoorOpen,
+  Download,
+  FileSpreadsheet,
+  Flame,
+  Hammer,
+  Home,
+  Network,
+  PackagePlus,
+  PlugZap,
+  Siren,
+  Wrench,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
 import { api, downloadFile } from '../lib/api'
 import { Button, Modal } from './ui'
 
@@ -36,12 +51,30 @@ function errorText(err: any, fallback: string): string {
   return typeof detail === 'string' ? detail : fallback
 }
 
-// Plantillas listas para llenar: la general (con filas de ejemplo) y listas de materiales de alarma y de
-// ferretería con los nombres y las categorías ya puestos (solo falta el precio).
-const KITS = [
-  { kind: 'alarma', label: 'Materiales de alarma', icon: Siren, file: 'plantilla_materiales_alarma' },
-  { kind: 'ferreteria', label: 'Materiales de ferretería', icon: Wrench, file: 'plantilla_materiales_ferreteria' },
-] as const
+// Listas listas para llenar (vienen del servidor: catálogo base): nombres y categorías ya puestos, solo falta el precio.
+interface Kit {
+  kind: string
+  label: string
+  file: string
+  items: number
+}
+
+const KIT_ICONS: Record<string, LucideIcon> = {
+  cctv: Camera,
+  alarma: Siren,
+  cerco: Zap,
+  domotica: Home,
+  acceso: DoorOpen,
+  redes: Network,
+  incendio: Flame,
+  electrico: PlugZap,
+  ferreteria: Hammer,
+  servicios: Wrench,
+}
+
+function kitLabel(kit: Kit): string {
+  return kit.kind === 'alarma' ? 'Materiales de alarma' : kit.kind === 'ferreteria' ? 'Materiales de ferretería' : kit.label
+}
 
 /** Importación masiva de productos desde uno o varios archivos CSV o Excel. Siempre se muestra primero una
  * vista previa (qué se crea, qué se actualiza, qué filas tienen error) y recién después se aplica. */
@@ -55,13 +88,47 @@ export function CatalogImport({ open, onClose }: { open: boolean; onClose: () =>
   const [done, setDone] = useState<ImportResult | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // De dónde sale la vista previa: los archivos elegidos o el catálogo base del sistema.
+  const [source, setSource] = useState<'files' | 'base'>('files')
+  const { data: kits = [] } = useQuery({
+    queryKey: ['catalog-base-kits'],
+    queryFn: async () => (await api.get<Kit[]>('/catalog/base-kits')).data,
+    enabled: open,
+    staleTime: Infinity,
+  })
+  const baseTotal = kits.reduce((sum, k) => sum + k.items, 0)
 
   function reset() {
     setFiles([])
     setPreview(null)
     setDone(null)
     setError(null)
+    setSource('files')
     if (fileRef.current) fileRef.current.value = ''
+  }
+
+  function finish(dryRun: boolean, data: ImportResult) {
+    if (dryRun) setPreview(data)
+    else {
+      setDone(data)
+      setPreview(null)
+      queryClient.invalidateQueries({ queryKey: ['catalog'] })
+      queryClient.invalidateQueries({ queryKey: ['categories'] })
+    }
+  }
+
+  async function sendBase(dryRun: boolean) {
+    setBusy(true)
+    setError(null)
+    setSource('base')
+    try {
+      const { data } = await api.post<ImportResult>(`/catalog/base-catalog?dry_run=${dryRun}`, null, { timeout: 120_000 })
+      finish(dryRun, data)
+    } catch (err) {
+      setError(errorText(err, 'No se pudo cargar el catálogo base'))
+    } finally {
+      setBusy(false)
+    }
   }
 
   async function send(dryRun: boolean, withCategories = createCategories) {
@@ -76,13 +143,8 @@ export function CatalogImport({ open, onClose }: { open: boolean; onClose: () =>
         form,
         { timeout: 120_000 },
       )
-      if (dryRun) setPreview(data)
-      else {
-        setDone(data)
-        setPreview(null)
-        queryClient.invalidateQueries({ queryKey: ['catalog'] })
-        queryClient.invalidateQueries({ queryKey: ['categories'] })
-      }
+      setSource('files')
+      finish(dryRun, data)
     } catch (err) {
       setError(errorText(err, 'No se pudo leer el archivo'))
     } finally {
@@ -92,7 +154,7 @@ export function CatalogImport({ open, onClose }: { open: boolean; onClose: () =>
 
   const applicable = preview ? preview.created + preview.updated : 0
   const missingCategories =
-    !createCategories && (preview?.rows.some((r) => r.action === 'error' && /categoría .* no existe/i.test(r.message)) ?? false)
+    source === 'files' && !createCategories && (preview?.rows.some((r) => r.action === 'error' && /categoría .* no existe/i.test(r.message)) ?? false)
   const result = done ?? preview
   const several = (result?.files?.length ?? 0) > 1
 
@@ -118,7 +180,28 @@ export function CatalogImport({ open, onClose }: { open: boolean; onClose: () =>
           <li>Primero ves una vista previa, y recién después se aplica.</li>
         </ol>
 
-        <div className="grid gap-2 sm:grid-cols-3">
+        {!done && !preview && (
+          <div className="flex flex-col gap-3 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-800 p-4 text-white sm:flex-row sm:items-center">
+            <PackagePlus className="h-10 w-10 shrink-0" aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <p className="font-semibold">Catálogo base{baseTotal ? ` · ${baseTotal} artículos` : ''} (sin precios)</p>
+              <p className="text-sm text-white/85">
+                Cámaras, alarmas, cerco eléctrico, domótica, control de acceso, redes, incendio, material eléctrico,
+                ferretería y servicios. Solo se agregan los que no tengas; después les pones tu precio.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void sendBase(true)}
+              disabled={busy}
+              className="shrink-0 rounded-xl bg-white px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50 disabled:opacity-60"
+            >
+              {busy && source === 'base' ? 'Revisando…' : 'Ver qué se agrega'}
+            </button>
+          </div>
+        )}
+
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-2xl bg-brand-gray p-3 dark:bg-gray-800">
             <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-100">
               <FileSpreadsheet className="h-4 w-4 text-brand-blue" aria-hidden="true" /> General
@@ -140,10 +223,14 @@ export function CatalogImport({ open, onClose }: { open: boolean; onClose: () =>
               </button>
             </div>
           </div>
-          {KITS.map((kit) => (
+          {kits.map((kit) => {
+            const Icon = KIT_ICONS[kit.kind] ?? FileSpreadsheet
+            const label = kitLabel(kit)
+            return (
             <div key={kit.kind} className="rounded-2xl bg-brand-gray p-3 dark:bg-gray-800">
               <p className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-100">
-                <kit.icon className="h-4 w-4 text-brand-blue" aria-hidden="true" /> {kit.label}
+                <Icon className="h-4 w-4 shrink-0 text-brand-blue" aria-hidden="true" /> <span className="truncate">{label}</span>
+                <span className="ml-auto shrink-0 text-xs font-normal text-gray-500 dark:text-gray-400">{kit.items}</span>
               </p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {(['xlsx', 'csv'] as const).map((format) => (
@@ -152,14 +239,15 @@ export function CatalogImport({ open, onClose }: { open: boolean; onClose: () =>
                     type="button"
                     onClick={() => downloadFile(`/catalog/import-template?kind=${kit.kind}&format=${format}`, `${kit.file}.${format}`)}
                     className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-700 ring-1 ring-black/5 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-200"
-                    aria-label={`Descargar lista de ${kit.label.toLowerCase()} en ${format === 'xlsx' ? 'Excel' : 'CSV'}`}
+                    aria-label={`Descargar lista de ${label.toLowerCase()} en ${format === 'xlsx' ? 'Excel' : 'CSV'}`}
                   >
                     {format === 'xlsx' ? '⬇ Excel' : 'CSV'}
                   </button>
                 ))}
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
         <button
           type="button"
@@ -215,7 +303,7 @@ export function CatalogImport({ open, onClose }: { open: boolean; onClose: () =>
         {result && (
           <div className="space-y-3">
             <p role="status" className="text-sm font-medium text-gray-800 dark:text-gray-200">
-              {done ? '✅ Importación terminada: ' : 'Vista previa: '}
+              {done ? '✅ Importación terminada: ' : source === 'base' ? 'Catálogo base: ' : 'Vista previa: '}
               {result.created} nuevo(s) · {result.updated} actualizado(s) · {result.skipped} omitido(s) ·{' '}
               <span className={result.errors ? 'text-red-600 dark:text-red-400' : ''}>{result.errors} con error</span>
             </p>
@@ -271,7 +359,7 @@ export function CatalogImport({ open, onClose }: { open: boolean; onClose: () =>
 
         {preview && (
           <div className="flex flex-col gap-2">
-            <Button onClick={() => send(false)} disabled={busy || applicable === 0}>
+            <Button onClick={() => (source === 'base' ? sendBase(false) : send(false))} disabled={busy || applicable === 0}>
               {busy ? 'Importando…' : `Importar ${applicable} producto(s)`}
             </Button>
             {preview.errors > 0 && applicable > 0 && (
@@ -280,7 +368,7 @@ export function CatalogImport({ open, onClose }: { open: boolean; onClose: () =>
               </p>
             )}
             <Button variant="ghost" onClick={reset} disabled={busy}>
-              Elegir otros archivos
+              {source === 'base' ? 'Volver' : 'Elegir otros archivos'}
             </Button>
           </div>
         )}
