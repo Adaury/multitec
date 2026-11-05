@@ -103,7 +103,7 @@ def upgrade() -> None:
 
     # 4) Correlativos por empresa: la clave de code_sequences pasa de (prefix) a (company_id, prefix).
     if sqlite:
-        with op.batch_alter_table('code_sequences', recreate='always') as batch:
+        with op.batch_alter_table('code_sequences', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch:
             batch.create_primary_key('pk_code_sequences', ['company_id', 'prefix'])
     else:
         op.drop_constraint('code_sequences_pkey', 'code_sequences', type_='primary')
@@ -158,7 +158,7 @@ def downgrade() -> None:
     if sqlite:
         with op.batch_alter_table('company_profile') as batch:
             batch.drop_constraint('uq_company_profile_company_id', type_='unique')
-        with op.batch_alter_table('code_sequences', recreate='always') as batch:
+        with op.batch_alter_table('code_sequences', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch:
             batch.create_primary_key('pk_code_sequences', ['prefix'])
     else:
         op.drop_constraint('uq_company_profile_company_id', 'company_profile', type_='unique')

@@ -42,14 +42,14 @@ def upgrade() -> None:
     # Agregar una FK a una tabla ya existente (materials) requiere batch mode en SQLite
     # (ALTER TABLE ADD CONSTRAINT no existe ahí) — mismo gotcha ya resuelto en
     # 093cf2d8eda3_audit_columns_created_by_and_updated_at.
-    with op.batch_alter_table('materials', recreate='always') as batch_op:
+    with op.batch_alter_table('materials', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
         batch_op.add_column(sa.Column('supplier_id', sa.Integer(), nullable=True))
         batch_op.add_column(sa.Column('purchase_price', sa.Numeric(12, 2), nullable=True))
         batch_op.create_foreign_key('fk_materials_supplier_id_suppliers', 'suppliers', ['supplier_id'], ['id'])
 
 
 def downgrade() -> None:
-    with op.batch_alter_table('materials', recreate='always') as batch_op:
+    with op.batch_alter_table('materials', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
         batch_op.drop_constraint('fk_materials_supplier_id_suppliers', type_='foreignkey')
         batch_op.drop_column('purchase_price')
         batch_op.drop_column('supplier_id')

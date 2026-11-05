@@ -20,7 +20,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 # SQLite no soporta ALTER TABLE ADD CONSTRAINT — op.batch_alter_table usa la estrategia
 # de copiar-y-recrear tabla ahí (no-op equivalente a ALTER normal en Postgres).
-# recreate='always' evita un CircularDependencyError que SQLAlchemy dispara al intentar
+# recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto") evita un CircularDependencyError que SQLAlchemy dispara al intentar
 # reordenar columnas automáticamente cuando se agregan varias a la vez.
 TABLES_WITH_TIMESTAMPS = ("clients", "engineering", "products", "surveys")
 TABLES_WITHOUT_TIMESTAMPS = ("budgets", "extensions", "invoices", "materials", "pre_invoices", "projects", "quotes", "tickets")
@@ -28,7 +28,7 @@ TABLES_WITHOUT_TIMESTAMPS = ("budgets", "extensions", "invoices", "materials", "
 
 def upgrade() -> None:
     for table in TABLES_WITH_TIMESTAMPS:
-        with op.batch_alter_table(table, recreate='always') as batch_op:
+        with op.batch_alter_table(table, recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.add_column(sa.Column('created_by', sa.Integer(), nullable=True))
             batch_op.add_column(
                 sa.Column(
@@ -39,29 +39,29 @@ def upgrade() -> None:
             batch_op.create_foreign_key(f"fk_{table}_created_by_users", 'users', ['created_by'], ['id'])
 
     for table in TABLES_WITHOUT_TIMESTAMPS:
-        with op.batch_alter_table(table, recreate='always') as batch_op:
+        with op.batch_alter_table(table, recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.add_column(sa.Column('created_by', sa.Integer(), nullable=True))
             if table != 'invoices':
                 batch_op.add_column(sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True))
             batch_op.create_foreign_key(f"fk_{table}_created_by_users", 'users', ['created_by'], ['id'])
 
-    with op.batch_alter_table('log_entries', recreate='always') as batch_op:
+    with op.batch_alter_table('log_entries', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
         batch_op.add_column(sa.Column('updated_at', sa.DateTime(timezone=True), nullable=True))
 
 
 def downgrade() -> None:
-    with op.batch_alter_table('log_entries', recreate='always') as batch_op:
+    with op.batch_alter_table('log_entries', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
         batch_op.drop_column('updated_at')
 
     for table in reversed(TABLES_WITHOUT_TIMESTAMPS):
-        with op.batch_alter_table(table, recreate='always') as batch_op:
+        with op.batch_alter_table(table, recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.drop_constraint(f"fk_{table}_created_by_users", type_='foreignkey')
             if table != 'invoices':
                 batch_op.drop_column('updated_at')
             batch_op.drop_column('created_by')
 
     for table in reversed(TABLES_WITH_TIMESTAMPS):
-        with op.batch_alter_table(table, recreate='always') as batch_op:
+        with op.batch_alter_table(table, recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.drop_constraint(f"fk_{table}_created_by_users", type_='foreignkey')
             batch_op.drop_column('updated_at')
             batch_op.drop_column('created_at')

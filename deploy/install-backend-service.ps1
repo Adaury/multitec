@@ -35,7 +35,7 @@ if (-not (Test-Path $uvicorn)) {
 $logDir = Join-Path $backendDir "logs"
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 
-& $nssm install $ServiceName $uvicorn "app.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips=127.0.0.1"
+& $nssm install $ServiceName $uvicorn "app.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips=127.0.0.1,::1 --limit-concurrency 1000"
 & $nssm set $ServiceName AppDirectory $backendDir
 & $nssm set $ServiceName AppStdout (Join-Path $logDir "backend.out.log")
 & $nssm set $ServiceName AppStderr (Join-Path $logDir "backend.err.log")

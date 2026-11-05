@@ -60,7 +60,7 @@ function run(args) {
 run(['-m', 'alembic', 'upgrade', 'head'])
 run(['-m', 'app.db.seed'])
 
-const server = spawn(python, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', port], {
+const server = spawn(python, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', port, '--proxy-headers', '--forwarded-allow-ips', '127.0.0.1,::1', '--limit-concurrency', '1000'], {
   cwd: backendDir,
   env,
   stdio: 'inherit',

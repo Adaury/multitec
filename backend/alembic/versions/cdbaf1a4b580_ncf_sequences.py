@@ -38,11 +38,11 @@ def upgrade() -> None:
     )
 
     # SQLite no soporta ALTER TABLE ADD CONSTRAINT, así que necesita batch/recreate ahí.
-    # En Postgres, recreate='always' reconstruye la tabla entera y eso falla porque
+    # En Postgres, recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto") reconstruye la tabla entera y eso falla porque
     # invoice_history/invoice_items tienen FKs apuntando a invoices — ahí basta el ALTER
     # nativo, mucho más barato y sin ese riesgo.
     if op.get_bind().dialect.name == "sqlite":
-        with op.batch_alter_table('invoices', recreate='always') as batch_op:
+        with op.batch_alter_table('invoices', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.add_column(sa.Column('ncf', sa.String(length=20), nullable=True))
             batch_op.add_column(sa.Column('ncf_type', sa.String(length=3), nullable=True))
             batch_op.create_unique_constraint('uq_invoices_ncf', ['ncf'])
@@ -54,7 +54,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     if op.get_bind().dialect.name == "sqlite":
-        with op.batch_alter_table('invoices', recreate='always') as batch_op:
+        with op.batch_alter_table('invoices', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.drop_constraint('uq_invoices_ncf', type_='unique')
             batch_op.drop_column('ncf_type')
             batch_op.drop_column('ncf')

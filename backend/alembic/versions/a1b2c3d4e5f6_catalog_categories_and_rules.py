@@ -110,7 +110,7 @@ def upgrade() -> None:
     # SQLite no soporta ALTER de constraints (la FK inline en category_id cuenta) sin modo
     # batch — mismo patrón que d6c464c4501d_project_public_token.py.
     if is_sqlite:
-        with op.batch_alter_table('products', recreate='always') as batch_op:
+        with op.batch_alter_table('products', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.add_column(sa.Column('category_id', sa.Integer(), nullable=True))
             batch_op.create_foreign_key('fk_products_category_id', 'categories', ['category_id'], ['id'])
     else:
@@ -157,7 +157,7 @@ def upgrade() -> None:
             )
 
     if is_sqlite:
-        with op.batch_alter_table('products', recreate='always') as batch_op:
+        with op.batch_alter_table('products', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.drop_column('category')
             batch_op.drop_column('suggests_tags')
     else:
@@ -170,7 +170,7 @@ def downgrade() -> None:
     is_sqlite = conn.dialect.name == "sqlite"
 
     if is_sqlite:
-        with op.batch_alter_table('products', recreate='always') as batch_op:
+        with op.batch_alter_table('products', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.add_column(sa.Column('suggests_tags', sa.JSON(), nullable=True))
             batch_op.add_column(sa.Column('category', sa.String(length=30), nullable=True))
     else:
@@ -196,7 +196,7 @@ def downgrade() -> None:
         )
 
     if is_sqlite:
-        with op.batch_alter_table('products', recreate='always') as batch_op:
+        with op.batch_alter_table('products', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.alter_column('category', nullable=False)
             batch_op.drop_column('category_id')
     else:

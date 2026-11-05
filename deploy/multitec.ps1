@@ -76,7 +76,7 @@ function Start-Multitec {
 
     Write-Host 'Iniciando backend...'
     Start-Process -FilePath $Python `
-        -ArgumentList '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', $BackendPort `
+        -ArgumentList '-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', $BackendPort, '--proxy-headers', '--forwarded-allow-ips', '127.0.0.1,::1', '--limit-concurrency', '1000' `
         -WorkingDirectory $BackendDir -WindowStyle Hidden `
         -RedirectStandardOutput (Join-Path $LogDir 'uvicorn-out.log') `
         -RedirectStandardError (Join-Path $LogDir 'uvicorn-err.log')

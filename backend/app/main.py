@@ -51,6 +51,7 @@ from app.api.routers import (
     visits,
 )
 from app.core.config import INSECURE_DEFAULT_JWT_SECRET, get_settings
+from app.core.ip_limit import PerIPRateLimit
 from app.core.limiter import limiter
 from app.core.security import get_current_user
 from app.core.logging_config import configure_logging
@@ -96,6 +97,14 @@ async def tenant_reference_handler(request: Request, exc: TenantReferenceError) 
     return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": "No encontrado"})
 
 
+@app.exception_handler(RecursionError)
+async def recursion_handler(request: Request, exc: RecursionError) -> JSONResponse:
+    """Un JSON anidado a propósito miles de niveles (ataque) agota la pila al leerlo: es un pedido inválido (400), no un
+    error del servidor."""
+    logger.warning("Pedido con datos anidados en exceso rechazado en %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"detail": "Los datos enviados no son válidos"})
+
+
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Red de seguridad: cualquier excepción no manejada se registra en el log del
@@ -128,6 +137,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type", "Accept"],
 )
+# El más externo (se agrega al final): frena a quien inunda la API antes de que su pedido cueste nada (ver core/ip_limit.py).
+app.add_middleware(PerIPRateLimit)
 
 Path(settings.upload_dir).mkdir(parents=True, exist_ok=True)
 

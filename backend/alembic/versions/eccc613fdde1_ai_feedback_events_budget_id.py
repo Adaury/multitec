@@ -33,7 +33,7 @@ def upgrade() -> None:
     is_sqlite = conn.dialect.name == "sqlite"
 
     if is_sqlite:
-        with op.batch_alter_table('ai_feedback_events', recreate='always') as batch_op:
+        with op.batch_alter_table('ai_feedback_events', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.add_column(sa.Column('budget_id', sa.Integer(), nullable=True))
             batch_op.create_foreign_key(
                 'fk_ai_feedback_events_budget_id', 'budgets', ['budget_id'], ['id'], ondelete='CASCADE'
@@ -57,7 +57,7 @@ def downgrade() -> None:
     is_sqlite = conn.dialect.name == "sqlite"
 
     if is_sqlite:
-        with op.batch_alter_table('ai_feedback_events', recreate='always') as batch_op:
+        with op.batch_alter_table('ai_feedback_events', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.drop_index('ix_ai_feedback_events_budget_id')
             batch_op.drop_constraint('fk_ai_feedback_events_budget_id', type_='foreignkey')
             batch_op.drop_column('budget_id')

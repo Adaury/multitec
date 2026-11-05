@@ -1,3 +1,4 @@
+import { Agent } from 'node:http'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
@@ -11,7 +12,11 @@ const apiTarget = process.env.E2E_API_TARGET ?? 'http://127.0.0.1:8010'
 // Lo mismo en desarrollo (`vite`) y sirviendo la versión compilada (`vite preview`).
 // xfwd añade X-Forwarded-For con la IP real: sin él, el backend ve a todos como 127.0.0.1 y el
 // límite de intentos de login (por IP) sería uno solo compartido por toda la empresa.
-const forward = { target: apiTarget, xfwd: true }
+// agent con keepAlive: reutiliza las conexiones al backend. Sin él se abría una conexión nueva por pedido y, en la
+// prueba de carga (cientos de pedidos por segundo), Windows se quedaba sin puertos libres (EADDRINUSE) y la web
+// respondía 502 a todos, también a los usuarios normales.
+const backendAgent = new Agent({ keepAlive: true, maxSockets: 256, maxFreeSockets: 64 })
+const forward = { target: apiTarget, xfwd: true, agent: backendAgent }
 const proxy = {
   '/api': forward,
   '/uploads': forward,

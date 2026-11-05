@@ -10,6 +10,16 @@
 # (ej. "erp.multitec.com.do {") y Caddy obtiene HTTPS automático de Let's Encrypt sin
 # configuración adicional.
 
+{
+	servers {
+		timeouts {
+			read_header 10s
+			read_body 60s
+			idle 2m
+		}
+	}
+}
+
 multitec.local {
 	tls internal
 

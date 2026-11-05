@@ -12,7 +12,11 @@ settings = get_settings()
 connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
 # pool_pre_ping: prueba la conexión antes de usarla, así un reinicio o caída de la base no
 # le devuelve un error interno al primer usuario con conexiones muertas del pool.
-engine = create_engine(settings.database_url, connect_args=connect_args, pool_pre_ping=True)
+# Conexiones: tantas como hilos de trabajo del servidor (40) para que una ráfaga de pedidos no deje hilos esperando
+# conexión, y si aun así falta una, se espera como mucho 10 s y se responde error en vez de acumular pedidos colgados.
+engine = create_engine(
+    settings.database_url, connect_args=connect_args, pool_pre_ping=True, pool_size=20, max_overflow=20, pool_timeout=10
+)
 
 
 _TENANT_TABLES: set[str] = set()
@@ -150,7 +154,11 @@ def _check_parent_references(session: Session, company_id: int | None) -> None:
 SessionLocal = sessionmaker(class_=TenantSession, autocommit=False, autoflush=False, bind=engine)
 
 
-def get_db() -> Session:
+async def get_db():
+    """Una sesión por pedido. Es `async` a propósito: con un generador normal, FastAPI necesita un hilo libre para
+    cerrar la sesión y devolver la conexión. Bajo una ráfaga de pedidos (prueba de DoS) todos los hilos estaban
+    esperando una conexión que solo se liberaba con otro hilo: el servidor quedaba trabado para siempre. Así el
+    cierre corre en el bucle principal y la conexión siempre vuelve al pool."""
     db = SessionLocal()
     try:
         yield db

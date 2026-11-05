@@ -19,8 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # recreate='always': ver nota en 093cf2d8eda3 (evita CircularDependencyError en SQLite).
-    with op.batch_alter_table('users', recreate='always') as batch_op:
+    # recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto"): ver nota en 093cf2d8eda3 (evita CircularDependencyError en SQLite).
+    with op.batch_alter_table('users', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
         batch_op.add_column(sa.Column('created_by', sa.Integer(), nullable=True))
         batch_op.add_column(
             sa.Column(
@@ -31,7 +31,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    with op.batch_alter_table('users', recreate='always') as batch_op:
+    with op.batch_alter_table('users', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
         batch_op.drop_constraint('fk_users_created_by_users', type_='foreignkey')
         batch_op.drop_column('created_at')
         batch_op.drop_column('created_by')

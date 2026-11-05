@@ -12,7 +12,13 @@
 	servers {
 		# Confía en lo que dice cloudflared (127.0.0.1) sobre el protocolo y la IP del visitante. Sin esto Caddy
 		# reescribe X-Forwarded-Proto como http y la cookie de sesión saldría sin el atributo Secure.
-		trusted_proxies static 127.0.0.1/32
+		trusted_proxies static 127.0.0.1/32 ::1/128
+		# Corta las conexiones lentas a propósito (slowloris) antes de que lleguen al backend.
+		timeouts {
+			read_header 10s
+			read_body 60s
+			idle 2m
+		}
 	}
 }
 

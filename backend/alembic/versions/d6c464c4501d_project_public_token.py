@@ -22,7 +22,7 @@ def upgrade() -> None:
     # add_column simple (sin CONSTRAINT nuevo aparte del UNIQUE, que sí necesita batch en
     # SQLite) — igual que la lección de la migración de NCF, separamos por dialecto.
     if op.get_bind().dialect.name == "sqlite":
-        with op.batch_alter_table('projects', recreate='always') as batch_op:
+        with op.batch_alter_table('projects', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.add_column(sa.Column('public_token', sa.String(length=64), nullable=True))
             batch_op.create_unique_constraint('uq_projects_public_token', ['public_token'])
     else:
@@ -32,7 +32,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     if op.get_bind().dialect.name == "sqlite":
-        with op.batch_alter_table('projects', recreate='always') as batch_op:
+        with op.batch_alter_table('projects', recreate=("always" if op.get_bind().dialect.name == "sqlite" else "auto")) as batch_op:
             batch_op.drop_constraint('uq_projects_public_token', type_='unique')
             batch_op.drop_column('public_token')
     else:

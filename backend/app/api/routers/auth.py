@@ -67,9 +67,10 @@ def login(
     # Los emails se guardan normalizados a minúsculas (ver schemas/user.py) — se normaliza
     # igual acá para que el login no dependa de cómo el usuario tecleó las mayúsculas.
     username = form_data.username.lower()
-    # Bloqueo por cuenta (además del límite por IP): se cuenta igual exista o no el correo, así la
+    # Bloqueo por cuenta+IP y por cuenta (además del límite por IP): se cuenta igual exista o no el correo, así la
     # respuesta no revela qué cuentas existen (ver core/lockout.py).
-    wait = lockout.seconds_locked(username)
+    ip = request.client.host if request.client else None
+    wait = lockout.seconds_locked(username, ip)
     if wait:
         audit(db, "login_blocked", email=username, request=request, commit=True)
         raise HTTPException(
@@ -82,7 +83,7 @@ def login(
     # para que el tiempo de respuesta no delate si un email está registrado.
     password_ok = verify_password(form_data.password, user.hashed_password if user else DUMMY_PASSWORD_HASH)
     if user is None or not password_ok:
-        lockout.register_failure(username)
+        lockout.register_failure(username, ip)
         # Con un correo conocido el intento queda en la auditoría de SU empresa (el admin la ve); con uno desconocido, sin empresa.
         audit(
             db,
@@ -96,7 +97,7 @@ def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Correo o contraseña incorrectos",
         )
-    lockout.register_success(username)
+    lockout.register_success(username, ip)
     if not user.is_active:
         audit(db, "login_inactive", user=user, request=request, commit=True)
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Usuario inactivo")
