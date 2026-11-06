@@ -283,7 +283,7 @@ export function Web() {
               <div key={p.id} className="flex w-full max-w-sm items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
                 {p.logo_url ? (
                   // Fondo blanco siempre: los logos de los aliados vienen pensados para fondo claro (también en modo oscuro).
-                  <span className="flex h-16 w-32 shrink-0 items-center justify-center rounded-2xl bg-white p-2 ring-1 ring-black/5">
+                  <span className="flex h-20 w-32 shrink-0 items-center justify-center rounded-2xl bg-white p-1.5 ring-1 ring-black/5">
                     <img src={p.logo_url} alt={p.name} className="max-h-full max-w-full object-contain" />
                   </span>
                 ) : (
