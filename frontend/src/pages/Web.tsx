@@ -282,7 +282,10 @@ export function Web() {
             {site.partners.map((p) => (
               <div key={p.id} className="flex w-full max-w-sm items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
                 {p.logo_url ? (
-                  <img src={p.logo_url} alt={p.name} className="h-14 w-14 shrink-0 rounded-2xl object-contain" />
+                  // Fondo blanco siempre: los logos de los aliados vienen pensados para fondo claro (también en modo oscuro).
+                  <span className="flex h-16 w-32 shrink-0 items-center justify-center rounded-2xl bg-white p-2 ring-1 ring-black/5">
+                    <img src={p.logo_url} alt={p.name} className="max-h-full max-w-full object-contain" />
+                  </span>
                 ) : (
                   <span aria-hidden="true" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 text-lg font-extrabold text-white">
                     {p.name.replace(/[^A-Za-zÁÉÍÓÚÑ]/g, '').slice(0, 2).toUpperCase()}
