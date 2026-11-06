@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -19,8 +19,10 @@ import {
   Users,
   Wand2,
   MessageCircle,
+  ExternalLink,
+  Handshake,
 } from 'lucide-react'
-import { api } from '../lib/api'
+import { api, apiErrorMessage } from '../lib/api'
 import { platformMoney, whatsappLink, type SiteInfo } from '../lib/platformMoney'
 
 const PROBLEMS = [
@@ -121,6 +123,7 @@ export function Web() {
             <a href="#funciones" className="hover:text-brand-blue">Funciones</a>
             <a href="#videos" className="hover:text-brand-blue">Videos</a>
             <a href="#precios" className="hover:text-brand-blue">Precios</a>
+            <a href="#experiencias" className="hover:text-brand-blue">Experiencias</a>
             <a href="#preguntas" className="hover:text-brand-blue">Preguntas</a>
           </nav>
           <div className="ml-auto flex items-center gap-2 md:ml-0">
@@ -268,11 +271,49 @@ export function Web() {
         </div>
       </section>
 
-      {/* Testimonios: solo los que el dueño publicó (opiniones reales). */}
-      {site && site.testimonials.length > 0 && (
-        <section className="bg-brand-bg py-14 dark:bg-gray-900/40">
-          <div className="mx-auto max-w-6xl px-5">
-            <h2 className="text-center text-3xl font-extrabold tracking-tight">Lo que dicen nuestros clientes</h2>
+      {/* Empresas aliadas (las que publicó el dueño). */}
+      {site && site.partners.length > 0 && (
+        <section id="aliados" className="mx-auto max-w-6xl scroll-mt-20 px-5 py-14" data-testid="partners">
+          <h2 className="flex items-center justify-center gap-2 text-center text-3xl font-extrabold tracking-tight">
+            <Handshake className="h-8 w-8 text-brand-blue" aria-hidden="true" /> Empresas aliadas
+          </h2>
+          <p className="mt-2 text-center text-gray-600 dark:text-gray-400">Trabajamos junto a empresas de tecnología de República Dominicana.</p>
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
+            {site.partners.map((p) => (
+              <div key={p.id} className="flex w-full max-w-sm items-center gap-4 rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
+                {p.logo_url ? (
+                  <img src={p.logo_url} alt={p.name} className="h-14 w-14 shrink-0 rounded-2xl object-contain" />
+                ) : (
+                  <span aria-hidden="true" className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-700 to-slate-900 text-lg font-extrabold text-white">
+                    {p.name.replace(/[^A-Za-zÁÉÍÓÚÑ]/g, '').slice(0, 2).toUpperCase()}
+                  </span>
+                )}
+                <div className="min-w-0">
+                  <p className="font-semibold">{p.name}</p>
+                  {p.description && <p className="text-sm text-gray-600 dark:text-gray-400">{p.description}</p>}
+                  {p.url && (
+                    <a href={p.url} target="_blank" rel="noopener noreferrer" className="mt-1 inline-flex items-center gap-1 text-sm font-semibold text-brand-blue hover:underline">
+                      Visitar sitio <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Experiencias: solo las que el dueño publicó (opiniones reales); siempre con el formulario para contar la suya. */}
+      <section id="experiencias" className="scroll-mt-20 bg-brand-bg py-14 dark:bg-gray-900/40">
+        <div className="mx-auto max-w-6xl px-5">
+          <h2 className="text-center text-3xl font-extrabold tracking-tight">Experiencias de nuestros clientes</h2>
+          {site && site.testimonials.length === 0 && (
+            <p className="mx-auto mt-2 max-w-xl text-center text-gray-600 dark:text-gray-400">
+              Estamos reuniendo las opiniones de las empresas que ya trabajan con Multitec. ¿Eres una de ellas? Sé de los
+              primeros en contar tu experiencia.
+            </p>
+          )}
+          {site && site.testimonials.length > 0 && (
             <div className="mt-8 grid gap-4 md:grid-cols-3">
               {site.testimonials.map((t) => (
                 <figure key={t.id} className="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
@@ -289,9 +330,10 @@ export function Web() {
                 </figure>
               ))}
             </div>
-          </div>
-        </section>
-      )}
+          )}
+          <ExperienceForm />
+        </div>
+      </section>
 
       {/* Preguntas */}
       <section id="preguntas" className="mx-auto max-w-3xl scroll-mt-20 px-5 py-14">
@@ -355,5 +397,105 @@ export function Web() {
         <MessageCircle className="h-7 w-7" aria-hidden="true" />
       </a>
     </div>
+  )
+}
+
+
+/** «Cuéntanos tu experiencia»: la opinión llega al panel sin publicar; el dueño la revisa y la publica. Con el enlace
+ * /web#opinar (para mandarlo por WhatsApp) el formulario se abre solo. */
+function ExperienceForm() {
+  const [open, setOpen] = useState(false)
+  const [form, setForm] = useState({ author: '', company: '', role: '', quote: '', contact: '', website: '' })
+  const [rating, setRating] = useState(5)
+  const [consent, setConsent] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (window.location.hash === '#opinar') {
+      setOpen(true)
+      setTimeout(() => document.getElementById('experiencias')?.scrollIntoView({ behavior: 'smooth' }), 300)
+    }
+  }, [])
+
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm({ ...form, [key]: e.target.value })
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    setBusy(true)
+    setError(null)
+    try {
+      await api.post('/site/experiences', { ...form, rating, consent })
+      setSent(true)
+    } catch (err) {
+      setError(apiErrorMessage(err, 'No se pudo enviar. Intenta de nuevo.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const input =
+    'w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-base text-gray-900 outline-none focus:border-brand-blue focus:ring-2 focus:ring-brand-blue/20 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100'
+
+  if (sent) {
+    return (
+      <p role="status" className="mx-auto mt-8 max-w-xl rounded-3xl bg-emerald-50 p-5 text-center text-emerald-900 ring-1 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900">
+        ¡Gracias por contarnos tu experiencia! La revisamos y, con tu permiso, la publicamos aquí.
+      </p>
+    )
+  }
+  if (!open) {
+    return (
+      <div className="mt-8 text-center">
+        <button type="button" onClick={() => setOpen(true)} className="rounded-2xl bg-white px-6 py-3 font-semibold text-brand-blue shadow-sm ring-1 ring-black/5 hover:bg-blue-50 dark:bg-gray-900 dark:ring-white/10">
+          Cuéntanos tu experiencia
+        </button>
+      </div>
+    )
+  }
+  return (
+    <form onSubmit={submit} className="mx-auto mt-8 max-w-2xl space-y-3 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10" aria-label="Cuéntanos tu experiencia">
+      <p className="text-lg font-semibold">Cuéntanos tu experiencia</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="block text-sm font-medium">
+          Tu nombre
+          <input required minLength={2} maxLength={120} value={form.author} onChange={set('author')} className={`${input} mt-1`} />
+        </label>
+        <label className="block text-sm font-medium">
+          Tu empresa (opcional)
+          <input maxLength={120} value={form.company} onChange={set('company')} className={`${input} mt-1`} />
+        </label>
+      </div>
+      <label className="block text-sm font-medium">
+        ¿Cómo te ha ido con Multitec?
+        <textarea required minLength={15} maxLength={600} rows={4} value={form.quote} onChange={set('quote')} className={`${input} mt-1`} />
+      </label>
+      <div className="flex flex-wrap items-center gap-4">
+        <span className="flex items-center gap-1" role="radiogroup" aria-label="Calificación">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button key={n} type="button" role="radio" aria-checked={rating === n} aria-label={`${n} estrellas`} onClick={() => setRating(n)}>
+              <Star className={`h-7 w-7 ${n <= rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300'}`} aria-hidden="true" />
+            </button>
+          ))}
+        </span>
+        <label className="block min-w-[14rem] flex-1 text-sm font-medium">
+          Teléfono o correo (no se publica)
+          <input required minLength={5} maxLength={160} value={form.contact} onChange={set('contact')} className={`${input} mt-1`} />
+        </label>
+      </div>
+      <div className="hidden" aria-hidden="true">
+        <input tabIndex={-1} autoComplete="off" value={form.website} onChange={set('website')} />
+      </div>
+      <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 h-4 w-4 rounded" />
+        Autorizo a Multitec a publicar mi opinión con mi nombre y el de mi empresa.
+      </label>
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+      <button type="submit" disabled={busy || !consent} className="w-full rounded-2xl bg-brand-blue px-5 py-3 font-semibold text-white hover:bg-brand-blue-dark disabled:opacity-50">
+        {busy ? 'Enviando…' : 'Enviar mi experiencia'}
+      </button>
+    </form>
   )
 }

@@ -5,6 +5,8 @@ def test_one_ip_flooding_the_api_is_cut_off_without_affecting_others(client, adm
     from tests.conftest import auth_headers
 
     monkeypatch.setattr(ip_limit, "LIMIT_PER_MINUTE", 20)
+    # Reloj fijo: si la prueba cruzaba el cambio de minuto, el contador volvía a cero y no llegaba al tope.
+    monkeypatch.setattr(ip_limit, "_now", lambda: 1_800_000_000.0)
     # El middleware lee el límite al crearse: se prueba directamente el contador y luego el corte real con el límite real.
     for _ in range(ip_limit.LIMIT_PER_MINUTE):
         assert ip_limit.hit("203.0.113.66") <= 20

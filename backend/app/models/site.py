@@ -40,5 +40,25 @@ class Testimonial(Base):
     rating: Mapped[int] = mapped_column(Integer, default=5, server_default="5")
     published: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     is_example: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    # "panel" = lo escribió el dueño; "cliente" = lo envió un cliente desde la página pública (llega sin publicar).
+    source: Mapped[str] = mapped_column(String(20), default="panel", server_default="panel")
+    # Teléfono o correo de quien lo envió, para confirmar antes de publicar. Nunca se muestra en la página.
+    contact: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    sort: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class SitePartner(Base):
+    """Empresa aliada que se muestra en la página pública (p. ej. una que tiene a Multitec como socio). `logo_url` es una
+    ruta de la propia web (/brand/...) o vacía: no se enlazan logos de otros sitios."""
+
+    __tablename__ = "site_partners"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    logo_url: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    published: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
     sort: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

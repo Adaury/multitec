@@ -7,7 +7,7 @@ from app.models.category import Category
 from app.models.client import Client
 from app.models.client_asset import ClientAsset
 from app.models.company import Company, CompanyPayment
-from app.models.site import PlatformPlan, Testimonial
+from app.models.site import PlatformPlan, SitePartner, Testimonial
 from app.models.embedding import ProjectEmbedding
 from app.models.engineering import Engineering
 from app.models.execution import ProjectStage
@@ -49,6 +49,7 @@ __all__ = [
     "Company",
     "CompanyPayment",
     "PlatformPlan",
+    "SitePartner",
     "Testimonial",
     "Engineering",
     "Extension",

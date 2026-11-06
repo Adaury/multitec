@@ -1,7 +1,8 @@
 import { isAxiosError } from 'axios'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { api } from '../lib/api'
+import { LOGOUT_NOTICE_KEY, api } from '../lib/api'
+import { safeStorage } from '../lib/safeStorage'
 import { useAuthStore } from '../lib/authStore'
 import { Button, Card, Field, Input } from '../components/ui'
 import { TutorialesLogin } from '../components/TutorialesLogin'
@@ -13,6 +14,11 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  // Se lee una sola vez al llegar y se borra: si recarga la página ya no aparece.
+  const [notice] = useState(() => safeStorage.get(LOGOUT_NOTICE_KEY))
+  useEffect(() => {
+    safeStorage.remove(LOGOUT_NOTICE_KEY)
+  }, [])
   const setSession = useAuthStore((s) => s.setSession)
   const navigate = useNavigate()
 
@@ -59,6 +65,20 @@ export function Login() {
           <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">Multitec ERP</h1>
           <p className="text-sm text-gray-500">Seguridad electrónica</p>
         </div>
+        {notice && !error && (
+          <p
+            role="status"
+            className={`mb-4 rounded-2xl px-4 py-3 text-center text-sm ring-1 ${
+              notice === 'expired'
+                ? 'bg-amber-50 text-amber-900 ring-amber-200 dark:bg-amber-950/40 dark:text-amber-200 dark:ring-amber-900'
+                : 'bg-emerald-50 text-emerald-900 ring-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-200 dark:ring-emerald-900'
+            }`}
+          >
+            {notice === 'expired'
+              ? 'Tu sesión terminó. Vuelve a entrar para seguir trabajando.'
+              : 'Cerraste sesión. Vuelve a entrar cuando quieras.'}
+          </p>
+        )}
         <Card>
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Correo">

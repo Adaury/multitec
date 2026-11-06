@@ -240,3 +240,46 @@ def test_public_site_shows_only_real_published_testimonials(client, db_session):
     # Nadie más puede editar el sitio.
     owner = auth_headers(_login(client, SIGNUP["email"], SIGNUP["password"]))
     assert client.post("/api/platform/site/testimonials", json=real, headers=owner).status_code == 403
+
+
+def test_a_client_sends_its_experience_and_the_owner_publishes_it(client, db_session):
+    platform = _platform(client, db_session)
+    experience = {
+        "author": "Carmen Díaz",
+        "company": "Colmado La Esquina",
+        "quote": "Me instalaron las cámaras en un día y las veo desde el celular.",
+        "rating": 5,
+        "contact": "809-555-7788",
+        "consent": True,
+    }
+    assert client.post("/api/site/experiences", json={**experience, "consent": False}).status_code == 400
+    assert client.post("/api/site/experiences", json={**experience, "website": "spam"}).status_code == 400
+    assert client.post("/api/site/experiences", json=experience).status_code == 201
+
+    # Llega como borrador del cliente: no sale en la página y al dueño le llega el aviso.
+    assert client.get("/api/site").json()["testimonials"] == []
+    sent = next(t for t in client.get("/api/platform/site", headers=platform).json()["testimonials"] if t["source"] == "cliente")
+    assert sent["author"] == "Carmen Díaz" and sent["contact"] == "809-555-7788" and not sent["published"]
+    with SessionLocal(bypass_tenant=True) as db:
+        assert db.query(Notification).filter(Notification.title.contains("Carmen Díaz")).count() == 1
+
+    client.put(f"/api/platform/site/testimonials/{sent['id']}", json={**sent, "published": True}, headers=platform)
+    shown = client.get("/api/site").json()["testimonials"]
+    assert [t["author"] for t in shown] == ["Carmen Díaz"] and shown[0]["contact"] is None  # el contacto nunca se publica
+    stored = next(t for t in client.get("/api/platform/site", headers=platform).json()["testimonials"] if t["id"] == sent["id"])
+    assert stored["source"] == "cliente" and stored["contact"] == "809-555-7788"
+
+
+def test_partners_show_on_the_public_site_only_when_published(client, db_session):
+    platform = _platform(client, db_session)
+    created = client.post("/api/platform/site/partners", headers=platform, json={
+        "name": "FHONS SRL", "description": "Tecnología para oficinas y redes", "url": "www.fhons.com.do",
+    })
+    assert created.status_code == 201 and created.json()["url"] == "https://www.fhons.com.do"
+    assert [p["name"] for p in client.get("/api/site").json()["partners"]] == ["FHONS SRL"]
+    partner = created.json()
+    client.put(f"/api/platform/site/partners/{partner['id']}", json={**partner, "published": False}, headers=platform)
+    assert client.get("/api/site").json()["partners"] == []
+    # No se enlazan logos de otros sitios.
+    bad = client.post("/api/platform/site/partners", headers=platform, json={"name": "Otro", "logo_url": "https://otro.com/logo.png"})
+    assert bad.status_code == 422

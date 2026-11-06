@@ -20,6 +20,8 @@ _LOCAL = {"127.0.0.1", "::1"}
 _MAX_TRACKED = 50_000
 
 _lock = threading.Lock()
+# Reloj del limitador (las pruebas lo fijan para no depender de en qué segundo del minuto corren).
+_now = time.time
 _window = 0
 _counts: dict[str, int] = {}
 
@@ -27,7 +29,7 @@ _counts: dict[str, int] = {}
 def hit(ip: str) -> int:
     """Suma un pedido de `ip` en el minuto actual y devuelve cuántos lleva."""
     global _window, _counts
-    window = int(time.time() // 60)
+    window = int(_now() // 60)
     with _lock:
         if window != _window or len(_counts) > _MAX_TRACKED:
             _window = window
@@ -57,7 +59,7 @@ class PerIPRateLimit:
         ip = client[0] if client else "-"
         if ip in _LOCAL or hit(ip) <= self.limit:
             return await self.app(scope, receive, send)
-        retry = str(60 - int(time.time()) % 60)
+        retry = str(60 - int(_now()) % 60)
         body = json.dumps({"detail": "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo."}).encode()
         await send({
             "type": "http.response.start",

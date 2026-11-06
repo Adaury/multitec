@@ -12,6 +12,15 @@ const SLOW_ROUTES = /(\/ai\/|\/assistant\/|ai-summarize|ai-draft|\/transcribe|bu
 
 export const api = axios.create({ baseURL: '/api', timeout: DEFAULT_TIMEOUT_MS })
 
+// Aviso que muestra la pantalla de inicio de sesión al llegar: «saliste» (botón Salir) o «tu sesión terminó».
+export const LOGOUT_NOTICE_KEY = 'multitec_logout_notice'
+
+function endSession(reason: 'manual' | 'expired') {
+  // Solo si había una sesión abierta: un login con clave mala también responde 401 y no es «sesión terminada».
+  if (useAuthStore.getState().token) safeStorage.set(LOGOUT_NOTICE_KEY, reason)
+  useAuthStore.getState().logout()
+}
+
 api.interceptors.request.use((config) => {
   const token = useAuthStore.getState().token
   if (token) {
@@ -67,12 +76,13 @@ api.interceptors.response.use(
         original.headers.Authorization = `Bearer ${newToken}`
         return api(original)
       } catch {
-        useAuthStore.getState().logout()
+        endSession('expired')
         return Promise.reject(error)
       }
     }
     if (error.response?.status === 401) {
-      useAuthStore.getState().logout()
+      if (isAuthCall) useAuthStore.getState().logout()
+      else endSession('expired')
     }
     return Promise.reject(error)
   },
@@ -118,7 +128,7 @@ export async function logout() {
   } catch {
     // si falla la llamada (red, token ya vencido, etc.) igual limpiamos la sesión local
   }
-  useAuthStore.getState().logout()
+  endSession('manual')
 }
 
 /** Texto legible de un error del servidor. `detail` es un texto en los errores de negocio, pero una

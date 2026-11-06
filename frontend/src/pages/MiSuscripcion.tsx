@@ -94,6 +94,14 @@ export function MiSuscripcion() {
       )}
 
       <Card>
+        <p className="font-semibold text-gray-900 dark:text-gray-100">¿Cómo te ha ido con Multitec?</p>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Tu opinión nos ayuda a mejorar y a que otras empresas nos conozcan.</p>
+        <a href="/web#opinar" target="_blank" rel="noreferrer" className="mt-3 inline-block rounded-full bg-brand-blue px-4 py-2 text-sm font-semibold text-white hover:bg-brand-blue-dark">
+          Contar mi experiencia
+        </a>
+      </Card>
+
+      <Card>
         <p className="mb-3 font-semibold text-gray-900 dark:text-gray-100">Mis pagos</p>
         {data.payments.length === 0 ? (
           <p className="text-sm text-gray-500">Todavía no hay pagos registrados.</p>

@@ -37,6 +37,20 @@ export interface SiteTestimonial {
   published: boolean
   is_example: boolean
   sort: number
+  /** "cliente" = lo envió un cliente desde la página pública. */
+  source?: 'panel' | 'cliente'
+  /** Teléfono o correo de quien lo envió (solo en el panel, nunca en la página). */
+  contact?: string | null
+}
+
+export interface SitePartner {
+  id: number
+  name: string
+  description: string | null
+  url: string | null
+  logo_url: string | null
+  published: boolean
+  sort: number
 }
 
 export interface SiteInfo {
@@ -46,4 +60,5 @@ export interface SiteInfo {
   phones: string[]
   plans: SitePlan[]
   testimonials: SiteTestimonial[]
+  partners: SitePartner[]
 }
