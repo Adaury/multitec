@@ -14,7 +14,9 @@ Requisitos antes de correr esto:
 
 param(
     [string]$RepoRoot = (Resolve-Path "$PSScriptRoot\..").Path,
-    [string]$ServiceName = "MultitecWeb"
+    [string]$ServiceName = "MultitecWeb",
+    # Archivo de configuración de Caddy dentro de deploy\ (instalar-servidor.ps1 genera Caddyfile.servidor).
+    [string]$CaddyConfig = "Caddyfile"
 )
 
 $nssm = (Get-Command nssm -ErrorAction SilentlyContinue).Source
@@ -36,7 +38,7 @@ if (-not (Test-Path $distDir)) {
 $logDir = Join-Path $deployDir "logs"
 New-Item -ItemType Directory -Path $logDir -Force | Out-Null
 
-& $nssm install $ServiceName $caddy "run --config Caddyfile"
+& $nssm install $ServiceName $caddy "run --config $CaddyConfig --adapter caddyfile"
 & $nssm set $ServiceName AppDirectory $deployDir
 & $nssm set $ServiceName AppStdout (Join-Path $logDir "web.out.log")
 & $nssm set $ServiceName AppStderr (Join-Path $logDir "web.err.log")

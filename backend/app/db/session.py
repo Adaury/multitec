@@ -147,6 +147,9 @@ def _check_parent_references(session: Session, company_id: int | None) -> None:
             select(target).where(target.in_(ids), target.table.c.company_id == company_id)
         )
         missing = ids - {row[0] for row in rows}
+        if target.table.name == "users":
+            # Modo soporte: lo que se crea queda a nombre del soporte de la plataforma (de otra empresa) — solo ese usuario.
+            missing.discard(session.info.get("support_user_id"))
         if missing:
             raise TenantReferenceError(f"Referencia a {target.table.name} que no existe o es de otra empresa")
 

@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { LEGACY_REFRESH_STORAGE_KEY, useAuthStore } from './authStore'
 import { safeStorage } from './safeStorage'
+import { exitSupport, supportInfo } from './support'
 
 // Sin tiempo límite, una señal que se corta a medias dejaba la petición colgada para siempre (y «Enviando…» sin terminar).
 // Lo normal es rápido; la IA y la voz tardan más; las fotos pesan.
@@ -54,6 +55,11 @@ api.interceptors.response.use(
     const original = error.config
     // Con login/refresh un 401 es la respuesta real (clave mala / sesión vencida), no un token por renovar.
     const isAuthCall = /\/auth\/(login|refresh)$/.test(original?.url ?? '')
+    // La sesión de soporte no se renueva: al vencer (1 hora) se vuelve al panel con la sesión de antes.
+    if (error.response?.status === 401 && supportInfo()) {
+      exitSupport()
+      return Promise.reject(error)
+    }
     if (error.response?.status === 401 && !original?._retry && !isAuthCall && useAuthStore.getState().token) {
       original._retry = true
       try {
@@ -100,6 +106,11 @@ export async function viewFile(path: string) {
 }
 
 export async function logout() {
+  // En soporte, «Salir» vuelve al panel: cerrar la sesión aquí revocaría la del dueño de la plataforma.
+  if (supportInfo()) {
+    exitSupport()
+    return
+  }
   try {
     // El servidor lee el refresh token de la cookie, la revoca y la borra.
     const legacy = safeStorage.get(LEGACY_REFRESH_STORAGE_KEY)

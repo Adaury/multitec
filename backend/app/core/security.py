@@ -49,6 +49,71 @@ def create_access_token(subject: str) -> str:
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
+def create_support_token(user_id: int, company_id: int, allow_changes: bool, minutes: int) -> tuple[str, datetime]:
+    """Token de soporte: el administrador de la plataforma entra a una empresa como su administrador por `minutes`.
+    No tiene refresh: al vencer, se vuelve al panel. `support_write` falso = solo lectura (ver get_current_user)."""
+    settings = get_settings()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=minutes)
+    payload = {"sub": str(user_id), "exp": expire, "support_company": company_id, "support_write": bool(allow_changes)}
+    return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm), expire
+
+
+SUPPORT_READ_ONLY = "Modo soporte de solo lectura: vuelve a entrar con «Permitir cambios» para modificar datos."
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def _support_user(request: Request, db: Session, user: User, payload: dict) -> User:
+    """Convierte al administrador de la plataforma en «administrador de la empresa X» solo para esta petición.
+
+    El objeto del usuario se separa de la sesión (expunge) antes de cambiarle la empresa y el rol, así nada de eso se
+    guarda nunca en su cuenta real. Las escrituras se rechazan en solo lectura y, con cambios permitidos, cada una queda
+    anotada en la auditoría de la empresa atendida."""
+    from app.services.audit import audit
+
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="La sesión de soporte terminó", headers={"WWW-Authenticate": "Bearer"}
+    )
+    if not user.is_platform_admin:
+        raise credentials_exception
+    try:
+        company_id = int(payload["support_company"])
+    except (KeyError, TypeError, ValueError):
+        raise credentials_exception from None
+    with tenant_bypass(db):
+        target = db.get(Company, company_id)
+    if target is None:
+        raise credentials_exception
+    allow_changes = bool(payload.get("support_write"))
+    is_write = request.method not in _SAFE_METHODS and request.url.path != "/api/auth/logout"
+    if is_write and (not allow_changes or request.url.path.startswith(("/api/auth/", "/api/platform/"))):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=SUPPORT_READ_ONLY)
+    # Se separa de la sesión ANTES de cualquier commit (el de la auditoría vencería sus datos y ya no se podrían leer).
+    db.expunge(user)
+    # La sesión pasa a ser de la empresa atendida antes de escribir nada (también el registro de auditoría).
+    db.info["company_id"] = target.id
+    db.info["support_user_id"] = user.id
+    if is_write:
+        audit(
+            db,
+            "support_change",
+            user=user,
+            company_id=target.id,
+            entity="support",
+            detail={"metodo": request.method, "ruta": request.url.path},
+            request=request,
+            commit=True,
+        )
+    user.company_id = target.id
+    user.company = target
+    user.role = "admin"
+    user.must_change_password = False
+    user.support_mode = True
+    user.support_write = allow_changes
+    user.support_expires_at = datetime.fromtimestamp(int(payload["exp"]), tz=timezone.utc)
+    db.info["company_id"] = target.id
+    return user
+
+
 def _hash_refresh_token(raw_token: str) -> str:
     return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
 
@@ -151,6 +216,9 @@ def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: 
         company = db.get(Company, user.company_id) if user is not None else None
     if user is None or not user.is_active:
         raise credentials_exception
+    if payload.get("support_company") is not None:
+        # Soporte: entra aunque la empresa atendida esté suspendida o vencida (justo para ayudarla).
+        return _support_user(request, db, user, payload)
     reason = company.access_block_reason if company is not None else COMPANY_SUSPENDED
     if reason:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=reason)
@@ -169,7 +237,8 @@ def get_current_user(request: Request, token: str = Depends(oauth2_scheme), db: 
 def require_platform_admin(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> User:
     """Solo el dueño de la plataforma. Su panel actúa sobre TODAS las empresas, así que el filtro por empresa se
     apaga para esta petición; cada escritura dentro de él debe indicar su empresa explícitamente."""
-    if not current_user.is_platform_admin:
+    if not current_user.is_platform_admin or getattr(current_user, "support_mode", False):
+        # Con un token de soporte no se usa el panel: ese token solo vale dentro de la empresa atendida.
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Solo el administrador de la plataforma")
     db.info["bypass_tenant"] = True
     return current_user

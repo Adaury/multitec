@@ -31,6 +31,7 @@ import { SystemStatus } from './SystemStatus'
 import { PageLoader } from './PageLoader'
 import { ThemeToggle } from './ThemeToggle'
 import { PageBanner } from './PageBanner'
+import { SubscriptionNotice, SupportBanner } from './SubscriptionBanners'
 import { ADMIN_ITEMS, ADMIN_PATHS, type NavItem } from './navItems'
 import { safeStorage } from '../lib/safeStorage'
 
@@ -178,7 +179,8 @@ export function Layout() {
     ...sidebarBaseItems,
     ...(isStaff ? staffSidebarItems : []),
     ...(isAdmin ? adminSidebarItems : []),
-    ...(user?.is_platform_admin ? platformSidebarItems : []),
+    // En soporte el token solo vale dentro de la empresa atendida: el panel no se ofrece.
+    ...(user?.is_platform_admin && !user.support_mode ? platformSidebarItems : []),
     ...helpSidebarItems,
   ]
   const companyName = user?.company_name ?? 'Multitec'
@@ -363,8 +365,10 @@ export function Layout() {
           </div>
         </header>
 
+        <SupportBanner />
         <PendingSync />
         <GenerationBanner />
+        <SubscriptionNotice />
 
         <main className="flex-1 px-5 md:px-10 md:pb-10">
           <div className="mx-auto w-full max-w-7xl">

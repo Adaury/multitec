@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.schemas.user import MIN_PASSWORD_LENGTH, check_password_policy
@@ -30,6 +32,10 @@ class CurrentUser(BaseModel):
     company_id: int
     company_name: str
     is_platform_admin: bool = False
+    # Modo soporte: el administrador de la plataforma dentro de otra empresa (ver core/security.py).
+    support_mode: bool = False
+    support_write: bool = False
+    support_expires_at: datetime | None = None
 
     class Config:
         from_attributes = True

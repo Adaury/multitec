@@ -51,6 +51,17 @@ class Settings(BaseSettings):
     backup_dir: str = ""
     pg_bin_path: str = r"C:\Program Files\PostgreSQL\17\bin"
 
+    # Plataforma (Multitec como servicio para otras empresas). Una empresa que se registra sola en /registro empieza con
+    # PLATFORM_TRIAL_DAYS de prueba; después paga la instalación una vez y la mensualidad (RD$). PUBLIC_SIGNUP_ENABLED
+    # apaga el registro público. PLATFORM_PAYMENT_INFO: cómo pagar (cuentas, una por línea con \n), se muestra en
+    # «Mi suscripción». PLATFORM_CONTACT_PHONE: WhatsApp de Multitec para coordinar la instalación y los pagos.
+    public_signup_enabled: bool = True
+    platform_trial_days: int = 45
+    platform_setup_fee: float = 10000
+    platform_monthly_fee: float = 2500
+    platform_payment_info: str = ""
+    platform_contact_phone: str = ""
+
     itbis_rate: float = 0.18
     quote_stale_days: int = 7
 

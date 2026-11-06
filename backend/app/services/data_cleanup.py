@@ -179,7 +179,7 @@ def backup_dir() -> Path:
     return Path(configured).expanduser() if configured else Path.home() / "MultitecBackups"
 
 
-def backup_database() -> str | None:
+def backup_database(label: str = "antes-de-borrar-pruebas") -> str | None:
     """Copia completa de la base de datos antes de borrar. Devuelve el nombre del archivo, o None cuando la base no es
     PostgreSQL (pruebas con SQLite). Si es PostgreSQL y la copia falla, lanza: sin copia no se borra nada."""
     settings = get_settings()
@@ -191,7 +191,7 @@ def backup_database() -> str | None:
         raise RuntimeError("No se encontró pg_dump para sacar la copia de seguridad; no se borró nada")
     folder = backup_dir()
     folder.mkdir(parents=True, exist_ok=True)
-    target = folder / f"multitec_antes-de-borrar-pruebas_{datetime.now():%Y-%m-%d_%H%M%S}.dump"
+    target = folder / f"multitec_{label}_{datetime.now():%Y-%m-%d_%H%M%S}.dump"
     env = {**os.environ, "PGPASSWORD": url.password or ""}
     command = [
         pg_dump, "-h", url.host or "127.0.0.1", "-p", str(url.port or 5432), "-U", url.username or "",

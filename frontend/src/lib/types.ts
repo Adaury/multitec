@@ -49,6 +49,10 @@ export interface CurrentUser {
   company_name: string
   /** Dueño del sistema: además de su empresa, administra las empresas desde /plataforma. */
   is_platform_admin?: boolean
+  /** Modo soporte: el dueño de la plataforma dentro de otra empresa (franja arriba, vence en 1 hora). */
+  support_mode?: boolean
+  support_write?: boolean
+  support_expires_at?: string | null
 }
 
 export interface PlatformCompany {
@@ -63,10 +67,59 @@ export interface PlatformCompany {
   days_left: number | null
   max_users: number | null
   is_demo: boolean
-  state: 'activa' | 'prueba' | 'vencida' | 'suspendida'
+  state: CompanyState
   users: number
   projects: number
   invoices: number
+  source: 'panel' | 'registro'
+  contact_name: string | null
+  contact_email: string | null
+  contact_phone: string | null
+  setup_fee: number
+  monthly_fee: number
+  setup_paid_at: string | null
+  paid_until: string | null
+  reviewed_at: string | null
+}
+
+/** prueba → (paga) activa → atrasada (días de gracia) → cortada; vencida = terminó la prueba sin pagar. */
+export type CompanyState = 'activa' | 'prueba' | 'vencida' | 'atrasada' | 'cortada' | 'suspendida'
+
+export interface CompanyPaymentRow {
+  id: number
+  kind: 'instalacion' | 'mensualidad'
+  amount: number
+  months: number
+  method: string
+  reference: string | null
+  notes: string | null
+  paid_at: string
+  paid_until_after: string | null
+  created_at: string | null
+}
+
+export interface PlatformSummary {
+  by_state: Partial<Record<CompanyState, number>>
+  new_requests: { id: number; name: string; created_at: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null; days_left: number | null }[]
+  expiring: { id: number; name: string; state: CompanyState; days_left: number | null }[]
+  collected_this_month: number
+  expected_monthly: number
+  paying_companies: number
+}
+
+export interface MySubscription {
+  company_name: string
+  state: CompanyState
+  trial_ends_at: string | null
+  paid_until: string | null
+  days_left: number | null
+  setup_fee: number
+  monthly_fee: number
+  setup_paid: boolean
+  notice: string | null
+  payment_info: string
+  contact_phone: string
+  payments: CompanyPaymentRow[]
 }
 
 export interface PlatformCompanyDetail extends PlatformCompany {
@@ -80,6 +133,7 @@ export interface PlatformCompanyDetail extends PlatformCompany {
     last_login_at: string | null
     is_platform_admin: boolean
   }[]
+  payments: CompanyPaymentRow[]
 }
 
 export interface ManagedUser {

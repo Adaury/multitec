@@ -1,6 +1,6 @@
 import { isAxiosError } from 'axios'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import { Button, Card, Field, Input } from '../components/ui'
@@ -38,6 +38,9 @@ export function Login() {
         setError('Demasiados intentos. Espera un minuto e intenta de nuevo.')
       } else if (isAxiosError(err) && err.response?.status === 401) {
         setError('Correo o contraseña incorrectos')
+      } else if (isAxiosError(err) && err.response?.status === 403 && typeof err.response.data?.detail === 'string') {
+        // Empresa suspendida, prueba terminada o mensualidad vencida: el servidor dice cuál.
+        setError(err.response.data.detail)
       } else {
         setError('Ocurrió un error al iniciar sesión. Intenta de nuevo.')
       }
@@ -98,6 +101,12 @@ export function Login() {
             </Button>
           </form>
         </Card>
+        <p className="mt-4 text-center text-sm text-gray-600 dark:text-gray-400">
+          ¿Tu empresa aún no usa Multitec?{' '}
+          <Link to="/registro" className="font-semibold text-brand-blue hover:underline">
+            Pruébalo gratis
+          </Link>
+        </p>
         <TutorialesLogin />
       </div>
     </div>

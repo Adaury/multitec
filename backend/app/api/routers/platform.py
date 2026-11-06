@@ -5,7 +5,7 @@ apagado en estas rutas (ver require_platform_admin) y cada escritura lleva su `c
 import re
 import secrets
 import unicodedata
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -14,7 +14,12 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.security import hash_password, require_platform_admin, revoke_all_refresh_tokens
+from app.core.security import (
+    create_support_token,
+    hash_password,
+    require_platform_admin,
+    revoke_all_refresh_tokens,
+)
 from app.db.seed import seed_new_company
 from app.db.session import SessionLocal, get_db
 from app.models.company import Company
@@ -32,11 +37,16 @@ from app.schemas.platform import (
     DemoAccount,
     DemoCreate,
     DemoCreated,
+    PaymentCreate,
+    PaymentOut,
     ResetAdminRequest,
     SetUserPassword,
+    SupportSession,
+    SupportSessionCreate,
     TemporaryPassword,
 )
 from app.services.audit import audit
+from app.services import subscriptions
 from app.services.demo_company import build_users, seed_demo_content
 
 router = APIRouter(prefix="/api/platform", tags=["platform"])
@@ -71,22 +81,8 @@ def _counts(db: Session) -> dict[str, dict[int, int]]:
     }
 
 
-def _days_left(company: Company) -> int | None:
-    if company.trial_ends_at is None:
-        return None
-    ends = company.trial_ends_at if company.trial_ends_at.tzinfo else company.trial_ends_at.replace(tzinfo=timezone.utc)
-    return (ends - datetime.now(timezone.utc)).days
-
-
-def _state(company: Company) -> str:
-    if not company.is_active:
-        return "suspendida"
-    if company.trial_expired:
-        return "vencida"
-    return "prueba" if company.trial_ends_at is not None else "activa"
-
-
 def _out(company: Company, counts: dict[str, dict[int, int]]) -> CompanyOut:
+    setup_fee, monthly_fee = subscriptions.fees(company)
     return CompanyOut(
         id=company.id,
         name=company.name,
@@ -95,10 +91,19 @@ def _out(company: Company, counts: dict[str, dict[int, int]]) -> CompanyOut:
         notes=company.notes,
         created_at=company.created_at,
         trial_ends_at=company.trial_ends_at,
-        days_left=_days_left(company),
+        days_left=company.days_left,
         max_users=company.max_users,
         is_demo=company.is_demo,
-        state=_state(company),
+        state=company.state,
+        source=company.source or "panel",
+        contact_name=company.contact_name,
+        contact_email=company.contact_email,
+        contact_phone=company.contact_phone,
+        setup_fee=setup_fee,
+        monthly_fee=monthly_fee,
+        setup_paid_at=company.setup_paid_at,
+        paid_until=company.paid_until,
+        reviewed_at=company.reviewed_at,
         users=counts["users"].get(company.id, 0),
         projects=counts["projects"].get(company.id, 0),
         invoices=counts["invoices"].get(company.id, 0),
@@ -255,6 +260,7 @@ def company_detail(company_id: int, db: Session = Depends(get_db), _=Depends(req
         **base.model_dump(),
         team=[CompanyUserOut.model_validate(u, from_attributes=True) for u in team],
         storage_mb=_storage_mb(company_id),
+        payments=[PaymentOut.model_validate(p) for p in subscriptions.payments_of(db, company_id)],
     )
 
 
@@ -285,6 +291,19 @@ def update_company(
         company.max_users = None
     elif data.get("max_users"):
         company.max_users = data["max_users"]
+    if data.get("clear_fees"):
+        company.setup_fee = None
+        company.monthly_fee = None
+    else:
+        if data.get("setup_fee") is not None:
+            company.setup_fee = data["setup_fee"]
+        if data.get("monthly_fee") is not None:
+            company.monthly_fee = data["monthly_fee"]
+    if data.get("paid_until"):
+        company.paid_until = datetime.combine(data["paid_until"], datetime.min.time(), tzinfo=timezone.utc)
+        company.trial_ends_at = None
+    if "contact_phone" in data:
+        company.contact_phone = (data["contact_phone"] or "").strip() or None
     audit(
         db,
         "company_edited",
@@ -416,3 +435,93 @@ def set_user_password(
     )
     db.commit()
     return TemporaryPassword(user_id=target.id, email=target.email, temporary_password=password)
+
+
+@router.get("/summary")
+def platform_summary(db: Session = Depends(get_db), _=Depends(require_platform_admin)):
+    """Resumen para la portada del panel: estados, solicitudes nuevas, las que vencen pronto y lo cobrado."""
+    return subscriptions.summary(db)
+
+
+@router.post("/companies/{company_id}/reviewed", response_model=CompanyOut)
+def mark_reviewed(
+    request: Request, company_id: int, db: Session = Depends(get_db), current_user: User = Depends(require_platform_admin)
+):
+    """La solicitud de una empresa registrada sola ya se vio (deja de salir en «Solicitudes nuevas»)."""
+    company = _get_company(db, company_id)
+    if company.reviewed_at is None:
+        company.reviewed_at = datetime.now(timezone.utc)
+        audit(db, "company_request_reviewed", user=current_user, company_id=company.id, entity="company",
+              entity_id=company.id, detail={"empresa": company.name}, request=request)
+        db.commit()
+    return _out(company, _counts(db))
+
+
+@router.post("/companies/{company_id}/payments", response_model=CompanyDetail, status_code=status.HTTP_201_CREATED)
+def add_payment(
+    request: Request,
+    company_id: int,
+    payload: PaymentCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_platform_admin),
+):
+    """Anota un pago recibido. La mensualidad (o la instalación que incluye meses) corre «pagado hasta»."""
+    company = _get_company(db, company_id)
+    payment = subscriptions.register_payment(
+        db,
+        company,
+        kind=payload.kind,
+        amount=payload.amount,
+        months=payload.months,
+        method=payload.method,
+        paid_at=payload.paid_at or date.today(),
+        reference=payload.reference,
+        notes=payload.notes,
+        user_id=current_user.id,
+    )
+    if company.reviewed_at is None:
+        company.reviewed_at = datetime.now(timezone.utc)
+    audit(
+        db,
+        "company_payment_recorded",
+        user=current_user,
+        company_id=company.id,
+        entity="company",
+        entity_id=company.id,
+        detail={"tipo": payment.kind, "monto": payment.amount, "meses": payment.months, "metodo": payment.method,
+                "pagado_hasta": company.paid_until},
+        request=request,
+    )
+    db.commit()
+    return company_detail(company_id, db)
+
+
+SUPPORT_MINUTES = 60
+
+
+@router.post("/companies/{company_id}/support-session", response_model=SupportSession)
+def start_support_session(
+    request: Request,
+    company_id: int,
+    payload: SupportSessionCreate | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_platform_admin),
+):
+    """Entrar a una empresa para darle soporte, como su administrador, por SUPPORT_MINUTES. Por defecto en solo lectura;
+    con allow_changes se pueden corregir datos. Queda anotado en la auditoría de la plataforma y en la de la empresa."""
+    company = _get_company(db, company_id)
+    allow = bool(payload and payload.allow_changes)
+    token, expires_at = create_support_token(current_user.id, company.id, allow, SUPPORT_MINUTES)
+    audit(
+        db,
+        "support_session_started",
+        user=current_user,
+        company_id=company.id,
+        entity="company",
+        entity_id=company.id,
+        detail={"empresa": company.name, "permite_cambios": allow, "minutos": SUPPORT_MINUTES},
+        request=request,
+    )
+    db.commit()
+    return SupportSession(access_token=token, company_id=company.id, company_name=company.name, allow_changes=allow,
+                          expires_at=expires_at)

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -40,6 +40,13 @@ class CompanyUpdate(BaseModel):
     clear_trial: bool = False
     max_users: int | None = Field(default=None, ge=1, le=1000)
     clear_max_users: bool = False
+    # Tarifas propias de esta empresa (RD$); clear_fees vuelve a la tarifa general.
+    setup_fee: float | None = Field(default=None, ge=0, le=10_000_000)
+    monthly_fee: float | None = Field(default=None, ge=0, le=10_000_000)
+    clear_fees: bool = False
+    # Corregir a mano «pagado hasta» (p. ej. un pago anotado por error).
+    paid_until: date | None = None
+    contact_phone: str | None = Field(default=None, max_length=30)
 
 
 class CompanyOut(BaseModel):
@@ -53,8 +60,17 @@ class CompanyOut(BaseModel):
     days_left: int | None = None  # negativo = venció hace N días
     max_users: int | None = None
     is_demo: bool = False
-    # activa | prueba | vencida | suspendida
+    # activa | prueba | vencida | atrasada | cortada | suspendida
     state: str = "activa"
+    source: str = "panel"
+    contact_name: str | None = None
+    contact_email: str | None = None
+    contact_phone: str | None = None
+    setup_fee: float = 0
+    monthly_fee: float = 0
+    setup_paid_at: datetime | None = None
+    paid_until: datetime | None = None
+    reviewed_at: datetime | None = None
     users: int = 0
     projects: int = 0
     invoices: int = 0
@@ -70,9 +86,26 @@ class CompanyUserOut(BaseModel):
     is_platform_admin: bool = False
 
 
+class PaymentOut(BaseModel):
+    id: int
+    kind: str
+    amount: float
+    months: int
+    method: str
+    reference: str | None = None
+    notes: str | None = None
+    paid_at: date
+    paid_until_after: datetime | None = None
+    created_at: datetime | None = None
+
+    class Config:
+        from_attributes = True
+
+
 class CompanyDetail(CompanyOut):
     team: list[CompanyUserOut] = []
     storage_mb: float = 0
+    payments: list[PaymentOut] = []
 
 
 class CompanyCreated(BaseModel):
@@ -124,3 +157,83 @@ class SetUserPassword(BaseModel):
     def _policy(cls, v: str | None) -> str | None:
         v = (v or "").strip()
         return check_password_policy(v) if v else None
+
+
+class PaymentCreate(BaseModel):
+    """Un pago recibido de una empresa (lo anota la plataforma)."""
+
+    kind: str = Field(pattern="^(instalacion|mensualidad)$")
+    amount: float = Field(gt=0, le=10_000_000)
+    # Meses de servicio que cubre: la mensualidad normalmente 1; la instalación puede incluir el primer mes (1) o no (0).
+    months: int = Field(default=1, ge=0, le=36)
+    method: str = Field(pattern="^(transferencia|deposito|efectivo|tarjeta|otro)$")
+    reference: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=1000)
+    paid_at: date | None = None  # vacío = hoy
+
+
+class SupportSessionCreate(BaseModel):
+    allow_changes: bool = False
+
+
+class SupportSession(BaseModel):
+    access_token: str
+    company_id: int
+    company_name: str
+    allow_changes: bool
+    expires_at: datetime
+
+
+class SignupRequest(BaseModel):
+    """Registro público de una empresa nueva (página /registro)."""
+
+    company_name: str = Field(min_length=2, max_length=120)
+    admin_name: str = Field(min_length=2, max_length=120)
+    email: EmailStr
+    phone: str = Field(min_length=7, max_length=30)
+    password: str = Field(min_length=1, max_length=255)
+    accept_terms: bool
+    # Trampa para robots: un campo oculto que una persona nunca llena.
+    website: str | None = Field(default=None, max_length=200)
+
+    @field_validator("email")
+    @classmethod
+    def _lower_email(cls, v: str) -> str:
+        return v.lower()
+
+    @field_validator("company_name", "admin_name", "phone")
+    @classmethod
+    def _strip_text(cls, v: str) -> str:
+        v = v.strip()
+        if len(v) < 2:
+            raise ValueError("Escribe al menos 2 caracteres")
+        return v
+
+    @field_validator("password")
+    @classmethod
+    def _password_policy(cls, v: str) -> str:
+        return check_password_policy(v)
+
+
+class SignupDone(BaseModel):
+    company_name: str
+    email: str
+    trial_days: int
+    trial_ends_at: datetime
+
+
+class SubscriptionOut(BaseModel):
+    """«Mi suscripción» del administrador de una empresa."""
+
+    company_name: str
+    state: str
+    trial_ends_at: datetime | None = None
+    paid_until: datetime | None = None
+    days_left: int | None = None
+    setup_fee: float
+    monthly_fee: float
+    setup_paid: bool
+    notice: str | None = None
+    payment_info: str = ""
+    contact_phone: str = ""
+    payments: list[PaymentOut] = []

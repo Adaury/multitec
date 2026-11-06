@@ -36,6 +36,9 @@ const loaders = {
   HojaDeTiempo: () => import('./pages/HojaDeTiempo'),
   Plataforma: () => import('./pages/Plataforma'),
   BorrarPruebas: () => import('./pages/BorrarPruebas'),
+  Registro: () => import('./pages/Registro'),
+  Terminos: () => import('./pages/Terminos'),
+  MiSuscripcion: () => import('./pages/MiSuscripcion'),
   Ayuda: () => import('./pages/Ayuda'),
 }
 
@@ -64,6 +67,9 @@ const HojaDeTiempo = lazyPage(loaders.HojaDeTiempo, 'HojaDeTiempo')
 const Plataforma = lazyPage(loaders.Plataforma, 'Plataforma')
 const Ayuda = lazyPage(loaders.Ayuda, 'Ayuda')
 const BorrarPruebas = lazyPage(loaders.BorrarPruebas, 'BorrarPruebas')
+const Registro = lazyPage(loaders.Registro, 'Registro')
+const Terminos = lazyPage(loaders.Terminos, 'Terminos')
+const MiSuscripcion = lazyPage(loaders.MiSuscripcion, 'MiSuscripcion')
 
 // Las pantallas de uso diario se descargan en segundo plano cuando el navegador está libre, para
 // que al tocarlas abran al instante en vez de esperar la descarga.
@@ -91,6 +97,23 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      {/* Públicas: registro de una empresa nueva y términos del servicio. */}
+      <Route
+        path="/registro"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <Registro />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/terminos"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <Terminos />
+          </Suspense>
+        }
+      />
       <Route
         path="/portal/:token"
         element={
@@ -132,6 +155,7 @@ function App() {
             <Route path="/auditoria" element={<Auditoria />} />
             <Route path="/aprendizaje-ia" element={<AIFeedbackEvents />} />
             <Route path="/borrar-pruebas" element={<BorrarPruebas />} />
+            <Route path="/suscripcion" element={<MiSuscripcion />} />
             {/* Entradas antiguas: ahora viven dentro de Ajustes de IA y de Catálogo. */}
             <Route path="/parametros-calculo" element={<Navigate to="/aprendizaje-ia?vista=parametros" replace />} />
             <Route path="/clasificaciones" element={<Navigate to="/catalogo?vista=clasificaciones" replace />} />

@@ -43,7 +43,7 @@ test('the owner creates a demo company with technician accounts that expire', as
   // Una cuenta de administrador y dos de técnico, cada una con su clave temporal
   const accounts = page.getByTestId('demo-account')
   await expect(accounts).toHaveCount(3)
-  await expect(page.getByTestId('demo-created')).toContainText('Vence en')
+  await expect(page.getByTestId('demo-created')).toContainText(/vence en/i)
   await expect(accounts.filter({ hasText: 'tecnico' })).toHaveCount(2)
 
   // Aparece en la lista como demo, en prueba, con el cupo de usuarios

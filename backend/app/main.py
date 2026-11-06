@@ -42,6 +42,7 @@ from app.api.routers import (
     quotes,
     reports,
     search,
+    signup,
     suppliers,
     surveys,
     system,
@@ -205,6 +206,7 @@ app.include_router(public.router)
 app.include_router(suppliers.router)
 app.include_router(purchase_invoices.router)
 app.include_router(test_data.router)
+app.include_router(signup.router)
 
 
 @app.get("/api/health")
