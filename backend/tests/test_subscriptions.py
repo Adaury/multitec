@@ -62,7 +62,8 @@ def test_add_months_keeps_the_day_or_uses_the_last_one():
 def test_a_company_signs_up_alone_with_a_trial_and_the_base_catalog(client, db_session):
     platform = _platform(client, db_session)
     info = client.get("/api/signup/info").json()
-    assert info["enabled"] and info["trial_days"] == 45 and info["setup_fee"] == 10000 and info["monthly_fee"] == 2500
+    assert info["enabled"] and info["trial_days"] == 45 and info["currency"] == "USD"
+    assert [p["name"] for p in info["plans"]] == ["Básico", "Profesional", "Empresarial"]
 
     done = _signup(client)
     assert done["trial_days"] == 45
@@ -120,7 +121,7 @@ def test_payments_move_paid_until_and_end_the_trial(client, db_session):
 
     summary = client.get("/api/platform/summary", headers=platform).json()
     assert summary["collected_this_month"] == 12500 and summary["paying_companies"] == 1
-    assert summary["expected_monthly"] == 2500
+    assert summary["expected_monthly"] == 60  # plan Profesional (el destacado), en US$
 
     # El administrador de la empresa ve lo suyo en «Mi suscripción»; un técnico no.
     token = _login(client, SIGNUP["email"], SIGNUP["password"])
@@ -194,4 +195,48 @@ def test_platform_can_set_custom_fees_and_fix_paid_until(client, db_session):
                      headers=platform).json()
     assert out["setup_fee"] == 8000 and out["monthly_fee"] == 2000 and out["state"] == "activa" and out["days_left"] >= 8
     out = client.put(f"/api/platform/companies/{company.id}", json={"clear_fees": True}, headers=platform).json()
-    assert out["setup_fee"] == 10000 and out["monthly_fee"] == 2500
+    assert out["setup_fee"] == 160 and out["monthly_fee"] == 60  # vuelve a la tarifa de su plan
+
+
+def test_signup_takes_the_chosen_plan_and_its_user_limit(client):
+    plans = client.get("/api/signup/info").json()["plans"]
+    basico = next(p for p in plans if p["name"] == "Básico")
+    _signup(client, plan_id=basico["id"])
+    company = _company()
+    assert company.plan_id == basico["id"] and company.max_users == 4
+    token = _login(client, SIGNUP["email"], SIGNUP["password"])
+    mine = client.get("/api/subscription", headers=auth_headers(token)).json()
+    assert mine["plan_name"] == "Básico" and mine["monthly_fee"] == 40 and mine["currency"] == "USD"
+    assert mine["contact_phones"] == ["829-283-1336", "829-477-8613"]
+    assert client.post("/api/signup", json={**SIGNUP, "email": "x@y.com", "plan_id": 9999}).status_code == 400
+
+
+def test_public_site_shows_only_real_published_testimonials(client, db_session):
+    platform = _platform(client, db_session)
+    site = client.get("/api/site").json()
+    assert len(site["plans"]) == 3 and site["testimonials"] == [] and site["phones"][0] == "829-283-1336"
+
+    admin = client.get("/api/platform/site", headers=platform).json()
+    example = admin["testimonials"][0]
+    assert example["is_example"] and not example["published"]
+    # Un ejemplo no se publica sin cambiar su texto.
+    bad = client.put(f"/api/platform/site/testimonials/{example['id']}", json={**example, "published": True}, headers=platform)
+    assert bad.status_code == 400
+    real = {**example, "author": "Pedro Rosario", "company": "Alarmas del Cibao",
+            "quote": "Ahora cotizamos el mismo día que hacemos la visita.", "published": True}
+    assert client.put(f"/api/platform/site/testimonials/{example['id']}", json=real, headers=platform).status_code == 200
+    shown = client.get("/api/site").json()["testimonials"]
+    assert [t["author"] for t in shown] == ["Pedro Rosario"]
+
+    # Editar un plan cambia lo que ve todo el mundo; un plan en uso no se borra, se oculta.
+    plan = admin["plans"][0]
+    client.put(f"/api/platform/site/plans/{plan['id']}", json={**plan, "monthly_price": 45}, headers=platform)
+    assert client.get("/api/site").json()["plans"][0]["monthly_price"] == 45
+    _signup(client, plan_id=plan["id"])
+    client.delete(f"/api/platform/site/plans/{plan['id']}", headers=platform)
+    assert all(p["id"] != plan["id"] for p in client.get("/api/site").json()["plans"])
+    assert any(p["id"] == plan["id"] and not p["active"] for p in client.get("/api/platform/site", headers=platform).json()["plans"])
+
+    # Nadie más puede editar el sitio.
+    owner = auth_headers(_login(client, SIGNUP["email"], SIGNUP["password"]))
+    assert client.post("/api/platform/site/testimonials", json=real, headers=owner).status_code == 403

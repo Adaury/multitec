@@ -80,6 +80,8 @@ export interface PlatformCompany {
   setup_paid_at: string | null
   paid_until: string | null
   reviewed_at: string | null
+  plan_id: number | null
+  plan_name: string | null
 }
 
 /** prueba → (paga) activa → atrasada (días de gracia) → cortada; vencida = terminó la prueba sin pagar. */
@@ -102,6 +104,7 @@ export interface PlatformSummary {
   by_state: Partial<Record<CompanyState, number>>
   new_requests: { id: number; name: string; created_at: string; contact_name: string | null; contact_email: string | null; contact_phone: string | null; days_left: number | null }[]
   expiring: { id: number; name: string; state: CompanyState; days_left: number | null }[]
+  currency: string
   collected_this_month: number
   expected_monthly: number
   paying_companies: number
@@ -119,6 +122,9 @@ export interface MySubscription {
   notice: string | null
   payment_info: string
   contact_phone: string
+  contact_phones: string[]
+  plan_name: string | null
+  currency: string
   payments: CompanyPaymentRow[]
 }
 

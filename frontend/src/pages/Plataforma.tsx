@@ -4,7 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, apiErrorMessage } from '../lib/api'
 import type { CompanyState, PlatformCompany, PlatformCompanyDetail, PlatformSummary } from '../lib/types'
 import { enterSupport } from '../lib/support'
-import { LifeBuoy, MessageCircle } from 'lucide-react'
+import { Globe, LifeBuoy, MessageCircle } from 'lucide-react'
+import { platformMoney, type SitePlan } from '../lib/platformMoney'
 import { timeAgo } from '../lib/userAgent'
 import { AccessList, type AccessAccount } from '../components/AccessList'
 import { Badge, Button, Card, Field, Input } from '../components/ui'
@@ -38,7 +39,14 @@ const STATE_TONE: Record<CompanyState, 'green' | 'blue' | 'amber' | 'red'> = {
   suspendida: 'red',
 }
 
-const money = (n: number) => `RD$${n.toLocaleString('es-DO', { maximumFractionDigits: 0 })}`
+/** Moneda y planes de la plataforma (los mismos de la página pública). */
+function usePlatformSite() {
+  const { data } = useQuery({
+    queryKey: ['platform-site'],
+    queryFn: async () => (await api.get<{ currency: string; plans: SitePlan[] }>('/platform/site')).data,
+  })
+  return { currency: data?.currency ?? 'USD', plans: data?.plans ?? [] }
+}
 const waLink = (phone: string | null, text: string) =>
   phone ? `https://wa.me/${phone.replace(/\D/g, '').replace(/^(8[024]9)/, '1$1')}?text=${encodeURIComponent(text)}` : null
 
@@ -66,6 +74,7 @@ function SummaryPanel() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['platform-summary'] }),
   })
   if (!data) return null
+  const money = (n: number) => platformMoney(n, data.currency)
   const tiles: [string, string | number][] = [
     ['En prueba', data.by_state.prueba ?? 0],
     ['Pagando', data.paying_companies],
@@ -203,7 +212,13 @@ function CompanyList() {
           <h1 className="text-2xl font-semibold text-gray-900 sr-only dark:text-gray-100">Plataforma</h1>
           <p className="text-sm text-gray-500">Las empresas que usan Multitec, cada una con sus datos separados.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link
+            to="/plataforma/sitio"
+            className="inline-flex items-center gap-2 rounded-2xl bg-brand-gray px-4 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-100"
+          >
+            <Globe className="h-4 w-4" aria-hidden="true" /> Página web y planes
+          </Link>
           <Button
             variant="secondary"
             className="!w-auto !px-4 !py-2.5 text-sm"
@@ -685,6 +700,18 @@ function Billing({ company, onChange }: { company: PlatformCompanyDetail; onChan
   const [fees, setFees] = useState({ setup: String(company.setup_fee), monthly: String(company.monthly_fee) })
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState<string | null>(null)
+  const { currency, plans } = usePlatformSite()
+  const money = (n: number) => platformMoney(n, currency)
+  const unit = currency === 'DOP' ? 'RD$' : 'US$'
+
+  const changePlan = useMutation({
+    mutationFn: async (planId: number) => api.put(`/platform/companies/${company.id}`, { plan_id: planId }),
+    onSuccess: () => {
+      setSaved('Plan cambiado.')
+      onChange()
+    },
+    onError: (e) => setError(apiErrorMessage(e, 'No se pudo cambiar el plan')),
+  })
 
   const pay = useMutation({
     mutationFn: async () =>
@@ -717,6 +744,22 @@ function Billing({ company, onChange }: { company: PlatformCompanyDetail; onChan
     <Card testId="billing">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <p className="font-medium text-gray-900 dark:text-gray-100">Cobros</p>
+        <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+          Plan
+          <select
+            aria-label="Plan de la empresa"
+            value={company.plan_id ?? ''}
+            onChange={(e) => e.target.value && changePlan.mutate(Number(e.target.value))}
+            className="rounded-xl border border-gray-200 bg-white px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+          >
+            <option value="">Sin plan</option>
+            {plans.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} — {money(p.monthly_price)}/mes{p.active ? '' : ' (oculto)'}
+              </option>
+            ))}
+          </select>
+        </label>
         <p className="text-sm text-gray-600 dark:text-gray-400">
           {company.setup_paid_at ? '✓ Instalación pagada' : 'Instalación pendiente'} ·{' '}
           {company.paid_until ? `Pagado hasta ${new Date(company.paid_until).toLocaleDateString('es-DO')}` : 'Sin mensualidades aún'}
@@ -743,7 +786,7 @@ function Billing({ company, onChange }: { company: PlatformCompanyDetail; onChan
             <option value="mensualidad">{KIND_LABEL.mensualidad}</option>
           </select>
         </Field>
-        <Field label="Monto (RD$)">
+        <Field label={`Monto (${unit})`}>
           <Input type="number" min={1} step="0.01" required value={payment.amount} onChange={(e) => setPayment({ ...payment, amount: e.target.value })} />
         </Field>
         <Field label="Meses de servicio">
@@ -802,10 +845,10 @@ function Billing({ company, onChange }: { company: PlatformCompanyDetail; onChan
           saveFees.mutate()
         }}
       >
-        <Field label="Instalación (RD$)">
+        <Field label={`Instalación (${unit})`}>
           <Input type="number" min={0} value={fees.setup} onChange={(e) => setFees({ ...fees, setup: e.target.value })} />
         </Field>
-        <Field label="Mensualidad (RD$)">
+        <Field label={`Mensualidad (${unit})`}>
           <Input type="number" min={0} value={fees.monthly} onChange={(e) => setFees({ ...fees, monthly: e.target.value })} />
         </Field>
         <Button type="submit" variant="secondary" className="!w-auto !px-4 !py-3 text-sm" disabled={saveFees.isPending}>

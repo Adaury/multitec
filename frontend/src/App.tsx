@@ -39,6 +39,8 @@ const loaders = {
   Registro: () => import('./pages/Registro'),
   Terminos: () => import('./pages/Terminos'),
   MiSuscripcion: () => import('./pages/MiSuscripcion'),
+  Web: () => import('./pages/Web'),
+  PlataformaSitio: () => import('./pages/PlataformaSitio'),
   Ayuda: () => import('./pages/Ayuda'),
 }
 
@@ -70,6 +72,8 @@ const BorrarPruebas = lazyPage(loaders.BorrarPruebas, 'BorrarPruebas')
 const Registro = lazyPage(loaders.Registro, 'Registro')
 const Terminos = lazyPage(loaders.Terminos, 'Terminos')
 const MiSuscripcion = lazyPage(loaders.MiSuscripcion, 'MiSuscripcion')
+const Web = lazyPage(loaders.Web, 'Web')
+const PlataformaSitio = lazyPage(loaders.PlataformaSitio, 'PlataformaSitio')
 
 // Las pantallas de uso diario se descargan en segundo plano cuando el navegador está libre, para
 // que al tocarlas abran al instante en vez de esperar la descarga.
@@ -103,6 +107,14 @@ function App() {
         element={
           <Suspense fallback={<PageLoader />}>
             <Registro />
+          </Suspense>
+        }
+      />
+      <Route
+        path="/web"
+        element={
+          <Suspense fallback={<PageLoader />}>
+            <Web />
           </Suspense>
         }
       />
@@ -162,6 +174,7 @@ function App() {
           </Route>
           <Route element={<PlatformRoute />}>
             <Route path="/plataforma" element={<Plataforma />} />
+            <Route path="/plataforma/sitio" element={<PlataformaSitio />} />
             <Route path="/plataforma/:id" element={<Plataforma />} />
           </Route>
         </Route>

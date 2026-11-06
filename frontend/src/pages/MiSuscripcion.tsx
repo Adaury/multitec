@@ -3,6 +3,7 @@ import { AlertTriangle, CalendarClock, MessageCircle, Receipt, Wallet } from 'lu
 import { api } from '../lib/api'
 import type { CompanyState, MySubscription } from '../lib/types'
 import { Card } from '../components/ui'
+import { platformMoney, whatsappLink } from '../lib/platformMoney'
 
 const STATE: Record<CompanyState, { label: string; tone: string }> = {
   prueba: { label: 'En prueba gratis', tone: 'bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300' },
@@ -13,7 +14,6 @@ const STATE: Record<CompanyState, { label: string; tone: string }> = {
   suspendida: { label: 'Suspendida', tone: 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300' },
 }
 
-const money = (n: number) => `RD$${n.toLocaleString('es-DO', { minimumFractionDigits: 2 })}`
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' }) : '—')
 
 /** «Mi suscripción»: el administrador ve su plan, hasta cuándo tiene servicio, cómo pagar y sus pagos. */
@@ -26,7 +26,8 @@ export function MiSuscripcion() {
 
   const state = STATE[data.state]
   const until = data.paid_until ?? data.trial_ends_at
-  const whatsapp = data.contact_phone.replace(/\D/g, '')
+  const money = (n: number) => platformMoney(n, data.currency, true)
+  const phones = data.contact_phones.length ? data.contact_phones : data.contact_phone ? [data.contact_phone] : []
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 py-4 md:py-8">
@@ -53,7 +54,7 @@ export function MiSuscripcion() {
         </Card>
         <Card>
           <p className="flex items-center gap-1.5 text-xs font-medium text-gray-500">
-            <Wallet className="h-4 w-4" aria-hidden="true" /> Mensualidad
+            <Wallet className="h-4 w-4" aria-hidden="true" /> Mensualidad{data.plan_name ? ` · plan ${data.plan_name}` : ''}
           </p>
           <p className="mt-2 text-2xl font-extrabold text-gray-900 dark:text-gray-100">{money(data.monthly_fee)}</p>
           <p className="text-xs text-gray-500">soporte y uso de la plataforma</p>
@@ -67,22 +68,28 @@ export function MiSuscripcion() {
         </Card>
       </div>
 
-      {(data.payment_info || whatsapp) && (
+      {(data.payment_info || phones.length > 0) && (
         <Card>
           <p className="font-semibold text-gray-900 dark:text-gray-100">Cómo pagar</p>
           {data.payment_info && (
             <p className="mt-2 whitespace-pre-line text-sm text-gray-700 dark:text-gray-300">{data.payment_info}</p>
           )}
-          {whatsapp && (
-            <a
-              href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(`Hola, soy de ${data.company_name}. Les escribo por mi suscripción de Multitec.`)}`}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
-            >
-              <MessageCircle className="h-4 w-4" aria-hidden="true" /> Avisar mi pago por WhatsApp
-            </a>
+          {data.currency === 'USD' && (
+            <p className="mt-2 text-xs text-gray-500">Los precios están en dólares: puedes pagar en pesos a la tasa del día.</p>
           )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {phones.map((phone) => (
+              <a
+                key={phone}
+                href={whatsappLink(phone, `Hola, soy de ${data.company_name}. Les escribo por mi suscripción de Multitec.`)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                <MessageCircle className="h-4 w-4" aria-hidden="true" /> Avisar mi pago · {phone}
+              </a>
+            ))}
+          </div>
         </Card>
       )}
 

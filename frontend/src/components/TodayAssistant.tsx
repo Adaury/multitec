@@ -54,7 +54,8 @@ export function AliasPrompt({ user }: { user: CurrentUser }) {
       (await api.put<CurrentUser>('/auth/me', { name: user.name, assistant_alias: alias.trim() })).data,
     onSuccess: (data) => setUser(data),
   })
-  if (dismissed) return null
+  // En modo soporte el perfil es el del dueño de la plataforma y no se puede cambiar desde la empresa atendida.
+  if (dismissed || user.support_mode) return null
   return (
     <form
       className="space-y-2 rounded-2xl bg-white p-3 ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10"

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.company import Company, CompanyPayment
+from app.models.site import PlatformPlan
 
 PAYMENT_KINDS = ("instalacion", "mensualidad")
 PAYMENT_METHODS = ("transferencia", "deposito", "efectivo", "tarjeta", "otro")
@@ -31,11 +32,46 @@ def _utc(value: datetime) -> datetime:
     return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
 
 
+def contact_phones() -> list[str]:
+    return [p.strip() for p in get_settings().platform_contact_phone.split(",") if p.strip()]
+
+
+def plan_of(company: Company) -> PlatformPlan | None:
+    if company.plan_id is None:
+        return None
+    from sqlalchemy.orm import object_session
+
+    db = object_session(company)
+    return db.get(PlatformPlan, company.plan_id) if db is not None else None
+
+
 def fees(company: Company) -> tuple[float, float]:
+    """Instalación y mensualidad de la empresa: su tarifa propia, si no la de su plan, si no la general."""
     settings = get_settings()
-    setup = float(company.setup_fee) if company.setup_fee is not None else float(settings.platform_setup_fee)
-    monthly = float(company.monthly_fee) if company.monthly_fee is not None else float(settings.platform_monthly_fee)
+    plan = plan_of(company)
+    setup = (
+        float(company.setup_fee) if company.setup_fee is not None
+        else float(plan.setup_price) if plan is not None else float(settings.platform_setup_fee)
+    )
+    monthly = (
+        float(company.monthly_fee) if company.monthly_fee is not None
+        else float(plan.monthly_price) if plan is not None else float(settings.platform_monthly_fee)
+    )
     return setup, monthly
+
+
+def payment_info(db: Session) -> str:
+    """Cómo pagarle a la plataforma: lo del .env o, si está vacío, las cuentas de «Mi empresa» de la empresa 1 (las
+    mismas que salen en las cotizaciones)."""
+    from app.db.tenant import tenant_bypass
+    from app.models.company_profile import CompanyProfile
+
+    configured = get_settings().platform_payment_info.replace("\\n", "\n")
+    if configured.strip():
+        return configured
+    with tenant_bypass(db):
+        profile = db.query(CompanyProfile).filter(CompanyProfile.company_id == 1).first()
+    return (profile.bank_info or "") if profile is not None else ""
 
 
 def new_trial_end() -> datetime:
@@ -116,6 +152,7 @@ def summary(db: Session) -> dict:
             if c.source == "registro" and c.reviewed_at is None
         ],
         "expiring": [{"id": c.id, "name": c.name, "state": c.state, "days_left": c.days_left} for c in soon],
+        "currency": get_settings().platform_currency,
         "collected_this_month": float(collected or Decimal(0)),
         "expected_monthly": monthly,
         "paying_companies": len(paying),

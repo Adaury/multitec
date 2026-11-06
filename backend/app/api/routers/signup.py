@@ -21,6 +21,7 @@ from app.db.tenant import tenant_bypass
 from app.models.company import Company
 from app.models.company_profile import CompanyProfile
 from app.models.notification import Notification
+from app.models.site import PlatformPlan
 from app.models.user import User
 from app.schemas.platform import PaymentOut, SignupDone, SignupRequest, SubscriptionOut
 from app.services import catalog_base, subscriptions
@@ -42,15 +43,22 @@ def _slug(db: Session, name: str) -> str:
 
 
 @router.get("/api/signup/info")
-def signup_info():
-    """Lo que muestra la página de registro (sin datos de nadie)."""
+def signup_info(db: Session = Depends(get_db)):
+    """Lo que muestra la página de registro (sin datos de nadie): planes, moneda y días de prueba."""
+    from app.api.routers.site import _plan_out, _plans
+    from app.services.site_defaults import ensure_site_defaults
+
+    ensure_site_defaults(db)
     s = get_settings()
+    phones = subscriptions.contact_phones()
     return {
         "enabled": s.public_signup_enabled,
         "trial_days": s.platform_trial_days,
+        "currency": s.platform_currency,
         "setup_fee": s.platform_setup_fee,
         "monthly_fee": s.platform_monthly_fee,
-        "contact_phone": s.platform_contact_phone,
+        "contact_phone": phones[0] if phones else "",
+        "plans": [_plan_out(p) for p in _plans(db, only_active=True)],
     }
 
 
@@ -81,6 +89,18 @@ def signup(
     if not payload.accept_terms:
         raise HTTPException(status_code=400, detail="Debes aceptar los términos del servicio")
 
+    from app.services.site_defaults import ensure_site_defaults
+
+    ensure_site_defaults(db)  # los planes existen aunque nadie haya abierto antes la página pública
+    plan = db.get(PlatformPlan, payload.plan_id) if payload.plan_id else None
+    if payload.plan_id and (plan is None or not plan.active):
+        raise HTTPException(status_code=400, detail="Ese plan no está disponible")
+    if plan is None:  # sin elegir: el plan destacado (o el primero)
+        plan = (
+            db.query(PlatformPlan).filter(PlatformPlan.active.is_(True))
+            .order_by(PlatformPlan.highlighted.desc(), PlatformPlan.sort).first()
+        )
+
     with tenant_bypass(db):
         if db.query(User.id).filter(User.email == payload.email).first() is not None:
             raise HTTPException(status_code=400, detail="Ya existe una cuenta con ese correo. Inicia sesión o usa otro correo.")
@@ -92,6 +112,8 @@ def signup(
             contact_email=payload.email,
             contact_phone=payload.phone,
             trial_ends_at=subscriptions.new_trial_end(),
+            plan_id=plan.id if plan is not None else None,
+            max_users=plan.max_users if plan is not None else None,
         )
         db.add(company)
         db.flush()
@@ -156,7 +178,10 @@ def my_subscription(db: Session = Depends(get_db), current_user: User = Depends(
         monthly_fee=monthly_fee,
         setup_paid=company.setup_paid_at is not None,
         notice=subscriptions.notice_for(company),
-        payment_info=settings.platform_payment_info.replace("\\n", "\n"),
-        contact_phone=settings.platform_contact_phone,
+        payment_info=subscriptions.payment_info(db),
+        contact_phone=(subscriptions.contact_phones() or [""])[0],
+        contact_phones=subscriptions.contact_phones(),
+        plan_name=plan.name if (plan := subscriptions.plan_of(company)) is not None else None,
+        currency=settings.platform_currency,
         payments=[PaymentOut.model_validate(p) for p in payments],
     )

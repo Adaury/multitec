@@ -58,6 +58,8 @@ class Company(Base):
     paid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Cuándo la plataforma vio la solicitud de una empresa registrada sola (vacío = solicitud nueva).
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Plan contratado (página pública). Sus precios valen salvo que la empresa tenga tarifa propia.
+    plan_id: Mapped[int | None] = mapped_column(ForeignKey("platform_plans.id"), nullable=True)
 
     @property
     def trial_expired(self) -> bool:

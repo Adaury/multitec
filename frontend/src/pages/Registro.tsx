@@ -1,21 +1,22 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarCheck2, Camera, CheckCircle2, ClipboardList, Users } from 'lucide-react'
 import { api, apiErrorMessage } from '../lib/api'
 import { useAuthStore } from '../lib/authStore'
 import { Button, Card, Field, Input } from '../components/ui'
 import type { CurrentUser } from '../lib/types'
+import { platformMoney, type SitePlan } from '../lib/platformMoney'
 
 interface SignupInfo {
   enabled: boolean
   trial_days: number
+  currency: string
   setup_fee: number
   monthly_fee: number
   contact_phone: string
+  plans: SitePlan[]
 }
-
-const money = (n: number) => `RD$${n.toLocaleString('es-DO', { maximumFractionDigits: 0 })}`
 
 const FEATURES = [
   { icon: ClipboardList, text: 'Levantamientos con fotos y voz desde el celular' },
@@ -27,7 +28,9 @@ const FEATURES = [
 /** Página pública: una empresa se registra sola y empieza su prueba gratis. */
 export function Registro() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const setSession = useAuthStore((s) => s.setSession)
+  const [planId, setPlanId] = useState<number | null>(null)
   const { data: info } = useQuery({
     queryKey: ['signup-info'],
     queryFn: async () => (await api.get<SignupInfo>('/signup/info')).data,
@@ -37,6 +40,13 @@ export function Registro() {
   const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Plan: el que viene de la página de precios (?plan=), si no el destacado.
+  useEffect(() => {
+    if (!info || planId !== null || info.plans.length === 0) return
+    const wanted = Number(params.get('plan'))
+    const chosen = info.plans.find((p) => p.id === wanted) ?? info.plans.find((p) => p.highlighted) ?? info.plans[0]
+    setPlanId(chosen.id)
+  }, [info, params, planId])
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, [key]: e.target.value })
 
   async function submit(e: React.FormEvent) {
@@ -44,7 +54,7 @@ export function Registro() {
     setError(null)
     setBusy(true)
     try {
-      await api.post('/signup', { ...form, accept_terms: accept }, { timeout: 120_000 })
+      await api.post('/signup', { ...form, plan_id: planId, accept_terms: accept }, { timeout: 120_000 })
       // Entra directo con la clave que acaba de elegir.
       const login = new URLSearchParams({ username: form.email, password: form.password })
       const { data } = await api.post('/auth/login', login, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
@@ -99,26 +109,53 @@ export function Registro() {
               </li>
             ))}
           </ul>
-          {info && (
-            <div className="rounded-3xl bg-white p-5 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
-              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">Después de la prueba</p>
-              <div className="mt-3 grid grid-cols-2 gap-3">
-                <div>
-                  <p className="text-2xl font-extrabold text-gray-900 dark:text-gray-100">{money(info.setup_fee)}</p>
-                  <p className="text-xs text-gray-500">una sola vez: instalación y explicación</p>
-                </div>
-                <div>
-                  <p className="text-2xl font-extrabold text-gray-900 dark:text-gray-100">
-                    {money(info.monthly_fee)}
-                    <span className="text-sm font-medium text-gray-500">/mes</span>
-                  </p>
-                  <p className="text-xs text-gray-500">soporte y uso de la plataforma</p>
-                </div>
-              </div>
-              <p className="mt-3 flex items-center gap-1.5 text-xs text-gray-500">
-                <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" /> Sin tarjeta para empezar.
+          {info && info.plans.length > 0 && (
+            <fieldset className="space-y-2" data-testid="plan-picker">
+              <legend className="mb-2 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                Elige tu plan (después de los {days} días gratis)
+              </legend>
+              {info.plans.map((plan) => (
+                <label
+                  key={plan.id}
+                  className={`flex cursor-pointer items-center gap-3 rounded-2xl bg-white p-4 shadow-sm ring-2 transition dark:bg-gray-900 ${
+                    planId === plan.id ? 'ring-brand-blue' : 'ring-transparent'
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="plan"
+                    checked={planId === plan.id}
+                    onChange={() => setPlanId(plan.id)}
+                    className="h-4 w-4 accent-brand-blue"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2 font-semibold text-gray-900 dark:text-gray-100">
+                      {plan.name}
+                      {plan.highlighted && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">Más popular</span>
+                      )}
+                    </span>
+                    <span className="block text-xs text-gray-500">
+                      {plan.max_users ? `Hasta ${plan.max_users} usuarios` : 'Usuarios ilimitados'} · instalación{' '}
+                      {platformMoney(plan.setup_price, info.currency)} una vez
+                    </span>
+                  </span>
+                  <span className="text-right">
+                    <span className="block text-xl font-extrabold text-gray-900 dark:text-gray-100">
+                      {platformMoney(plan.monthly_price, info.currency)}
+                    </span>
+                    <span className="text-xs text-gray-500">/mes</span>
+                  </span>
+                </label>
+              ))}
+              <p className="flex items-center gap-1.5 text-xs text-gray-500">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" /> Sin tarjeta para empezar. Precios en
+                dólares; puedes pagar en pesos a la tasa del día.{' '}
+                <Link to="/web#precios" className="font-semibold text-brand-blue hover:underline">
+                  Ver qué incluye cada plan
+                </Link>
               </p>
-            </div>
+            </fieldset>
           )}
         </div>
 

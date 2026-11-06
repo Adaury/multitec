@@ -106,6 +106,10 @@ export function Login() {
           <Link to="/registro" className="font-semibold text-brand-blue hover:underline">
             Pruébalo gratis
           </Link>
+          {' · '}
+          <Link to="/web" className="font-semibold text-brand-blue hover:underline">
+            Conoce Multitec
+          </Link>
         </p>
         <TutorialesLogin />
       </div>

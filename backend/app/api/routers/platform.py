@@ -104,6 +104,8 @@ def _out(company: Company, counts: dict[str, dict[int, int]]) -> CompanyOut:
         setup_paid_at=company.setup_paid_at,
         paid_until=company.paid_until,
         reviewed_at=company.reviewed_at,
+        plan_id=company.plan_id,
+        plan_name=plan.name if (plan := subscriptions.plan_of(company)) is not None else None,
         users=counts["users"].get(company.id, 0),
         projects=counts["projects"].get(company.id, 0),
         invoices=counts["invoices"].get(company.id, 0),
@@ -302,6 +304,14 @@ def update_company(
     if data.get("paid_until"):
         company.paid_until = datetime.combine(data["paid_until"], datetime.min.time(), tzinfo=timezone.utc)
         company.trial_ends_at = None
+    if data.get("plan_id"):
+        from app.models.site import PlatformPlan
+
+        new_plan = db.get(PlatformPlan, data["plan_id"])
+        if new_plan is None:
+            raise HTTPException(status_code=400, detail="Plan no encontrado")
+        company.plan_id = new_plan.id
+        company.max_users = new_plan.max_users
     if "contact_phone" in data:
         company.contact_phone = (data["contact_phone"] or "").strip() or None
     audit(

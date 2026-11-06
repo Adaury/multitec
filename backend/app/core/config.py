@@ -57,10 +57,15 @@ class Settings(BaseSettings):
     # «Mi suscripción». PLATFORM_CONTACT_PHONE: WhatsApp de Multitec para coordinar la instalación y los pagos.
     public_signup_enabled: bool = True
     platform_trial_days: int = 45
-    platform_setup_fee: float = 10000
-    platform_monthly_fee: float = 2500
+    # Moneda de los precios de la plataforma (planes, instalación, mensualidad): "USD" o "DOP".
+    platform_currency: str = "USD"
+    # Tarifa de respaldo si una empresa no tiene plan ni tarifa propia (en PLATFORM_CURRENCY).
+    platform_setup_fee: float = 160
+    platform_monthly_fee: float = 40
+    # Vacío = las cuentas de «Mi empresa» de la empresa de la plataforma (las mismas de las cotizaciones).
     platform_payment_info: str = ""
-    platform_contact_phone: str = ""
+    # Teléfonos / WhatsApp de Multitec, separados por coma (el primero es el principal).
+    platform_contact_phone: str = "829-283-1336,829-477-8613"
 
     itbis_rate: float = 0.18
     quote_stale_days: int = 7

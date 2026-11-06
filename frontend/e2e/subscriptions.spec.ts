@@ -7,14 +7,27 @@ test.describe('registro público', () => {
   // Sin sesión: lo que ve una empresa nueva.
   test.use({ storageState: { cookies: [], origins: [] } })
 
+  test('the public home page shows the plans and leads to signup with the plan chosen', async ({ page }) => {
+    await page.goto('/web')
+    await expect(page.getByRole('heading', { name: /cámaras, alarmas y cercos eléctricos/ })).toBeVisible()
+    const pricing = page.getByTestId('pricing')
+    await expect(pricing.getByText('Más popular')).toBeVisible()
+    await expect(pricing.getByText('US$40')).toBeVisible()
+    await pricing.getByRole('link', { name: /Probar/ }).first().click()
+    await expect(page).toHaveURL(/\/registro\?plan=\d+/)
+    await expect(page.getByTestId('plan-picker').getByRole('radio', { name: /Básico/ })).toBeChecked()
+  })
+
   test('a company signs up alone and lands inside its own account', async ({ page }) => {
     const company = unique('Seguridad Registro')
     const email = `${unique('registro').toLowerCase().replace(/[^a-z0-9]/g, '')}@e2e.com`
     await page.goto('/login')
     await page.getByRole('link', { name: 'Pruébalo gratis' }).click()
     await expect(page).toHaveURL(/\/registro$/)
-    await expect(page.getByText('RD$10,000')).toBeVisible()
-    await expect(page.getByText('RD$2,500')).toBeVisible()
+    // Planes en dólares, como en ZuraPOS; el destacado viene marcado.
+    const picker = page.getByTestId('plan-picker')
+    await expect(picker.getByText('US$60')).toBeVisible()
+    await expect(picker.getByRole('radio', { checked: true })).toHaveCount(1)
 
     await page.getByLabel('Nombre de la empresa').fill(company)
     await page.getByLabel('Tu nombre').fill('Ana Registro')

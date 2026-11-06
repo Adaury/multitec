@@ -47,6 +47,8 @@ class CompanyUpdate(BaseModel):
     # Corregir a mano «pagado hasta» (p. ej. un pago anotado por error).
     paid_until: date | None = None
     contact_phone: str | None = Field(default=None, max_length=30)
+    # Cambiar de plan (también ajusta el tope de usuarios al del plan).
+    plan_id: int | None = None
 
 
 class CompanyOut(BaseModel):
@@ -71,6 +73,8 @@ class CompanyOut(BaseModel):
     setup_paid_at: datetime | None = None
     paid_until: datetime | None = None
     reviewed_at: datetime | None = None
+    plan_id: int | None = None
+    plan_name: str | None = None
     users: int = 0
     projects: int = 0
     invoices: int = 0
@@ -193,6 +197,7 @@ class SignupRequest(BaseModel):
     phone: str = Field(min_length=7, max_length=30)
     password: str = Field(min_length=1, max_length=255)
     accept_terms: bool
+    plan_id: int | None = None
     # Trampa para robots: un campo oculto que una persona nunca llena.
     website: str | None = Field(default=None, max_length=200)
 
@@ -236,4 +241,7 @@ class SubscriptionOut(BaseModel):
     notice: str | None = None
     payment_info: str = ""
     contact_phone: str = ""
+    contact_phones: list[str] = []
+    plan_name: str | None = None
+    currency: str = "USD"
     payments: list[PaymentOut] = []
