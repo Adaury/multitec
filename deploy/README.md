@@ -1,5 +1,7 @@
 # Despliegue en Windows Server
 
+> **Forma recomendada:** sigue `GUIA-INSTALACION.html` (paso a paso). En la PC actual: `EMPAQUETAR.bat` y `EXPORTAR-DATOS.bat`; en el servidor: `INSTALAR.bat` como administrador (`deploy/instalar-servidor.ps1`, con `-SoloRevisar` para probar sin cambiar nada). Lo de abajo es el detalle manual de cada pieza.
+
 Esta carpeta tiene todo lo necesario para correr Multitec como servicio permanente en un
 Windows Server real (o cualquier Windows con permisos de administrador), siguiendo el
 stack del brief original: **Windows Server + PostgreSQL + FastAPI**.

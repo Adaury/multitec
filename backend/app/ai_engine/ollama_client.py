@@ -4,6 +4,7 @@ from pathlib import Path
 import ollama
 from fastapi import HTTPException
 
+from app.ai_engine.gemini_client import GeminiClient, GeminiError
 from app.core.config import get_settings
 
 SUPPORTED_IMAGE_TYPES = {".jpg", ".jpeg", ".png", ".webp"}
@@ -40,8 +41,11 @@ class _KeepAliveClient(ollama.Client):
         return super().generate(*args, **kwargs)
 
 
-def get_client() -> ollama.Client:
+def get_client():
+    """Cliente de IA según AI_PROVIDER: Gemini (misma interfaz que Ollama) o Ollama local."""
     settings = get_settings()
+    if settings.ai_provider == "gemini":
+        return GeminiClient(settings)
     return _KeepAliveClient(host=settings.ollama_host, keep_alive=settings.ai_keep_alive)
 
 
@@ -50,14 +54,22 @@ def _call(fn):
         return fn()
     except HTTPException:
         raise
+    except GeminiError as e:
+        # `user_message` ya viene sin clave ni URL; el detalle técnico quedó en el log del cliente de Gemini.
+        raise HTTPException(status_code=400, detail=e.user_message)
     except Exception as e:
         # El detalle completo de la excepción se registra en el log del servidor, no se
         # le manda al cliente — puede incluir rutas internas o detalles de conexión.
-        logger.exception("Fallo llamando a Ollama")
+        logger.exception("Fallo llamando a la IA")
         if isinstance(e, ValueError):  # json.JSONDecodeError y respuestas mal formadas
             raise HTTPException(
                 status_code=400,
                 detail="La IA devolvió una respuesta incompleta. Intenta de nuevo.",
+            )
+        if get_settings().ai_provider == "gemini":
+            raise HTTPException(
+                status_code=400,
+                detail=f"No se pudo usar la IA (Gemini). Intenta de nuevo. ({type(e).__name__})",
             )
         raise HTTPException(
             status_code=400,

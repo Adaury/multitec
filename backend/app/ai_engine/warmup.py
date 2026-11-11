@@ -27,6 +27,8 @@ def _warm() -> None:
     started = time.time()
     try:
         settings = get_settings()
+        if settings.ai_provider == "gemini":
+            return  # Gemini es remoto: no hay modelo que cargar en memoria, y un "hola" de prueba costaría tokens
         try:
             # Un prompt vacío en `generate` solo carga el modelo, sin generar texto.
             get_client().generate(model=settings.ai_model, prompt="", options=OLLAMA_OPTIONS)

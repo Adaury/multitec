@@ -11,6 +11,7 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
+from app.ai_engine.gemini_client import GeminiClient, GeminiError
 from app.core.config import get_settings
 
 logger = logging.getLogger("multitec.ai")
@@ -55,8 +56,12 @@ CONVERSATION_PROMPT = (
 
 def transcribe_audio(path: str | Path, initial_prompt: str = DOMAIN_PROMPT) -> str:
     """Devuelve el texto en español del audio. Lanza HTTPException 400 si falla (modelo sin
-    descargar, audio ilegible…); el detalle técnico queda solo en el log del servidor."""
+    descargar, audio ilegible…); el detalle técnico queda solo en el log del servidor.
+
+    Con AI_PROVIDER=gemini el audio se transcribe con Gemini (no se carga Whisper)."""
     try:
+        if get_settings().ai_provider == "gemini":
+            return GeminiClient(get_settings()).transcribe(path, vocabulary=initial_prompt)
         with _lock:
             segments, _info = _get_model().transcribe(
                 str(path),
@@ -65,6 +70,9 @@ def transcribe_audio(path: str | Path, initial_prompt: str = DOMAIN_PROMPT) -> s
                 initial_prompt=initial_prompt,
             )
             text = " ".join(segment.text.strip() for segment in segments)
+    except GeminiError as e:
+        logger.warning("Fallo transcribiendo audio %s con Gemini: %s", path, e.user_message)
+        raise HTTPException(status_code=400, detail=f"No se pudo transcribir el audio. {e.user_message}")
     except Exception as e:
         logger.exception("Fallo transcribiendo audio %s", path)
         raise HTTPException(

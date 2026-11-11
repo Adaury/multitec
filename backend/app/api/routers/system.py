@@ -35,6 +35,10 @@ def _check_ai() -> dict:
     """Estado de la IA de texto: si Ollama responde, si el modelo está descargado y si ya está
     cargado en memoria (caliente = la primera respuesta es rápida)."""
     settings = get_settings()
+    if settings.ai_provider == "gemini":
+        # No se llama a Google en cada consulta de estado (cuesta cuota y tiempo): basta con que haya clave.
+        ready = bool(settings.gemini_api_key)
+        return {"reachable": ready, "model": settings.gemini_model, "installed": ready, "warm": ready}
     model = settings.ai_model
     try:
         client = ollama.Client(host=settings.ollama_host, timeout=OLLAMA_CHECK_TIMEOUT_SECONDS)
@@ -67,6 +71,6 @@ def get_status(db: Session = Depends(get_db), _=Depends(allowed_roles)):
         "api": True,
         "database": database,
         "ai": ai,
-        "voice_loaded": transcription._model is not None,
+        "voice_loaded": transcription._model is not None or get_settings().ai_provider == "gemini",
         "checked_in_ms": round((time.time() - started) * 1000),
     }

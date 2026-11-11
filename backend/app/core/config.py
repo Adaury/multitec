@@ -120,6 +120,19 @@ class Settings(BaseSettings):
     whisper_model: str = "small"
     whisper_compute_type: str = "int8"
 
+    # Proveedor de IA: "ollama" (local, por defecto) o "gemini" (Google, por API; no necesita Ollama ni Whisper).
+    # Con "gemini" el modelo es el mismo para texto, fotos y voz; ver app/ai_engine/gemini_client.py.
+    ai_provider: str = "ollama"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"
+    gemini_embedding_model: str = "gemini-embedding-001"
+    # 768 = el tamaño de nomic-embed-text, para no cambiar la columna. Los vectores de otro modelo NO son
+    # comparables: al cambiar de proveedor los proyectos se reindexan solos la próxima vez que se usa la IA.
+    gemini_embedding_dims: int = 768
+    # Tokens que gemini-2.5 puede "pensar" antes de responder; 0 = sin pensar (más rápido, barato y no se come el
+    # tope de salida). Pon un número negativo para dejar el valor por defecto de Google.
+    gemini_thinking_budget: int = 0
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

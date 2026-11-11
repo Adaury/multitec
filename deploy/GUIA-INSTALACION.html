@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guía de instalación de Multitec</title>
+<style>
+  :root { --azul:#1d4ed8; --texto:#111827; --gris:#6b7280; --fondo:#f5f7fb; --tarjeta:#fff; --borde:#e5e7eb; --ok:#047857; --aviso:#92400e; --aviso-fondo:#fffbeb; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: "Segoe UI", system-ui, sans-serif; color:var(--texto); background:var(--fondo); line-height:1.55; }
+  header { background:linear-gradient(135deg,#1d4ed8,#312e81); color:#fff; padding:36px 20px; }
+  header .in, main { max-width:900px; margin:0 auto; }
+  header h1 { margin:0 0 6px; font-size:30px; }
+  header p { margin:0; opacity:.9; }
+  main { padding:24px 16px 60px; }
+  nav { background:var(--tarjeta); border:1px solid var(--borde); border-radius:16px; padding:14px 18px; margin-bottom:22px; }
+  nav a { color:var(--azul); text-decoration:none; margin-right:14px; font-weight:600; white-space:nowrap; }
+  section { background:var(--tarjeta); border:1px solid var(--borde); border-radius:18px; padding:22px 24px; margin-bottom:18px; }
+  h2 { margin:0 0 4px; font-size:22px; }
+  h2 small { display:block; font-size:14px; color:var(--gris); font-weight:400; }
+  h3 { margin:20px 0 6px; font-size:17px; }
+  ol, ul { padding-left:22px; } li { margin:6px 0; }
+  code, kbd { background:#eef2ff; border-radius:6px; padding:1px 6px; font-family: Consolas, monospace; font-size:.92em; }
+  pre { background:#0f172a; color:#e2e8f0; border-radius:12px; padding:12px 14px; overflow-x:auto; font-size:13px; }
+  .num { display:inline-flex; width:28px; height:28px; border-radius:50%; background:var(--azul); color:#fff; align-items:center; justify-content:center; font-weight:700; margin-right:8px; }
+  .aviso { background:var(--aviso-fondo); border:1px solid #fde68a; color:var(--aviso); border-radius:12px; padding:10px 14px; margin:12px 0; }
+  .ok { background:#ecfdf5; border:1px solid #a7f3d0; color:var(--ok); border-radius:12px; padding:10px 14px; margin:12px 0; }
+  table { width:100%; border-collapse:collapse; font-size:14px; } td, th { border-bottom:1px solid var(--borde); padding:8px; text-align:left; vertical-align:top; }
+  .chk li { list-style:none; margin-left:-18px; } .chk li::before { content:"☐ "; }
+  @media print { header { background:#1d4ed8 !important; -webkit-print-color-adjust:exact; } nav { display:none; } section { break-inside:avoid; } }
+</style>
+</head>
+<body>
+<header><div class="in">
+  <h1>Instalar Multitec en el servidor</h1>
+  <p>Paso a paso, de esta PC al servidor de la empresa. Tiempo aproximado: 1 hora.</p>
+</div></header>
+<main>
+<nav>
+  <a href="#resumen">Resumen</a><a href="#a">A. En tu PC</a><a href="#b">B. Preparar el servidor</a>
+  <a href="#c">C. Instalar</a><a href="#d">D. Abrir a internet</a><a href="#e">E. Revisar</a><a href="#f">F. Actualizar</a><a href="#g">Problemas</a>
+</nav>
+
+<section id="resumen">
+  <h2>Resumen</h2>
+  <table>
+    <tr><th>Dónde</th><th>Qué haces</th><th>Resultado</th></tr>
+    <tr><td>Tu PC</td><td>Doble clic en <b>EMPAQUETAR.bat</b> y en <b>EXPORTAR-DATOS.bat</b></td><td>Dos ZIP en <code>C:\Users\Usuario\MultitecServidor</code></td></tr>
+    <tr><td>Servidor</td><td>Instalar Python y PostgreSQL (una sola vez)</td><td>Requisitos listos</td></tr>
+    <tr><td>Servidor</td><td>Copiar los ZIP y ejecutar <b>INSTALAR.bat</b></td><td>Multitec funcionando como servicio</td></tr>
+    <tr><td>Internet</td><td>Conectar el dominio (Cloudflare recomendado)</td><td>Multitec abierto con HTTPS</td></tr>
+  </table>
+  <h3>Lo que necesitas tener</h3>
+  <ul class="chk">
+    <li>Un servidor o PC con <b>Windows Server 2019 o más nuevo</b> (o Windows 10/11 Pro), <b>8 GB de RAM</b> (16 GB si vas a usar la IA) y <b>50 GB libres</b>.</li>
+    <li>Usuario <b>administrador</b> del servidor.</li>
+    <li>Internet en el servidor durante la instalación.</li>
+    <li>Una <b>memoria USB</b> para llevar los ZIP.</li>
+    <li>El <b>dominio</b> (por ejemplo <code>multitec.com.do</code>), si lo vas a abrir a internet. Puede esperar: primero se puede instalar para la red local.</li>
+  </ul>
+</section>
+
+<section id="a">
+  <h2><span class="num">A</span>En tu PC actual</h2>
+  <ol>
+    <li>Abre la carpeta <code>C:\laragon\www\multitec</code>.</li>
+    <li>Doble clic en <b>EMPAQUETAR.bat</b>. Espera a que diga <i>«Listo»</i>. Crea <code>MultitecServidor_FECHA_versión.zip</code> (el programa, sin datos ni claves).</li>
+    <li>Doble clic en <b>EXPORTAR-DATOS.bat</b>. Crea <code>MultitecDatos_FECHA.zip</code> con tu base de datos, fotos y configuración (datos de la empresa, correo, precios).</li>
+    <li>Copia los <b>dos ZIP</b> a la memoria USB. Están en <code>C:\Users\Usuario\MultitecServidor</code>.</li>
+  </ol>
+  <div class="ok"><b>Más fácil: un solo archivo.</b> En vez de los pasos 2 y 3, doble clic en <b>EMPAQUETAR-COMPLETO.bat</b>. Crea <code>MultitecCompleto_FECHA_versión.zip</code> con <b>todo</b>: el programa, tus logos y los de los aliados, los videos, y tus datos (clientes, cotizaciones, fotos, planes, configuración). En el servidor lo extraes en <code>C:\Multitec</code> y ejecutas INSTALAR.bat: encuentra los datos solo.</div>
+  <div class="aviso"><b>Cuidado con el ZIP de datos:</b> tiene la información de tus clientes y la clave del correo. No lo mandes por WhatsApp ni correo, no lo subas a GitHub ni al OneDrive del trabajo. Bórralo de la USB cuando el servidor funcione.</div>
+  <div class="aviso">Haz la exportación <b>justo antes</b> de mudarte: lo que se cree en la PC vieja después de exportar no pasa al servidor. Desde ese momento usa solo el servidor.</div>
+</section>
+
+<section id="b">
+  <h2><span class="num">B</span>Preparar el servidor <small>Solo la primera vez</small></h2>
+  <h3>B1. Actualiza Windows</h3>
+  <p>Configuración → Windows Update → instala todo y reinicia.</p>
+  <h3>B2. Instala Python</h3>
+  <ol>
+    <li>Descarga Python 3.14 de <b>python.org/downloads</b>.</li>
+    <li>Al abrir el instalador marca <b>«Add python.exe to PATH»</b> (abajo) y luego <b>Install Now</b>.</li>
+  </ol>
+  <h3>B3. Instala PostgreSQL 17</h3>
+  <ol>
+    <li>Descárgalo de <b>postgresql.org/download/windows</b> (instalador de EDB, versión 17).</li>
+    <li>Deja todo como viene. Cuando pida una <b>contraseña para el usuario postgres</b>, pon una segura y <b>anótala</b>: el instalador de Multitec la pide una vez.</li>
+    <li>Puerto: <b>5432</b> (el que trae). Al final, no hace falta abrir «Stack Builder».</li>
+  </ol>
+  <div class="ok">NSSM y Caddy (los programas que dejan Multitec funcionando como servicio y publican la web) los instala INSTALAR.bat solo.</div>
+</section>
+
+<section id="c">
+  <h2><span class="num">C</span>Instalar Multitec</h2>
+  <ol>
+    <li>Crea la carpeta <code>C:\Multitec</code> en el servidor.</li>
+    <li>Copia ahí los dos ZIP. Clic derecho en <code>MultitecServidor_….zip</code> → <b>Extraer todo…</b> → destino <code>C:\Multitec</code>.</li>
+    <li>Deja el <code>MultitecDatos_….zip</code> <b>sin extraer</b> dentro de <code>C:\Multitec</code>: el instalador lo encuentra solo.</li>
+    <li>Doble clic en <b>INSTALAR.bat</b> y acepta el permiso de administrador.</li>
+    <li>Responde las preguntas:
+      <ul>
+        <li><b>Cómo se abrirá</b>: 1 dominio propio · 2 Cloudflare Tunnel (recomendado) · 3 solo red local.</li>
+        <li><b>El dominio</b> (por ejemplo <code>app.multitec.com.do</code>) o, para red local, el nombre del servidor.</li>
+        <li><b>¿Restaurar los datos encontrados?</b> → <kbd>s</kbd>.</li>
+        <li><b>Clave del usuario postgres</b> → la que anotaste en B3.</li>
+      </ul>
+    </li>
+    <li>Espera a que termine (10–20 minutos). Al final dice <b>«Multitec quedó instalado»</b> y la dirección para abrirlo.</li>
+  </ol>
+  <p>¿Quieres revisar antes sin cambiar nada? En PowerShell, dentro de <code>C:\Multitec</code>:</p>
+  <pre>powershell -ExecutionPolicy Bypass -File deploy\instalar-servidor.ps1 -SoloRevisar</pre>
+  <h3>Opciones avanzadas</h3>
+  <table>
+    <tr><td><code>-ConIA</code></td><td>Instala también la IA local (Ollama y sus modelos, varios GB). Necesita 16 GB de RAM.</td></tr>
+    <tr><td><code>-CopiaExterna E:\Respaldos</code></td><td>Segunda copia diaria fuera del disco del servidor (muy recomendado).</td></tr>
+    <tr><td><code>-CarpetaRespaldos D:\Respaldos</code></td><td>Dónde guardar la copia diaria (por defecto <code>C:\MultitecBackups</code>).</td></tr>
+  </table>
+  <pre>INSTALAR.bat -ConIA -CopiaExterna E:\Respaldos</pre>
+</section>
+
+<section id="d">
+  <h2><span class="num">D</span>Abrir Multitec a internet</h2>
+  <h3>Opción recomendada: Cloudflare Tunnel</h3>
+  <p>No abre puertos del router, funciona aunque el internet tenga IP compartida y Cloudflare filtra los ataques (el único caso que el servidor solo no puede frenar).</p>
+  <ol>
+    <li>Crea una cuenta gratis en <b>cloudflare.com</b> y agrega tu dominio (Cloudflare te dice qué servidores DNS poner donde compraste el dominio).</li>
+    <li>En Cloudflare: <b>Zero Trust → Networks → Tunnels → Create a tunnel</b> → tipo <b>Cloudflared</b> → nombre <code>multitec</code>.</li>
+    <li>Copia el comando de instalación para <b>Windows</b> que te muestra y ejecútalo en el servidor (PowerShell como administrador). Instala el servicio del túnel.</li>
+    <li>En <b>Public Hostname</b>: subdominio <code>app</code>, tu dominio, tipo <b>HTTP</b>, URL <code>127.0.0.1:8080</code>. Guarda.</li>
+    <li>Para la página de inicio en el dominio principal, agrega otro hostname sin subdominio apuntando a la misma URL.</li>
+  </ol>
+  <p>Más detalle en <code>deploy\DOMINIO.md</code>.</p>
+  <h3>Opción B: dominio directo al servidor</h3>
+  <ol>
+    <li>Donde compraste el dominio, crea un registro <b>A</b> que apunte a la IP pública del servidor.</li>
+    <li>En el router, reenvía los puertos <b>80 y 443</b> a la IP del servidor.</li>
+    <li>Caddy saca el certificado HTTPS solo, en un par de minutos.</li>
+  </ol>
+</section>
+
+<section id="e">
+  <h2><span class="num">E</span>Revisar que todo esté bien</h2>
+  <ul class="chk">
+    <li>Abre la dirección del servidor: sale el inicio de sesión.</li>
+    <li>Entra con tu usuario de siempre (con los datos restaurados) o con la clave temporal que mostró el instalador (base nueva).</li>
+    <li>Revisa clientes, proyectos y una cotización: abre su PDF.</li>
+    <li>Abre <code>/web</code>: la página de inicio con planes y aliados.</li>
+    <li>Desde un celular con datos (no el wifi de la oficina), abre la dirección: debe cargar con candado (HTTPS).</li>
+    <li>En el panel: Plataforma → abre una empresa → «Entrar como soporte» y sal.</li>
+    <li>Al día siguiente: en <code>C:\MultitecBackups</code> debe haber una copia nueva de las 2:00 a. m.</li>
+    <li>En los celulares de los técnicos: abrir la dirección nueva → Compartir → «Agregar a pantalla de inicio».</li>
+  </ul>
+  <div class="aviso">La PC vieja: cuando todo funcione en el servidor, deja de usar Multitec ahí (o apágalo) para que nadie guarde datos en el lugar equivocado. Borra el ZIP de datos de la USB.</div>
+</section>
+
+<section id="f">
+  <h2><span class="num">F</span>Actualizar a una versión nueva</h2>
+  <ol>
+    <li>En tu PC: <b>EMPAQUETAR.bat</b> (solo el programa; los datos ya están en el servidor).</li>
+    <li>En el servidor: extrae el ZIP nuevo <b>encima</b> de <code>C:\Multitec</code> (reemplazar archivos). No toca <code>backend\.env</code>, la base ni las fotos.</li>
+    <li>Ejecuta <b>INSTALAR.bat</b> otra vez: detecta que ya está instalado, actualiza la base y reinicia los servicios.</li>
+  </ol>
+</section>
+
+<section id="g">
+  <h2>Si algo falla</h2>
+  <table>
+    <tr><th>Qué pasa</th><th>Qué hacer</th></tr>
+    <tr><td>«Falta Python» o «Falta PostgreSQL»</td><td>Repite B2 o B3 y vuelve a ejecutar INSTALAR.bat.</td></tr>
+    <tr><td>«No pude entrar a PostgreSQL con esa clave»</td><td>Es la clave del usuario <b>postgres</b> que pusiste en B3.</td></tr>
+    <tr><td>«El puerto 8000 ya lo usa otro programa»</td><td>Otro sistema usa ese puerto en el servidor; avísame para cambiarlo.</td></tr>
+    <tr><td>La página no abre</td><td>Mira <code>backend\logs\backend.err.log</code> y <code>deploy\logs\web.err.log</code>. En Servicios de Windows, <b>MultitecBackend</b> y <b>MultitecWeb</b> deben estar «En ejecución».</td></tr>
+    <tr><td>Quiero ver qué hizo el instalador</td><td>Registro completo en <code>deploy\logs\instalacion_….log</code>.</td></tr>
+  </table>
+  <p>Comandos útiles (PowerShell como administrador):</p>
+  <pre>Restart-Service MultitecBackend, MultitecWeb      # reiniciar Multitec
+Get-Service Multitec*                               # ver si están funcionando
+Start-ScheduledTask -TaskName MultitecPostgresBackup  # sacar una copia ahora</pre>
+</section>
+</main>
+</body>
+</html>
