@@ -1,0 +1,1 @@
+function e(){if(typeof MediaRecorder>`u`)return``;for(let e of[`audio/webm;codecs=opus`,`audio/webm`,`audio/mp4`])if(MediaRecorder.isTypeSupported(e))return e;return``}function t(e){return e.includes(`mp4`)?`m4a`:`webm`}export{e as n,t};

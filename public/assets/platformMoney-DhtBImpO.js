@@ -1,0 +1,1 @@
+function e(e,t=`USD`,n=!1){return`${t===`DOP`?`RD$`:`US$`}${e.toLocaleString(`es-DO`,{minimumFractionDigits:n?2:0,maximumFractionDigits:n?2:0})}`}function t(e,t){let n=e.replace(/\D/g,``);return/^8[024]9\d{7}$/.test(n)&&(n=`1${n}`),`https://wa.me/${n}${t?`?text=${encodeURIComponent(t)}`:``}`}export{t as n,e as t};

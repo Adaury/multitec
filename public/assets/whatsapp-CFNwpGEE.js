@@ -1,0 +1,1 @@
+function e(e,t){let n=(e??``).replace(/\D/g,``),r=null;return n.length===10?r=`https://wa.me/1${n}`:n.length===11&&n.startsWith(`1`)&&(r=`https://wa.me/${n}`),r?t?`${r}?text=${encodeURIComponent(t)}`:r:null}function t(e){return new Date(`${e}T12:00:00`).toLocaleDateString(`es-DO`,{weekday:`long`,day:`numeric`,month:`long`})}export{e as n,t};

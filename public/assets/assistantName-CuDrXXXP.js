@@ -1,0 +1,1 @@
+function e(e){let t=e?.assistant_alias?.trim();if(t)return t;let n=e?.name?.trim().split(/\s+/)[0];return n?`Ing. ${n}`:`Ing.`}export{e as t};

@@ -1,0 +1,4 @@
+# Los archivos de /assets llevan un hash en el nombre (index-DS1UyEj2.js): si cambian, cambia el nombre. Se guardan un año.
+<IfModule mod_headers.c>
+    Header set Cache-Control "public, max-age=31536000, immutable"
+</IfModule>

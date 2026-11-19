@@ -1,0 +1,57 @@
+# --- Cabeceras de seguridad y caché de lo estático (la CSP completa la pone la aplicación en cada respuesta) ---
+<IfModule mod_headers.c>
+    # «set» (no «always set»): sustituye la que ya puso la aplicación en vez de duplicarla.
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    # El service worker y el manifiesto no se guardan: un despliegue nuevo debe verse enseguida.
+    <FilesMatch "^(sw\.js|registerSW\.js|workbox-.*\.js|manifest\.webmanifest|boot-check\.js|app\.html)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
+</IfModule>
+
+# Tipos de archivo que algunos servidores no declaran. Sin «.mjs» como JavaScript el navegador rechaza el «worker» del visor de PDF
+# («Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of ""»).
+<IfModule mod_mime.c>
+    AddType text/javascript .js .mjs
+    AddType application/manifest+json .webmanifest
+    AddType image/svg+xml .svg
+    AddType application/wasm .wasm
+</IfModule>
+
+# Texto comprimido (la app son ~1 MB de JavaScript).
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/json image/svg+xml application/manifest+json
+</IfModule>
+
+# Nada de archivos ocultos (.env, .git, .htaccess ajenos) ni de código servido por error.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    <IfModule mod_negotiation.c>
+        Options -MultiViews -Indexes
+    </IfModule>
+
+    RewriteEngine On
+
+    # Handle Authorization Header
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Handle X-XSRF-Token Header
+    RewriteCond %{HTTP:x-xsrf-token} .
+    RewriteRule .* - [E=HTTP_X_XSRF_TOKEN:%{HTTP:X-XSRF-Token}]
+
+    # Redirect Trailing Slashes If Not A Folder...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} (.+)/$
+    RewriteRule ^ %1 [L,R=301]
+
+    # Send Requests To Front Controller...
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteRule ^ index.php [L]
+</IfModule>
