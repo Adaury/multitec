@@ -182,6 +182,14 @@ Route::middleware('jwt')->group(function () {
         Route::post('{project_id}/generate-from-survey', [\App\Http\Controllers\Api\AiController::class, 'generate'])->whereNumber('project_id')->middleware('throttle:ai');
         Route::post('{project_id}/generate-from-survey/start', [\App\Http\Controllers\Api\AiController::class, 'startGeneration'])->whereNumber('project_id')->middleware('throttle:ai');
         Route::get('{project_id}/generate-from-survey/status', [\App\Http\Controllers\Api\AiController::class, 'generationStatus'])->whereNumber('project_id');
+        // Cotizaciones ajenas: solo admin y oficina (son precios).
+        Route::middleware('role:admin,oficina')->prefix('{project_id}/comparisons')->whereNumber('project_id')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\ComparisonController::class, 'index']);
+            Route::post('/', [\App\Http\Controllers\Api\ComparisonController::class, 'store'])->middleware('throttle:ai');
+            Route::get('{comparison_id}', [\App\Http\Controllers\Api\ComparisonController::class, 'show'])->whereNumber('comparison_id');
+            Route::put('{comparison_id}', [\App\Http\Controllers\Api\ComparisonController::class, 'update'])->whereNumber('comparison_id');
+            Route::delete('{comparison_id}', [\App\Http\Controllers\Api\ComparisonController::class, 'destroy'])->whereNumber('comparison_id');
+        });
         Route::get('{project_id}/logbook', [$f, 'logbook'])->whereNumber('project_id');
         Route::post('{project_id}/logbook', [$f, 'createLogEntry'])->whereNumber('project_id');
 
@@ -203,6 +211,13 @@ Route::middleware('jwt')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\TestDataController::class, 'index']);
         Route::post('preview', [\App\Http\Controllers\Api\TestDataController::class, 'preview']);
         Route::post('delete', [\App\Http\Controllers\Api\TestDataController::class, 'destroy']);
+    });
+
+    // ---- Aprendizaje de la IA: solo lectura y vacío (ver LearningController) ----
+    Route::prefix('ai-feedback-events')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\LearningController::class, 'events'])->middleware('role:admin,oficina');
+        Route::get('voice-examples', [\App\Http\Controllers\Api\LearningController::class, 'voiceExamples'])->middleware('role:admin,oficina');
+        Route::post('analyze', [\App\Http\Controllers\Api\LearningController::class, 'analyze'])->middleware('role:admin');
     });
 
     // ---- IA general (Gemini): alta rápida y preguntas sobre proyectos ----

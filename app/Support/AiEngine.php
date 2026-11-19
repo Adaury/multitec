@@ -464,7 +464,7 @@ class AiEngine
 
     private const ACCESSORY_WORDS = '/fuente|cable|conector|soporte|caja|base\b|balun|adaptador|disco|ba[ñn]o|jack|patch|canaleta|tubo|mano de obra|instalaci[óo]n|licencia|cubierta|ventilador|\bkit\b|paquete|combo/iu';
 
-    private static function isKindLine(array $item, string $kind, array $categoryOf): bool
+    public static function isKindLine(array $item, string $kind, array $categoryOf): bool
     {
         $pattern = SurveyPoints::KINDS[$kind] ?? null;
         if (! $pattern) {

@@ -225,7 +225,9 @@ class Gemini
     /** Foto reducida (lado mayor 1600 px, JPEG, orientación respetada); si GD no la puede leer se manda cruda. */
     private static function imagePart(string $imageOrPath): array
     {
-        $data = is_file($imageOrPath) ? (string) file_get_contents($imageOrPath) : $imageOrPath;
+        // Puede ser una ruta o los bytes de la imagen: is_file() con bytes binarios (con «\0») no debe evaluarse.
+        $isPath = strlen($imageOrPath) < 1024 && ! str_contains($imageOrPath, "\0") && is_file($imageOrPath);
+        $data = $isPath ? (string) file_get_contents($imageOrPath) : $imageOrPath;
         if (str_starts_with($data, '%PDF')) {
             return self::inline('application/pdf', $data);
         }
