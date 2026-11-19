@@ -7,8 +7,10 @@
 @theme {
   --color-brand-blue: #0a63e2;
   --color-brand-blue-dark: #0850b8;
-  --color-brand-bg: #f5f6f8;
-  --color-brand-gray: #eceef1;
+  /* Modo claro: fondo azul-grisáceo suave para que las tarjetas blancas se separen con claridad. */
+  --color-brand-bg: #eaeff6;
+  --color-brand-gray: #e3e9f1;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.06), 0 6px 18px rgb(15 23 42 / 0.07);
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif;
 }
 
@@ -21,7 +23,7 @@ body,
 body {
   margin: 0;
   background: var(--color-brand-bg);
-  color: #1c1e21;
+  color: #0f172a;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
@@ -47,23 +49,8 @@ textarea {
   }
 }
 
-/* Computadora (ratón, pantalla ancha): todo está en rem, así que subir la letra base agranda en proporción
-   textos, botones, íconos, menú y tarjetas. El celular (táctil) se queda en 16 px, que ya se ve bien. */
-@media (pointer: fine) and (min-width: 1280px) {
-  html {
-    font-size: 17px;
-  }
-}
-@media (pointer: fine) and (min-width: 1600px) {
-  html {
-    font-size: 18px;
-  }
-}
-@media (pointer: fine) and (min-width: 1920px) {
-  html {
-    font-size: 19px;
-  }
-}
+/* Sin agrandar la letra base en pantallas anchas: a 17-19 px todo (íconos, botones, tarjetas) se veía
+   demasiado grande y robusto. Se queda en 16 px en todas las pantallas. */
 
 /* Evita el rebote de toda la página al arrastrar más allá del borde (se siente como "app", no web). */
 body {
