@@ -228,15 +228,15 @@ export function Dashboard() {
       {/* Móvil: un botón principal enorme + cuatro accesos grandes. */}
       <div className="space-y-4 md:hidden">
         <TodayAssistant />
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3">
           {mobileTiles.filter((tile) => !tile.staffOnly || canSeeReports).map((tile) => (
             <Link
               key={tile.to}
               to={tile.to}
-              className="flex h-36 flex-col items-center justify-center gap-3 rounded-3xl bg-white shadow-sm ring-1 ring-black/5 active:scale-[0.97] dark:bg-gray-900 dark:ring-white/10"
+              className="flex h-24 flex-col items-center justify-center gap-2 rounded-2xl bg-white shadow-sm ring-1 ring-black/5 active:scale-[0.97] dark:bg-gray-900 dark:ring-white/10"
             >
-              <tile.icon className="h-14 w-14 text-brand-blue" strokeWidth={1.5} aria-hidden="true" />
-              <span className="text-lg font-semibold text-gray-800 dark:text-gray-100">{tile.label}</span>
+              <tile.icon className="h-8 w-8 text-brand-blue" strokeWidth={1.75} aria-hidden="true" />
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-100">{tile.label}</span>
             </Link>
           ))}
         </div>

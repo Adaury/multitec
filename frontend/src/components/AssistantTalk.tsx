@@ -166,12 +166,12 @@ export function AssistantTalk({ opening, ready = true }: { opening: string; read
       <button
         type="button"
         onClick={() => void start()}
-        className="flex w-full items-center gap-4 rounded-2xl bg-brand-blue p-4 text-left text-white shadow active:scale-[0.99]"
+        className="flex w-full items-center gap-3 rounded-2xl bg-brand-blue p-3 text-left text-white shadow active:scale-[0.99]"
       >
-        <MessageCircle className="h-10 w-10 shrink-0" aria-hidden="true" />
+        <MessageCircle className="h-7 w-7 shrink-0" aria-hidden="true" />
         <span>
-          <span className="block text-lg font-bold leading-tight">Hablar con el asistente</span>
-          <span className="block text-sm text-blue-100">Te pregunto qué toca hoy y me lo dices hablando</span>
+          <span className="block text-base font-bold leading-tight">Hablar con el asistente</span>
+          <span className="block text-xs text-blue-100">Te pregunto qué toca hoy y me lo dices hablando</span>
         </span>
       </button>
     )
