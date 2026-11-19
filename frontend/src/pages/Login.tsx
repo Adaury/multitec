@@ -6,6 +6,7 @@ import { safeStorage } from '../lib/safeStorage'
 import { useAuthStore } from '../lib/authStore'
 import { Button, Card, Field, Input } from '../components/ui'
 import { TutorialesLogin } from '../components/TutorialesLogin'
+import { ThemeToggle } from '../components/ThemeToggle'
 import type { CurrentUser } from '../lib/types'
 
 export function Login() {
@@ -56,7 +57,8 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-brand-bg px-5 dark:bg-gray-950">
+    <div className="relative flex min-h-dvh items-center justify-center bg-brand-bg px-5 dark:bg-gray-950">
+      <ThemeToggle className="absolute right-4 top-4" />
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
           <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-brand-blue to-blue-800 text-5xl font-extrabold text-white shadow-lg">

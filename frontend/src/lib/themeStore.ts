@@ -8,7 +8,8 @@ const STORAGE_KEY = 'multitec_theme'
 function getInitialTheme(): Theme {
   const stored = safeStorage.get(STORAGE_KEY)
   if (stored === 'light' || stored === 'dark') return stored
-  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  // Modo normal (claro) por defecto; el oscuro solo si la persona lo elige con el botón.
+  return 'light'
 }
 
 function applyTheme(theme: Theme) {

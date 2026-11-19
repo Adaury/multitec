@@ -128,7 +128,7 @@ export function DesktopHome({ canSeeReports }: { canSeeReports: boolean }) {
         </h1>
         <p className="mx-auto mt-3 max-w-2xl text-lg text-blue-50">{summary}</p>
         <div className="mx-auto mt-6 max-w-md text-left [&_button]:ring-2 [&_button]:ring-white/30">
-          <AssistantTalk opening={`${greeting()}, ${name}. ${data ? summarize(data) : ''}`.trim()} />
+          <AssistantTalk opening={`${greeting()}, ${name}. ${data ? summarize(data) : ''}`.trim()} ready={!isLoading} />
         </div>
       </section>
 

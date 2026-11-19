@@ -138,6 +138,7 @@ export function TodayAssistant() {
         {/* La conversación: el asistente saluda en voz alta, pregunta qué toca y escucha. */}
         <AssistantTalk
           opening={`${greeting()}, ${assistantCallName(user)}. ${data ? summarize(data) : ''}`.trim()}
+          ready={!isLoading}
         />
         <Link to="/nuevo?modo=voz" className={ROW_CLASS}>
           <Mic className="h-7 w-7 shrink-0 text-brand-blue" aria-hidden="true" />

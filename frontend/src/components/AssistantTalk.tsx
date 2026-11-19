@@ -44,7 +44,10 @@ function destination(reply: TalkReply): string | null {
  * La voz del asistente es la del teléfono. Para escuchar, el teléfono solo GRABA y el servidor
  * transcribe (Whisper local) y entiende la frase: el dictado propio del navegador fallaba seguido
  * en iPhone. Siempre se puede escribir en vez de hablar. */
-export function AssistantTalk({ opening }: { opening: string }) {
+// Una vez por carga de la página: volver al Inicio no debe repetir el saludo.
+let greetedThisLoad = false
+
+export function AssistantTalk({ opening, ready = true }: { opening: string; ready?: boolean }) {
   const navigate = useNavigate()
   const speaker = useSpeaker()
   const [active, setActive] = useState(false)
@@ -140,6 +143,16 @@ export function AssistantTalk({ opening }: { opening: string }) {
     setBusyBoth(false)
     listen()
   }
+
+  // Saluda solo al cargar el Inicio, cuando ya se sabe qué hay para hoy (como antes: sin tocar nada).
+  // Si el navegador no deja hablar sin un toque previo, el saludo sale igual escrito.
+  const startRef = useRef(start)
+  startRef.current = start
+  useEffect(() => {
+    if (!ready || greetedThisLoad) return
+    greetedThisLoad = true
+    void startRef.current()
+  }, [ready])
 
   const close = () => {
     activeRef.current = false
