@@ -568,8 +568,8 @@ function ProductCard({
         onClick={onToggle}
         className="group flex flex-col overflow-hidden rounded-3xl bg-white text-left shadow-sm ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] dark:bg-gray-900 dark:ring-white/10"
       >
-        <div className={`relative flex h-24 items-center justify-center bg-gradient-to-br md:h-32 ${visual.tone}`}>
-          <Icon className="h-12 w-12 text-white/90 transition group-hover:scale-110 md:h-16 md:w-16" strokeWidth={1.5} aria-hidden="true" />
+        <div className={`relative flex h-16 items-end justify-start bg-gradient-to-br pb-2 pl-3 md:h-24 md:items-center md:justify-center md:p-0 ${visual.tone}`}>
+          <Icon className="h-8 w-8 text-white/90 transition group-hover:scale-110 md:h-11 md:w-11" strokeWidth={1.5} aria-hidden="true" />
           <span
             className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[0.65rem] font-semibold md:text-xs ${
               inStock ? 'bg-white text-emerald-700' : 'bg-black/25 text-white'

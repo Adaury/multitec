@@ -110,13 +110,14 @@ export function Avatar({ name, size = 'md' }: { name: string; size?: 'md' | 'lg'
 /** Tarjetita de resumen (número grande con su ícono) para encabezar una lista. */
 export function StatTile({ icon: Icon, label, value, tone }: { icon: LucideIcon; label: string; value: ReactNode; tone: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-3xl bg-white p-4 shadow-sm ring-1 ring-black/5 dark:bg-gray-900 dark:ring-white/10">
-      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${tone}`}>
-        <Icon className="h-6 w-6" aria-hidden="true" />
+    <div className="flex items-center gap-2.5 rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5 md:gap-3 md:rounded-3xl md:p-4 dark:bg-gray-900 dark:ring-white/10">
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl md:h-11 md:w-11 md:rounded-2xl ${tone}`}>
+        <Icon className="h-5 w-5 md:h-6 md:w-6" aria-hidden="true" />
       </span>
       <span className="min-w-0">
-        <span className="block truncate whitespace-nowrap text-xl font-bold leading-tight text-gray-900 xl:text-2xl dark:text-gray-100">{value}</span>
-        <span className="block truncate text-xs font-medium text-gray-500 dark:text-gray-400">{label}</span>
+        {/* En celular el monto y el texto pasan a otra línea en vez de cortarse con "…". */}
+        <span className="block break-words text-lg font-bold leading-tight text-gray-900 md:truncate md:whitespace-nowrap md:text-xl xl:text-2xl dark:text-gray-100">{value}</span>
+        <span className="block text-xs font-medium leading-snug text-gray-500 md:truncate dark:text-gray-400">{label}</span>
       </span>
     </div>
   )
