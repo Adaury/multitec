@@ -38,6 +38,7 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('geo', fn (Request $r) => Limit::perMinute(30)->by($byUserOrIp($r)));
         RateLimiter::for('portal', fn (Request $r) => Limit::perMinute(30)->by($byIp($r)));
         RateLimiter::for('signup', fn (Request $r) => Limit::perHour(5)->by($byIp($r)));
+        RateLimiter::for('signup-check', fn (Request $r) => Limit::perMinute(30)->by('check:'.$byIp($r)));
         RateLimiter::for('experience', fn (Request $r) => Limit::perHour(5)->by($byIp($r)));
         RateLimiter::for('client-errors', fn (Request $r) => Limit::perMinute(20)->by($byIp($r)));
     }

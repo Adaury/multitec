@@ -12,7 +12,6 @@ use App\Support\ApiException;
 use App\Support\Audit;
 use App\Support\CatalogSeeder;
 use App\Support\Notify;
-use App\Support\PasswordPolicy;
 use App\Support\SiteDefaults;
 use App\Support\Subscriptions;
 use App\Support\V;
@@ -72,7 +71,8 @@ class SignupController extends Controller
         if (! filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
             throw new ApiException(422, 'Correo electrónico inválido');
         }
-        $password = PasswordPolicy::enforce((string) $r->input('password', ''));
+        // La clave la genera el sistema (temporal, se muestra una sola vez) y la persona debe cambiarla al entrar.
+        $password = rtrim(strtr(base64_encode(random_bytes(9)), '+/', 'Aa'), '=');
         if (! filter_var($r->input('accept_terms', false), FILTER_VALIDATE_BOOLEAN)) {
             throw new ApiException(400, 'Debes aceptar los términos del servicio');
         }
@@ -98,7 +98,7 @@ class SignupController extends Controller
                 CompanyProfile::withoutGlobalScopes()->forceCreate(['company_id' => $c->id, 'name' => $companyName, 'phone' => $phone, 'email' => $email]);
                 $u = User::create([
                     'company_id' => $c->id, 'name' => $adminName, 'email' => $email, 'hashed_password' => password_hash($password, PASSWORD_BCRYPT),
-                    'role' => 'admin', 'must_change_password' => false, 'created_at' => now(),
+                    'role' => 'admin', 'must_change_password' => true, 'created_at' => now(),
                 ]);
                 Audit::log('company_signup', $u, entity: 'company', entityId: $c->id, detail: ['empresa' => $companyName, 'telefono' => $phone],
                     request: $r, companyId: $c->id);
@@ -142,7 +142,19 @@ class SignupController extends Controller
         return response()->json([
             'company_name' => $companyName, 'email' => $email, 'trial_days' => (int) config('app.platform_trial_days'),
             'trial_ends_at' => $company->fresh()->trial_ends_at,
+            'temporary_password' => $password, // se muestra una sola vez; no se guarda en claro
         ], 201);
+    }
+
+    /** ¿Ese correo está libre para registrarse? Lo usa el formulario de registro mientras se escribe. */
+    public function emailAvailable(Request $r)
+    {
+        $email = mb_strtolower(trim((string) $r->query('email')));
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
+            return ['valid' => false, 'available' => false];
+        }
+
+        return ['valid' => true, 'available' => ! User::where('email', $email)->exists()];
     }
 
     /** «Mi suscripción»: estado, lo que se paga y el historial de pagos de la propia empresa. */

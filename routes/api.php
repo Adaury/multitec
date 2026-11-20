@@ -34,6 +34,7 @@ Route::get('health', fn () => response()->json(['status' => 'ok']));
 Route::get('site', [\App\Http\Controllers\Api\SiteController::class, 'publicSite']);
 Route::post('site/experiences', [\App\Http\Controllers\Api\SiteController::class, 'sendExperience'])->middleware('throttle:experience');
 Route::get('signup/info', [\App\Http\Controllers\Api\SignupController::class, 'info']);
+Route::get('signup/check-email', [\App\Http\Controllers\Api\SignupController::class, 'emailAvailable'])->middleware('throttle:signup-check');
 Route::post('signup', [\App\Http\Controllers\Api\SignupController::class, 'signup'])->middleware('throttle:signup');
 Route::prefix('public/projects/{token}')->middleware('throttle:portal')->group(function () {
     $p = \App\Http\Controllers\Api\PortalController::class;
