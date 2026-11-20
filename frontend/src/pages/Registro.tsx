@@ -88,9 +88,8 @@ export function Registro() {
       <div className="mx-auto grid w-full max-w-5xl gap-6 lg:grid-cols-2 lg:items-start">
         <div className="space-y-5 lg:sticky lg:top-8">
           <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-blue to-blue-800 text-3xl font-extrabold text-white shadow-lg">
-              M
-            </div>
+            <img src="/brand/multitec-logo-negro.png" alt="Multitec" className="h-14 w-auto shrink-0 dark:hidden" />
+            <img src="/brand/multitec-logo-blanco.png" alt="Multitec" className="hidden h-14 w-auto shrink-0 dark:block" />
             <div>
               <p className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">Multitec ERP</p>
               <p className="text-sm text-gray-500">Para empresas de seguridad electrónica</p>

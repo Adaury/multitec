@@ -100,6 +100,16 @@ function TabLink({ item }: { item: NavItem }) {
   )
 }
 
+/** Logo oficial de Multitec: oscuro en modo claro, blanco en modo oscuro. */
+function BrandLogo({ className }: { className: string }) {
+  return (
+    <>
+      <img src="/brand/multitec-logo-negro.png" alt="Multitec" className={`${className} w-auto shrink-0 dark:hidden`} />
+      <img src="/brand/multitec-logo-blanco.png" alt="Multitec" className={`${className} hidden w-auto shrink-0 dark:block`} />
+    </>
+  )
+}
+
 function MoreSheet({ items, onClose }: { items: NavItem[]; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-30 md:hidden" role="dialog" aria-modal="true" aria-label="Más opciones">
@@ -184,6 +194,8 @@ export function Layout() {
     ...helpSidebarItems,
   ]
   const companyName = user?.company_name ?? 'Multitec'
+  // La empresa Multitec muestra su logo; cualquier otra empresa conserva su inicial y su nombre.
+  const isMultitec = companyName.trim().toLowerCase() === 'multitec'
   const moreItems: NavItem[] = [
     ...sidebarItems.filter((item) => !IN_TAB_BAR.has(item.to)),
     { to: '/perfil', label: 'Mi perfil', icon: CircleUser },
@@ -229,12 +241,18 @@ export function Layout() {
         } ${expanded && !menuPinned ? 'md:shadow-2xl' : ''}`}
       >
         <div className="flex shrink-0 items-center gap-2.5 px-[18px] py-4">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-blue to-blue-800 text-xl font-extrabold text-white shadow-md">
-            {companyName.charAt(0).toUpperCase()}
-          </span>
+          {isMultitec ? (
+            <span className="flex flex-1 items-center">
+              <BrandLogo className="h-10" />
+            </span>
+          ) : (
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-blue to-blue-800 text-xl font-extrabold text-white shadow-md">
+              {companyName.charAt(0).toUpperCase()}
+            </span>
+          )}
           {(
             <>
-              <p className="flex-1 truncate text-xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">{companyName}</p>
+              {!isMultitec && <p className="flex-1 truncate text-xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">{companyName}</p>}
               <button
                 onClick={toggleMenuPinned}
                 aria-pressed={menuPinned}
@@ -296,16 +314,25 @@ export function Layout() {
           {/* Mismo ancho centrado que el contenido: en pantallas anchas nada queda pegado a las esquinas. */}
           <div className="mx-auto flex w-full max-w-7xl items-center gap-4">
           <NavLink to="/perfil" className="flex min-w-0 items-center gap-2.5 md:hidden">
-            <span
-              aria-hidden="true"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue to-blue-800 text-xl font-extrabold text-white shadow-md"
-            >
-              {companyName.charAt(0).toUpperCase()}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-xl font-extrabold leading-tight text-gray-900 dark:text-gray-100">{companyName}</span>
-              <span className="block truncate text-xs text-gray-500">{user?.name}</span>
-            </span>
+            {isMultitec ? (
+              <>
+                <BrandLogo className="h-9" />
+                <span className="hidden min-w-0 truncate text-xs text-gray-500 min-[430px]:block">{user?.name}</span>
+              </>
+            ) : (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-blue to-blue-800 text-xl font-extrabold text-white shadow-md"
+                >
+                  {companyName.charAt(0).toUpperCase()}
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate text-xl font-extrabold leading-tight text-gray-900 dark:text-gray-100">{companyName}</span>
+                  <span className="block truncate text-xs text-gray-500">{user?.name}</span>
+                </span>
+              </>
+            )}
           </NavLink>
           {!menuPinned && (
             <button
@@ -319,13 +346,19 @@ export function Layout() {
             </button>
           )}
           <NavLink to="/" aria-label={`${companyName} — Inicio`} className="hidden min-w-0 items-center gap-3 md:flex">
-            <span
-              aria-hidden="true"
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-blue to-blue-800 text-2xl font-extrabold text-white shadow-md"
-            >
-              {companyName.charAt(0).toUpperCase()}
-            </span>
-            <span className="truncate text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">{companyName}</span>
+            {isMultitec ? (
+              <BrandLogo className="h-11" />
+            ) : (
+              <>
+                <span
+                  aria-hidden="true"
+                  className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-blue to-blue-800 text-2xl font-extrabold text-white shadow-md"
+                >
+                  {companyName.charAt(0).toUpperCase()}
+                </span>
+                <span className="truncate text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">{companyName}</span>
+              </>
+            )}
           </NavLink>
           <div className="flex-1" />
           <div className="flex shrink-0 items-center gap-1.5 md:gap-2">

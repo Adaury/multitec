@@ -61,10 +61,10 @@ export function Login() {
       <ThemeToggle className="absolute right-4 top-4" />
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-5 flex h-24 w-24 items-center justify-center rounded-[1.75rem] bg-gradient-to-br from-brand-blue to-blue-800 text-5xl font-extrabold text-white shadow-lg">
-            M
-          </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">Multitec ERP</h1>
+          {/* Logo oficial: versión oscura en modo claro y blanca en modo oscuro. */}
+          <img src="/brand/multitec-logo-negro.png" alt="Multitec — Servicios de calidad" className="mx-auto mb-4 h-28 w-auto dark:hidden" />
+          <img src="/brand/multitec-logo-blanco.png" alt="Multitec — Servicios de calidad" className="mx-auto mb-4 hidden h-28 w-auto dark:block" />
+          <h1 className="text-2xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">Multitec ERP</h1>
           <p className="text-sm text-gray-500">Seguridad electrónica</p>
         </div>
         {notice && !error && (
