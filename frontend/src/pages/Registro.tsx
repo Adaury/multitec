@@ -35,11 +35,36 @@ export function Registro() {
     queryKey: ['signup-info'],
     queryFn: async () => (await api.get<SignupInfo>('/signup/info')).data,
   })
-  const [form, setForm] = useState({ company_name: '', admin_name: '', email: '', phone: '', password: '', website: '' })
+  const [form, setForm] = useState({ company_name: '', admin_name: '', email: '', phone: '', website: '' })
   const [accept, setAccept] = useState(false)
-  const [showPassword, setShowPassword] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Empresa ya creada: la clave temporal se muestra una sola vez y hay que cambiarla al entrar.
+  const [created, setCreated] = useState<{ email: string; temporary_password: string } | null>(null)
+  const [copied, setCopied] = useState(false)
+  // ¿El correo está disponible? Se consulta al servidor mientras se escribe (con una pausa para no saturarlo).
+  const [emailState, setEmailState] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle')
+  useEffect(() => {
+    const email = form.email.trim().toLowerCase()
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+      setEmailState('idle')
+      return
+    }
+    setEmailState('checking')
+    let cancelled = false
+    const timer = window.setTimeout(async () => {
+      try {
+        const { data } = await api.get<{ valid: boolean; available: boolean }>('/signup/check-email', { params: { email } })
+        if (!cancelled) setEmailState(data.available ? 'available' : 'taken')
+      } catch {
+        if (!cancelled) setEmailState('idle') // sin respuesta: no se bloquea, el registro lo vuelve a validar
+      }
+    }, 500)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [form.email])
   // Plan: el que viene de la página de precios (?plan=), si no el destacado.
   useEffect(() => {
     if (!info || planId !== null || info.plans.length === 0) return
@@ -54,17 +79,44 @@ export function Registro() {
     setError(null)
     setBusy(true)
     try {
-      await api.post('/signup', { ...form, plan_id: planId, accept_terms: accept }, { timeout: 120_000 })
-      // Entra directo con la clave que acaba de elegir.
-      const login = new URLSearchParams({ username: form.email, password: form.password })
-      const { data } = await api.post('/auth/login', login, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
-      const { data: user } = await api.get<CurrentUser>('/auth/me', { headers: { Authorization: `Bearer ${data.access_token}` } })
-      setSession(data.access_token, user)
-      navigate('/?bienvenida=1')
+      const { data } = await api.post<{ email: string; temporary_password: string }>(
+        '/signup',
+        { ...form, plan_id: planId, accept_terms: accept },
+        { timeout: 120_000 },
+      )
+      // El sistema generó una clave temporal: se muestra una vez y se cambia al entrar.
+      setCreated({ email: data.email, temporary_password: data.temporary_password })
     } catch (err) {
       setError(apiErrorMessage(err, 'No se pudo completar el registro. Intenta de nuevo.'))
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function enter() {
+    if (!created) return
+    setError(null)
+    setBusy(true)
+    try {
+      const login = new URLSearchParams({ username: created.email, password: created.temporary_password })
+      const { data } = await api.post('/auth/login', login, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
+      const { data: user } = await api.get<CurrentUser>('/auth/me', { headers: { Authorization: `Bearer ${data.access_token}` } })
+      setSession(data.access_token, user)
+      navigate('/perfil') // la clave es temporal: ahí se cambia antes de seguir
+    } catch (err) {
+      setError(apiErrorMessage(err, 'No se pudo entrar. Inicia sesión con tu correo y la clave temporal.'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function copyPassword() {
+    if (!created) return
+    try {
+      await navigator.clipboard.writeText(created.temporary_password)
+      setCopied(true)
+    } catch {
+      /* sin portapapeles: la clave está seleccionable en pantalla */
     }
   }
 
@@ -78,6 +130,36 @@ export function Registro() {
           <Link to="/login" className="mt-3 inline-block font-semibold text-brand-blue">
             Iniciar sesión
           </Link>
+        </Card>
+      </div>
+    )
+  }
+
+  if (created) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-brand-bg px-5 py-8 dark:bg-gray-950">
+        <Card className="w-full max-w-md space-y-4" testId="signup-created">
+          <p className="flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <CheckCircle2 className="h-6 w-6 text-emerald-600" aria-hidden="true" /> Tu empresa está lista
+          </p>
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            Entra con <strong>{created.email}</strong> y esta clave temporal. Se muestra <strong>una sola vez</strong>: cópiala o
+            anótala. Al entrar, el sistema te pedirá cambiarla por una tuya antes de seguir.
+          </p>
+          <div className="flex items-center gap-2 rounded-2xl bg-brand-gray p-3 dark:bg-gray-800">
+            <code className="min-w-0 flex-1 select-all break-all text-lg font-bold text-gray-900 dark:text-gray-100">{created.temporary_password}</code>
+            <button
+              type="button"
+              onClick={() => void copyPassword()}
+              className="shrink-0 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-brand-blue shadow-sm dark:bg-gray-900"
+            >
+              {copied ? 'Copiada' : 'Copiar'}
+            </button>
+          </div>
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          <Button type="button" onClick={() => void enter()} disabled={busy}>
+            {busy ? 'Entrando…' : 'Entrar y cambiar mi clave'}
+          </Button>
         </Card>
       </div>
     )
@@ -168,37 +250,34 @@ export function Registro() {
               <Input required minLength={2} maxLength={120} autoComplete="name" value={form.admin_name} onChange={set('admin_name')} />
             </Field>
             <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Correo">
+              <Field label="Correo (será tu usuario)">
                 <Input required type="email" autoComplete="email" value={form.email} onChange={set('email')} />
+                {emailState !== 'idle' && (
+                  <p
+                    role="status"
+                    data-testid="email-status"
+                    className={`mt-1 text-xs font-medium ${
+                      emailState === 'available'
+                        ? 'text-emerald-700 dark:text-emerald-400'
+                        : emailState === 'taken'
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-gray-500'
+                    }`}
+                  >
+                    {emailState === 'checking' && 'Revisando si está disponible…'}
+                    {emailState === 'available' && '✓ Usuario disponible'}
+                    {emailState === 'taken' && 'Ya existe una cuenta con ese correo. Inicia sesión o usa otro correo.'}
+                  </p>
+                )}
               </Field>
               <Field label="Teléfono / WhatsApp">
                 <Input required type="tel" minLength={7} maxLength={30} autoComplete="tel" value={form.phone} onChange={set('phone')} />
               </Field>
             </div>
-            <Field label="Contraseña (mínimo 10 caracteres)">
-              <div className="relative">
-                <Input
-                  required
-                  minLength={10}
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
-                  autoCapitalize="none"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  className="pr-20"
-                  value={form.password}
-                  onChange={set('password')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                  className="absolute inset-y-0 right-0 flex items-center px-4 text-sm font-medium text-brand-blue"
-                >
-                  {showPassword ? 'Ocultar' : 'Mostrar'}
-                </button>
-              </div>
-            </Field>
+            <p className="rounded-2xl bg-brand-gray px-4 py-3 text-sm text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+              Al registrarte el sistema te genera una <strong>clave temporal</strong>. La verás una sola vez y la cambias por una tuya al
+              entrar.
+            </p>
             {/* Trampa para robots: oculto para las personas. */}
             <div className="hidden" aria-hidden="true">
               <label>
@@ -217,7 +296,7 @@ export function Registro() {
               </span>
             </label>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
-            <Button type="submit" disabled={busy || !accept}>
+            <Button type="submit" disabled={busy || !accept || emailState === 'taken'}>
               {busy ? 'Preparando tu empresa…' : `Empezar mis ${days} días gratis`}
             </Button>
             <p className="text-center text-sm text-gray-600 dark:text-gray-400">
