@@ -24,6 +24,10 @@ param(
     [string]$NombreApp = 'multitec',
     [string]$BaseDeploy = 'multitec_deploy',
     [string]$UploadsOriginal = 'C:\laragon\www\multitec\backend\uploads',
+    # Instalación limpia (sin -ConDatos): empresa y primer administrador que trae la base vacía.
+    [string]$Empresa = 'Multitec',
+    [string]$NombreAdmin = 'Administrador',
+    [string]$CorreoAdmin = 'admin@cambia-esto.com',
     [switch]$ConDatos
 )
 
@@ -106,8 +110,50 @@ if ($ConDatos) {
         & tar.exe -a -c -f (Join-Path $destino 'archivos-subidos.zip') -C $tmp uploads
     }
 } else {
-    Write-Host "5/6 (sin datos: usa -ConDatos para incluirlos)" -ForegroundColor DarkGray
+    Write-Host "5/6 Base de datos LIMPIA (estructura + primer administrador, sin datos de clientes)..." -ForegroundColor Cyan
+    # Se arma dentro de la copia temporal del paquete (que no tiene caché de configuración) con una base temporal;
+    # nunca toca tus bases de trabajo. El .env temporal se borra antes de terminar y NO viaja en los zips (ya se crearon).
+    $baseLimpia = 'multitec_limpia_build'
+    $mysql = Join-Path $mysqlBin 'mysql.exe'
+    $ErrorActionPreference = 'Continue'
+    & $mysql -uroot -e "DROP DATABASE IF EXISTS $baseLimpia; CREATE DATABASE $baseLimpia CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci" 2>$null
+    $envTemporal = "APP_ENV=production`nAPP_DEBUG=false`nAPP_KEY=base64:" + [Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 } | ForEach-Object { [byte]$_ })) +
+        "`nDB_CONNECTION=mysql`nDB_HOST=127.0.0.1`nDB_PORT=3306`nDB_DATABASE=$baseLimpia`nDB_USERNAME=root`nDB_PASSWORD=`nCACHE_STORE=file`nSESSION_DRIVER=file`nLOG_CHANNEL=single`n"
+    [IO.File]::WriteAllText((Join-Path $app '.env'), $envTemporal, (New-Object Text.UTF8Encoding($false)))
+    # Este PHP imprime avisos «MIB» por stderr: se filtran para que el error real (si hay) se vea.
+    $ruido = 'MIB|Cannot find module|^\s*$'
+    $artisan = Join-Path $app 'artisan'
+    if (-not (Test-Path $artisan)) { throw "No encuentro $artisan (¿lo borró el antivirus?). Vuelve a correr build.ps1." }
+    $salidaMigrar = & $php $artisan migrate --force 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -notmatch $ruido }
+    $textoMigrar = $salidaMigrar -join "`n"
+    if ($textoMigrar -notmatch 'create_quote_comparisons\s*\.+\s*[\d.]+\s*m?s\s+DONE' -and $textoMigrar -notmatch 'Nothing to migrate') {
+        throw 'migrate no terminó bien: ' + (($salidaMigrar | Select-Object -Last 6) -join ' | ')
+    }
+    $salida = & $php $artisan multitec:crear-administrador $CorreoAdmin "--empresa=$Empresa" "--nombre=$NombreAdmin" 2>&1 | ForEach-Object { "$_" } | Where-Object { $_ -notmatch $ruido }
+    $claveTemporal = ($salida | Select-String 'CLAVE_TEMPORAL=(\S+)' | Select-Object -First 1).Matches.Groups[1].Value
+    Remove-Item (Join-Path $app '.env') -Force
+    $sqlLimpia = Join-Path $destino 'base-de-datos-limpia.sql'
+    & (Join-Path $mysqlBin 'mysqldump.exe') -uroot --single-transaction --skip-comments --no-tablespaces --default-character-set=utf8mb4 --result-file=$sqlLimpia $baseLimpia 2>$null
+    $codigo = $LASTEXITCODE
+    & $mysql -uroot -e "DROP DATABASE IF EXISTS $baseLimpia" 2>$null
+    $ErrorActionPreference = 'Stop'
+    if ($codigo -ne 0 -or -not (Test-Path $sqlLimpia) -or (Get-Item $sqlLimpia).Length -lt 20000) { throw 'No se pudo generar la base de datos limpia' }
+    if (-not $claveTemporal) { throw 'No se pudo crear el primer administrador: ' + ($salida -join ' ') }
+    $primerAcceso = @"
+PRIMER ACCESO — INSTALACIÓN LIMPIA DE MULTITEC
+==============================================
+
+Empresa:        $Empresa
+Correo:         $CorreoAdmin     (puedes cambiarlo en phpMyAdmin: UPDATE users SET email='tu@correo.com' WHERE id=1;)
+Clave temporal: $claveTemporal
+
+El sistema te pedirá cambiar la clave la primera vez que entres. Esta clave solo sirve una vez.
+Cuando termines la instalación BORRA este archivo (y no lo mandes por correo ni lo subas a ningún servidor).
+"@
+    Set-Content -Path (Join-Path $destino 'PRIMER-ACCESO.txt') -Value $primerAcceso -Encoding UTF8
 }
+# La guía de instalación viaja con el paquete.
+Copy-Item (Join-Path $PSScriptRoot 'HOSTINGER.md') (Join-Path $destino 'GUIA-INSTALACION.md')
 
 Write-Host "6/6 Sumas de comprobación y guía..." -ForegroundColor Cyan
 $lineas = Get-ChildItem $destino -File | Where-Object { $_.Name -ne 'LEEME.txt' } | ForEach-Object {
@@ -117,24 +163,26 @@ $leeme = @"
 PAQUETE DE MULTITEC PARA HOSTINGER  ($fecha)
 ==================================================
 
-Lee primero:  deploy\hostinger\HOSTINGER.md  (en el proyecto)
+Lee primero:  GUIA-INSTALACION.md  (en esta misma carpeta; paso a paso con todo el detalle)
 
 Orden resumido:
   1. hPanel: crea la base de datos MySQL y anota usuario / contraseña.
   2. hPanel -> PHP: versión 8.3, y activa las extensiones que pida requisitos.php.
   3. Sube y descomprime  multitec-app.zip  FUERA de public_html (queda la carpeta '$NombreApp' al lado de public_html).
   4. Sube y descomprime  multitec-public_html.zip  DENTRO de public_html.
-  5. Copia .env.production.example como  $NombreApp/.env  y rellénalo (APP_URL, APP_KEY, JWT_SECRET, base de datos, correo).
-  6. phpMyAdmin: importa  base-de-datos.sql  (si lo incluiste).
+  5. Copia .env.production.example como  $NombreApp/.env  y rellénalo (APP_URL, APP_KEY, JWT_SECRET, base de datos, correo, GEMINI_API_KEY).
+  6. phpMyAdmin: importa  base-de-datos-limpia.sql  (instalación nueva, sin datos; el primer acceso está en PRIMER-ACCESO.txt)
+     o  base-de-datos.sql  (si construiste el paquete con -ConDatos).
   7. Si incluiste archivos: descomprime  archivos-subidos.zip  dentro de  $NombreApp/storage/app/private/  (queda ..../private/uploads/).
   8. Con SSH:  cd $NombreApp ; php artisan multitec:check-server
-  9. Activa HTTPS (SSL gratis) y entra con tu usuario de siempre.
+  9. Activa HTTPS (SSL gratis; sin él el micrófono del asistente no funciona) y entra.
 
 Archivos de este paquete:
 $($lineas -join "`n")
 
-DATOS REALES: base-de-datos.sql y archivos-subidos.zip contienen información de clientes. Guárdalos solo en lugares privados
-y bórralos del servidor y de tu PC cuando termines.
+PRIMER-ACCESO.txt (instalación limpia) trae la clave temporal del administrador: bórralo al terminar.
+DATOS REALES: base-de-datos.sql y archivos-subidos.zip (solo con -ConDatos) contienen información de clientes. Guárdalos solo en
+lugares privados y bórralos del servidor y de tu PC cuando termines.
 "@
 Set-Content -Path (Join-Path $destino 'LEEME.txt') -Value $leeme -Encoding UTF8
 

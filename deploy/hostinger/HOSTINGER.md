@@ -1,8 +1,12 @@
 # Multitec en Hostinger — guía de instalación
 
-Esta guía instala la versión Laravel + MySQL de Multitec en un hosting compartido de Hostinger. Todo lo que aquí se describe
-se probó en una instalación simulada (descomprimir, importar el SQL en una base vacía, arrancar en modo producción) con
-tus datos reales depurados.
+Esta guía instala la versión Laravel + MySQL de Multitec en un hosting compartido de Hostinger (sin VPS ni servidor propio: solo
+PHP y MySQL). Hay **dos formas de instalar**; elige una:
+
+| Forma | Cuándo | Qué importas en el paso 5 |
+|---|---|---|
+| **A. Instalación limpia** (por defecto) | Empiezas desde cero, sin clientes ni proyectos. | `base-de-datos-limpia.sql` + el primer acceso de `PRIMER-ACCESO.txt` |
+| **B. Con tus datos** | Pasas tu sistema actual con clientes, proyectos y facturas. | `base-de-datos.sql` (+ `archivos-subidos.zip`); el paquete se construye con `build.ps1 -ConDatos` |
 
 ## 0. Lo que necesitas
 
@@ -13,7 +17,13 @@ tus datos reales depurados.
 | El paquete | La carpeta que genera `build.ps1` / `migrar-datos.ps1` (queda en `MultitecBackups\despliegue-hostinger\<fecha>`). |
 
 El paquete trae: `multitec-app.zip` (la aplicación), `multitec-public_html.zip` (la parte web), `requisitos.php`,
-`.env.production.example` y, si lo construiste con datos, `base-de-datos.sql` y `archivos-subidos.zip`.
+`.env.production.example`, `GUIA-INSTALACION.md` (esta guía), `LEEME.txt` (pasos resumidos y sumas de comprobación) y:
+- instalación limpia: `base-de-datos-limpia.sql` y `PRIMER-ACCESO.txt` (correo y clave temporal del administrador);
+- con datos (`-ConDatos`): `base-de-datos.sql` y `archivos-subidos.zip`.
+
+Para generar el paquete en tu PC: `deploy\hostinger\build.ps1` (limpia) o `build.ps1 -ConDatos`. Para una instalación limpia
+puedes poner tus datos: `build.ps1 -Empresa "Mi empresa" -NombreAdmin "Tu nombre" -CorreoAdmin tu@correo.com`.
+No sube nada a ningún sitio: solo escribe archivos en `MultitecBackups\despliegue-hostinger\<fecha>`.
 
 > **Estructura.** La aplicación (código, `.env`, claves) va **fuera** de `public_html`; solo la carpeta web va dentro. Así nadie
 > puede pedir por internet el `.env` ni el código. Quedará así:
@@ -62,14 +72,30 @@ contraseña); en Hostinger el nombre y el usuario llevan prefijo (`u123456789_mu
 
 ## 5. Cargar los datos
 
-phpMyAdmin (hPanel → Bases de datos → phpMyAdmin) → elige tu base → **Importar** → `base-de-datos.sql`.
-Pesa menos de 1 MB: entra sin problema.
+phpMyAdmin (hPanel → Bases de datos → phpMyAdmin) → elige tu base (vacía) → **Importar**:
+
+- **Instalación limpia:** `base-de-datos-limpia.sql`. Trae todas las tablas, los planes, el catálogo base de artículos y un
+  administrador. Su correo y su clave temporal están en `PRIMER-ACCESO.txt`.
+  Si el correo del paquete es `admin@cambia-esto.com`, cámbialo en la pestaña **SQL** de phpMyAdmin:
+  `UPDATE users SET email='tu@correo.com' WHERE id=1;` (y `UPDATE companies SET contact_email='tu@correo.com' WHERE id=1;`).
+- **Con tus datos:** `base-de-datos.sql`.
+
+El archivo pesa poco: entra sin problema. Con SSH, en vez de importar puedes crear la base vacía desde el propio servidor:
+`php artisan migrate --force` y luego `php artisan multitec:crear-administrador tu@correo.com --empresa="Mi empresa" --nombre="Tu nombre"`
+(muestra la clave temporal una sola vez).
 
 ## 6. Primer arranque
 
-1. Abre `https://tudominio.com`. Debe verse la pantalla de entrada de Multitec.
-2. Entra con tu usuario de siempre y tu contraseña de siempre (las claves se conservaron: son compatibles).
-3. Revisa: Clientes, Proyectos, abrir una cotización y ver su PDF, Facturación → reportes DGII.
+1. Abre `https://tudominio.com`. Debe verse la pantalla de entrada con el logo de Multitec.
+2. **Instalación limpia:** entra con el correo y la **clave temporal** de `PRIMER-ACCESO.txt`. El sistema te lleva a *Mi perfil* y no te
+   deja usar nada más hasta que la cambies por una tuya (mínimo 10 caracteres). Después **borra `PRIMER-ACCESO.txt`**.
+   **Con tus datos:** entra con tu usuario y contraseña de siempre (las claves se conservaron: son compatibles).
+3. Revisa: Clientes, Proyectos, abrir una cotización y ver su PDF (con detalles, por categoría y monto general), Facturación → reportes DGII.
+4. Abre `https://tudominio.com/web`: es la página pública. La sección **Empresas aliadas** sale de la base de datos: en una instalación
+   limpia está vacía; agrégalas en *Plataforma → Sitio* (nombre, descripción, enlace y logo; los logos van en la carpeta `public_html/brand`).
+5. Registro de empresas (`/registro`): quien se registra no elige clave. El sistema le genera una clave temporal (se muestra una sola
+   vez) que debe cambiar al entrar, y el formulario avisa en vivo si el correo ya existe. Si no quieres registro público:
+   `PUBLIC_SIGNUP_ENABLED=false` en el `.env`.
 
 ## 7. Seguridad: antes de dar acceso a otras personas
 
@@ -130,9 +156,14 @@ Hazlo cuando quieras dejar de usar el Python. **Los datos que se escriban en el 
 
 | Pendiente | Qué pasa hoy |
 |---|---|
-| Asistente «de hoy» (hablar/escuchar), comparación de cotizaciones ajenas | Aún no disponibles. |
-| IA (dictado, resumen, cotización desde el levantamiento, preguntas) | Funciona con `GEMINI_API_KEY` en el `.env`; sin clave queda apagada y todo se hace a mano. Los datos de clientes que vayan en una consulta salen hacia Google. |
 | e-CF (facturación electrónica DGII) | Fuera de alcance en esta versión (ver nota de cumplimiento). |
+
+**Ya incluido:** asistente «de hoy» (saluda al abrir el Inicio y escucha), puntos marcados en las fotos del levantamiento y
+cotización con IA, comparación de cotizaciones ajenas, cotización en tres formatos (con detalles, por categoría y monto general),
+exportaciones a Excel/CSV y modo claro/oscuro.
+
+**La IA necesita `GEMINI_API_KEY`** en el `.env`: sin clave queda apagada y todo se hace a mano. Los datos de clientes que vayan en
+una consulta salen hacia Google. **El micrófono del asistente solo funciona con HTTPS** (el candado del paso 0).
 
 ## 13. Si algo falla
 
@@ -143,4 +174,6 @@ Hazlo cuando quieras dejar de usar el Python. **Los datos que se escriban en el 
 | «No conecta a la base de datos» | Datos de `DB_*` en el `.env` (el nombre y usuario llevan prefijo en Hostinger). |
 | Las fotos no suben | `upload_max_filesize` / `post_max_size` (paso 1). |
 | Todos reciben 401 al entrar | `JWT_SECRET` vacío o cambiado; o el reloj del servidor. |
+| Se ve la «M» o logos viejos tras actualizar | Caché del navegador/teléfono: Ctrl+Shift+R, o borra los datos del sitio. En el teléfono quita la app de la pantalla de inicio y vuelve a agregarla. |
+| El PDF o la IA fallan | `multitec/storage/logs/laravel.log`; la IA además pide `GEMINI_API_KEY`. |
 | «Demasiados intentos» | Límite de seguridad (10 inicios de sesión por minuto por dirección). Espera un minuto. |
